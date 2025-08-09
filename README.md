@@ -22,14 +22,14 @@ The main function `vecshift()` uses advanced data.table operations for efficient
 install.packages("devtools")
 
 # Install vecshift from GitHub
-devtools::install_github("YOUR_USERNAME/vecshift")
+devtools::install_github("gmontaletti/vecshift")
 ```
 
 ### Local Development
 
 ```bash
 # Clone the repository
-git clone https://github.com/YOUR_USERNAME/vecshift.git
+git clone https://github.com/gmontaletti/vecshift.git
 cd vecshift
 
 # Install the package locally
@@ -123,4 +123,4 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 
 ## Issues
 
-If you encounter any problems or have suggestions, please file an issue at [https://github.com/YOUR_USERNAME/vecshift/issues](https://github.com/YOUR_USERNAME/vecshift/issues)
+If you encounter any problems or have suggestions, please file an issue at [https://github.com/gmontaletti/vecshift/issues](https://github.com/gmontaletti/vecshift/issues)
