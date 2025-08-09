@@ -1,4 +1,4 @@
-#' Transform Employment Records into Temporal Segments
+#' Transform Employment Records into Temporal Segments (Fast Version)
 #'
 #' @description 
 #' Processes employment contract records with temporal boundaries to create 
@@ -52,10 +52,10 @@
 #' )
 #' 
 #' # Transform to temporal segments
-#' result <- vecshift(dt)
+#' result <- vecshift_fast(dt)
 #' print(result)
 #' }
-vecshift <- function(dt) {
+vecshift_fast <- function(dt) {
   # Load required package
   require("data.table")
   
