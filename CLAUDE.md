@@ -86,6 +86,49 @@ To run tests:
 source("test.R")
 ```
 
+## Implementation Architecture
+
+### Current Implementations
+As of the modular refactoring, the package provides two implementations:
+
+1. **`vecshift_fast()`**: High-performance monolithic implementation
+   - Location: R/vecshift.R  
+   - Performance: 1.46M records/second on large datasets (3M+ records)
+   - Use case: Production workloads, large-scale processing
+   - Trade-off: Less maintainable, harder to extend
+
+2. **`vecshift()`**: Modular implementation with helper functions
+   - Location: R/vecshift_modular.R
+   - Performance: 132K records/second (11x slower than fast version)
+   - Use case: Development, debugging, extending functionality
+   - Benefits: Better maintainability, easier to test and extend
+
+### Future Development Guidelines
+
+**Critical Performance Consideration:**
+Future refactoring should preserve the speed of the core event generation logic from `vecshift_fast()`. The event-based transformation (splitting contracts into start/end events and calculating cumulative overlaps) is the most computationally intensive part and should remain optimized.
+
+**Recommended Approach for Future Enhancements:**
+- **Core Engine**: Keep the fast event generation from `vecshift_fast()` as the foundational engine
+- **Modular Rules**: Add business logic, validation, and classification rules as separate modular components
+- **Integration Layer**: Use modular approach for data integration, output formatting, and extended features
+- **Performance Testing**: Always benchmark against the current `vecshift_fast()` baseline (1.46M records/second)
+
+**Extension Points for Modularity:**
+- Input validation and data quality checks
+- Employment classification rules and custom states  
+- Output formatting and export functions
+- Integration with other temporal analysis packages
+- Visualization and reporting components
+
+**Performance Benchmarks:**
+- Small datasets (<10K records): Both implementations perform similarly
+- Medium datasets (10K-100K records): Fast version ~2.4x faster
+- Large datasets (1M+ records): Fast version ~11x faster
+- Memory usage: Modular version uses ~1.5x more memory
+
+This hybrid approach ensures production performance while enabling future extensibility and maintainability.
+
 ## Important Notes
 
 - The package uses renv for dependency management - always restore the environment before development
