@@ -1,0 +1,30 @@
+# R and RStudio files
+.Rproj.user
+.Rhistory
+.RData
+.Ruserdata
+.Rdata
+.httr-oauth
+.DS_Store
+Thumbs.db
+
+# Package build files
+/*.tar.gz
+/*.zip
+src/*.o
+src/*.so
+src/*.dll
+
+# renv library (but keep renv.lock for reproducibility)
+renv/library/
+renv/python/
+renv/staging/
+
+# IDE files
+.vscode/
+*.swp
+*.swo
+
+# OS generated files
+*.log
+*~

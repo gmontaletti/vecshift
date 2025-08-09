@@ -1,0 +1,9 @@
+^renv/library$
+^renv/python$
+^renv/staging$
+^.*\.Rproj$
+^\.Rproj\.user$
+^\.claude$
+^CLAUDE\.md$
+^COMPREHENSIVE_EVALUATION\.md$
+^test\.R$
