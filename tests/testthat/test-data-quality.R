@@ -480,7 +480,7 @@ test_that("quality assessment works with numeric dates", {
   expect_equal(length(quality_report$dimensions$date_range), 2)
 })
 
-test_that("contract_duration function is used correctly in quality assessment", {
+test_that("duration calculation is correct in quality assessment", {
   test_data <- data.table(
     id = 1:3,
     cf = c("PERSON001", "PERSON001", "PERSON002"),
@@ -491,15 +491,15 @@ test_that("contract_duration function is used correctly in quality assessment", 
   
   quality_report <- assess_data_quality(test_data)
   
-  # Person-level analysis should use contract_duration function
+  # Person-level analysis should calculate durations correctly
   expect_true("person_level" %in% names(quality_report))
   expect_true("employment_days_distribution" %in% names(quality_report$person_level))
   
   # Total days should be calculated correctly (31 + 31 + 28 = 90)
-  total_days_calculated <- sum(contract_duration(test_data$inizio, test_data$fine))
+  total_days_calculated <- sum(as.numeric(test_data$fine - test_data$inizio + 1))
   expect_equal(total_days_calculated, 90)
   
-  # Check that the quality report correctly uses contract_duration
+  # Check that the quality report correctly calculates durations
   expected_person1_days <- 31 + 31  # PERSON001 has 2 contracts
   expected_person2_days <- 28       # PERSON002 has 1 contract
   

@@ -4,7 +4,8 @@
       "Bash(mkdir:*)",
       "Bash(sed:*)",
       "Bash(cp:*)",
-      "Bash(R:*)"
+      "Bash(R:*)",
+      "Bash(rm:*)"
     ],
     "deny": []
   }

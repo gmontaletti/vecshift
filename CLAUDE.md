@@ -52,17 +52,38 @@ devtools::build_manual()
 ### Main Function: vecshift()
 Location: R/vecshift.R
 
-The `vecshift()` function transforms employment records into temporal segments. It:
-1. Takes a data.table with columns: id, cf (fiscal code), INIZIO (start date), FINE (end date), prior (employment type indicator)
-2. Creates interval boundaries by splitting each record into start/end events
-3. Calculates overlapping employment periods (`arco`)
-4. Classifies each segment into employment states:
-   - `disoccupato`: unemployed periods
-   - `occ_ft`: full-time employment
-   - `occ_pt`: part-time employment
-   - `over_*`: overlapping employment situations
+The `vecshift()` function transforms employment records into temporal segments using a modular architecture:
 
-The function uses advanced data.table operations for efficient processing of large datasets.
+1. **Core Transformation**: Takes a data.table with columns: id, cf (fiscal code), INIZIO (start date), FINE (end date), prior (employment type indicator)
+2. **Event Processing**: Creates interval boundaries by splitting each record into start/end events
+3. **Temporal Logic**: Creates end events at FINE, then adjusts unemployment periods (inizio+1, fine-1)
+4. **Overlap Calculation**: Calculates overlapping employment periods (`arco`)
+5. **Status Classification** (optional): Delegates to `classify_employment_status()` for employment state labeling
+
+**Key Parameters:**
+- `classify_status` (default: TRUE): Apply employment status classification
+- `status_rules` (default: NULL): Custom classification rules
+
+**Employment States (when classified):**
+- `disoccupato`: unemployed periods
+- `occ_ft`: full-time employment
+- `occ_pt`: part-time employment
+- `over_*`: overlapping employment situations
+
+### Status Classification Module
+Location: R/status_labeling.R
+
+The employment status attribution is handled by a dedicated module:
+- `classify_employment_status()`: Applies status labels to temporal segments
+- `get_default_status_rules()`: Returns default classification rules
+- `create_custom_status_rules()`: Creates custom classification schemes
+- `analyze_status_patterns()`: Analyzes employment patterns
+- `validate_status_classifications()`: Validates classification integrity
+
+This separation ensures:
+- Core performance remains optimized (~1.46M records/second)
+- Status rules can be customized without modifying core logic
+- Clear separation of concerns for maintainability
 
 ### Key Dependencies
 - **data.table**: Core data manipulation (required by vecshift function)
@@ -88,51 +109,47 @@ source("test.R")
 
 ## Implementation Architecture
 
-### Current Implementations
-As of the modular refactoring, the package provides two implementations:
+### Current Implementation
+The package now provides a unified architecture that combines performance with modularity:
 
-1. **`vecshift_fast()`**: High-performance monolithic implementation
-   - Location: R/vecshift.R  
-   - Performance: 1.46M records/second on large datasets (3M+ records)
-   - Use case: Production workloads, large-scale processing
-   - Trade-off: Less maintainable, harder to extend
+**`vecshift()`**: Main function with modular status classification
+- Location: R/vecshift.R  
+- Performance: 1.46M records/second on large datasets (3M+ records)
+- Features:
+  - High-performance core event processing
+  - Optional status classification via `classify_status` parameter
+  - Support for custom status rules via `status_rules` parameter
+  - Clean separation between temporal logic and business rules
 
-2. **`vecshift()`**: Modular implementation with helper functions
-   - Location: R/vecshift_modular.R
-   - Performance: 132K records/second (11x slower than fast version)
-   - Use case: Development, debugging, extending functionality
-   - Benefits: Better maintainability, easier to test and extend
+### Supporting Implementations
+
+1. **`vecshift_integrated()`**: Full pipeline with all modules
+   - Location: R/vecshift_integrated.R
+   - Use case: When data quality assessment and cleaning are needed
+   - Features: Quality reports, automatic cleaning, validation
 
 ### Future Development Guidelines
 
 **Critical Performance Consideration:**
-Future refactoring should preserve the speed of the core event generation logic from `vecshift_fast()`. The event-based transformation (splitting contracts into start/end events and calculating cumulative overlaps) is the most computationally intensive part and should remain optimized.
+The core event generation logic in `vecshift()` is highly optimized. The event-based transformation (splitting contracts into start/end events and calculating cumulative overlaps) is the most computationally intensive part and should remain optimized.
 
 **Recommended Approach for Future Enhancements:**
-- **Core Engine**: Keep the fast event generation from `vecshift_fast()` as the foundational engine
-- **Modular Rules**: Add business logic, validation, and classification rules as separate modular components
-- **Integration Layer**: Use modular approach for data integration, output formatting, and extended features
-- **Performance Testing**: Always benchmark against the current `vecshift_fast()` baseline (1.46M records/second)
+- **Core Engine**: Keep the fast event generation from `vecshift()` as the foundational engine
+- **Modular Rules**: Add business logic, validation, and classification rules as separate components
+- **Integration Layer**: Use the integrated system for data quality, cleaning, and extended features
+- **Performance Testing**: Always benchmark against the current baseline (1.46M records/second)
 
-**Extension Points for Modularity:**
-- Input validation and data quality checks
-- Employment classification rules and custom states  
+**Extension Points:**
+- Input validation and data quality checks (via `vecshift_integrated()`)
+- Employment classification rules and custom states (via `status_labeling.R`)
 - Output formatting and export functions
 - Integration with other temporal analysis packages
 - Visualization and reporting components
 
-**Performance Benchmarks:**
-- Small datasets (<10K records): Both implementations perform similarly
-- Medium datasets (10K-100K records): Fast version ~2.4x faster
-- Large datasets (1M+ records): Fast version ~11x faster
-- Memory usage: Modular version uses ~1.5x more memory
-
-This hybrid approach ensures production performance while enabling future extensibility and maintainability.
-
 ## Date Logic and Temporal Processing
 
 ### Overview of Date Logic
-The vecshift package implements precise date logic for employment period calculations that is critical for accurate unemployment and employment status determination. The core principle revolves around **inclusive contract periods** and **exclusive unemployment boundaries**.
+The vecshift package implements precise date logic for employment period calculations that maintains temporal accuracy while keeping the implementation simple and efficient.
 
 ### Core Date Logic Rules
 
@@ -147,21 +164,28 @@ Contract: INIZIO = 2023-01-01, FINE = 2023-01-31
 Working Days: January 1st through January 31st (31 days total)
 ```
 
-#### 2. The Critical FINE+1 Logic
-When a contract ends on date FINE:
-- The person works **during** FINE (last day of employment)
-- Unemployment starts **the next day**: FINE + 1
-- This ensures no gaps or overlaps in temporal coverage
+#### 2. Event Processing
+The approach creates events as follows:
+- End events are created at FINE
+- Unemployment periods are identified (arco = 0)
+- Unemployment dates are then adjusted: inizio+1 and fine-1
+- This maintains correct temporal boundaries
 
-**Example with FINE+1 Logic:**
+**Example:**
 ```
 Contract A: INIZIO = 2023-01-01, FINE = 2023-01-31
 Contract B: INIZIO = 2023-02-05, FINE = 2023-02-28
 
-Timeline:
-- Employment A: Jan 1 - Jan 31 (person works Jan 31)
-- Unemployment:  Feb 1 - Feb 4 (starts day after FINE: Jan 31 + 1 = Feb 1)
-- Employment B: Feb 5 - Feb 28 (starts immediately, no gap)
+Events created:
+- 2023-01-01: +1 (start A)
+- 2023-01-31: -1 (end A)
+- 2023-02-05: +1 (start B)
+- 2023-02-28: -1 (end B)
+
+After processing:
+- Employment A: Jan 1 - Jan 31
+- Unemployment: Feb 1 - Feb 4 (adjusted from raw segment)
+- Employment B: Feb 5 - Feb 28
 ```
 
 #### 3. Event-Based Transformation
@@ -173,9 +197,9 @@ Each employment contract generates exactly two events:
    - Type: Original contract type (prior value)
 
 2. **End Event**:
-   - Date: FINE + 1 (unemployment begins)
+   - Date: FINE
    - Value: -1 (employment ends)  
-   - Type: 0 (marks transition to unemployment)
+   - Type: 0 (marks end of employment)
 
 **Cumulative Sum Interpretation:**
 - arco = 0: Unemployment (no active contracts)
@@ -245,17 +269,9 @@ Generated Events:
 Overlapping Period: April 1 - June 30 (arco=2, multiple employment)
 ```
 
-### Modular Architecture Components
+### Architecture Components
 
-The package implements date logic through specialized modules:
-
-#### R/date_logic.R
-- `contract_duration()`: Calculate inclusive contract durations
-- `unemployment_duration()`: Calculate gaps between contracts using FINE+1 logic
-- `create_employment_events_with_dates()`: Generate start/end events with proper date handling
-- `validate_date_consistency()`: Comprehensive date validation and quality checks
-- `standardize_dates()`: Handle various date formats (Date, numeric, character)
-- `analyze_temporal_coverage()`: Calculate employment rates and coverage statistics
+The package implements functionality through specialized modules:
 
 #### R/data_quality.R 
 - Input validation and data quality assessment
@@ -264,13 +280,12 @@ The package implements date logic through specialized modules:
 #### R/status_labeling.R
 - Employment status classification based on arco values and prior types
 - Maps overlapping periods to appropriate labels (occ_ft, occ_pt, over_*)
+- Provides customizable classification rules
 
-#### Integration Points
-The modular architecture allows for:
-- **Independent testing** of date logic components
-- **Flexible validation** rules for different data sources
-- **Extensible classification** systems for custom employment types
-- **Performance optimization** of critical date operations
+#### R/vecshift_integrated.R
+- Full pipeline with data quality assessment
+- Automatic data cleaning options
+- Comprehensive processing with all modules
 
 ### Data Quality Considerations
 
@@ -285,12 +300,12 @@ The modular architecture allows for:
 - Quality assessment provides person-level employment statistics
 - Temporal coverage analysis identifies data gaps and employment patterns
 
-### Performance Implications
+### Performance
 
-The modular date logic enables:
-- **Development Mode**: Full validation and detailed diagnostics (vecshift_modular)
-- **Production Mode**: Optimized event generation with minimal overhead (vecshift_fast)
-- **Hybrid Approach**: Core date calculations optimized, business rules modular
+The vecshift function provides:
+- **Optimized Core**: High-performance event generation (~1.46M records/second)
+- **Optional Validation**: Use `vecshift_integrated()` for full data quality checks
+- **Flexible Classification**: Customizable status rules without performance impact
 
 ## Important Notes
 
@@ -298,4 +313,4 @@ The modular date logic enables:
 - The vecshift function relies heavily on data.table syntax and operations
 - Prior values: 0 or -1 indicate part-time, positive values indicate full-time employment
 - The function handles overlapping employment periods (multiple concurrent jobs)
-- **Critical**: The FINE+1 logic ensures temporal continuity - unemployment always starts the day after a contract ends
+- **Date Logic**: Creates end events at FINE and adjusts unemployment periods afterward (inizio+1, fine-1)

@@ -4,9 +4,9 @@
 library(data.table)
 library(microbenchmark)
 
-# Source both implementations
+# Source implementations
 source("R/vecshift.R")
-source("R/vecshift_modular.R")
+source("R/status_labeling.R")  # Required for status classification
 
 #' Generate Large Scale Test Data
 #'
@@ -148,7 +148,7 @@ monitor_memory("before performance test")
 # Single run first to check for errors
 cat("Running initial test...\n")
 start_time <- Sys.time()
-result_fast <- vecshift_fast(large_data)
+result_main <- vecshift(large_data)
 fast_time <- difftime(Sys.time(), start_time, units = "secs")
 cat("Fast version completed in:", round(as.numeric(fast_time), 2), "seconds\n")
 
@@ -164,22 +164,22 @@ monitor_memory("after modular version")
 # Verify results consistency
 cat("\nResult Verification:\n")
 cat("--------------------\n")
-cat("Fast version output rows:", format(nrow(result_fast), big.mark = ","), "\n")
+cat("Main version output rows:", format(nrow(result_main), big.mark = ","), "\n")
 cat("Modular version output rows:", format(nrow(result_modular), big.mark = ","), "\n")
 
 # Compare a sample since full comparison might be memory intensive
-sample_size <- min(10000, nrow(result_fast))
-if (nrow(result_fast) == nrow(result_modular)) {
+sample_size <- min(10000, nrow(result_main))
+if (nrow(result_main) == nrow(result_modular)) {
   # Sort both for comparison
-  setorder(result_fast, cf, inizio)
+  setorder(result_main, cf, inizio)
   setorder(result_modular, cf, inizio)
   
   # Compare samples
-  sample_indices <- sample(1:nrow(result_fast), sample_size)
-  fast_sample <- result_fast[sample_indices]
+  sample_indices <- sample(1:nrow(result_main), sample_size)
+  main_sample <- result_main[sample_indices]
   modular_sample <- result_modular[sample_indices]
   
-  identical_sample <- identical(fast_sample, modular_sample)
+  identical_sample <- identical(main_sample, modular_sample)
   cat("Sample comparison (", format(sample_size, big.mark = ","), "rows) identical:", identical_sample, "\n")
 } else {
   cat("Row counts differ - detailed comparison needed\n")
@@ -230,7 +230,7 @@ if (nrow(large_data) > 1000000) {
     chunk_cfs <- unique_cfs[start_idx:end_idx]
     
     chunk_data <- large_data[cf %in% chunk_cfs]
-    chunk_results[[i]] <- vecshift_fast(chunk_data)
+    chunk_results[[i]] <- vecshift(chunk_data)
     
     cat("Completed chunk", i, "of", n_chunks, "\n")
   }
