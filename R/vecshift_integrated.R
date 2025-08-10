@@ -111,7 +111,7 @@ vecshift_integrated <- function(dt,
     dt_processed <- standardize_columns(dt, column_map, validate = enable_validation)
   } else {
     # Check if data already has standard column names
-    required_cols <- c("id", "cf", "inizio", "fine", "prior")
+    required_cols <- c("id", "cf", "INIZIO", "FINE", "prior")
     if (!all(required_cols %in% names(dt))) {
       stop("Data does not have standard column names and no column_map provided. ",
            "Required columns: ", paste(required_cols, collapse = ", "))
@@ -125,11 +125,11 @@ vecshift_integrated <- function(dt,
     if (verbose) message("Standardizing date formats...")
     
     # Ensure dates are in proper format
-    if (!inherits(dt_processed$inizio, "Date")) {
-      dt_processed$inizio <- standardize_dates(dt_processed$inizio)
+    if (!inherits(dt_processed$INIZIO, "Date")) {
+      dt_processed$INIZIO <- as.Date(dt_processed$INIZIO)
     }
-    if (!inherits(dt_processed$fine, "Date")) {
-      dt_processed$fine <- standardize_dates(dt_processed$fine)
+    if (!inherits(dt_processed$FINE, "Date")) {
+      dt_processed$FINE <- as.Date(dt_processed$FINE)
     }
   }
   
@@ -175,55 +175,21 @@ vecshift_integrated <- function(dt,
   if (verbose) message("Applying core transformation...")
   
   if (use_fast_core) {
-    # Use high-performance core
+    # Use high-performance core without status classification
     processing_info$modules_used <- c(processing_info$modules_used, "fast_core")
-    result <- vecshift_core(dt_processed)
+    result <- vecshift(dt_processed, classify_status = FALSE)
   } else {
-    # Use modular approach for debugging/development
-    processing_info$modules_used <- c(processing_info$modules_used, "modular_core") 
+    # Use main vecshift function with appropriate parameters
+    processing_info$modules_used <- c(processing_info$modules_used, "vecshift") 
     
-    # Create events with date logic
-    events <- create_employment_events_with_dates(
-      dt_processed,
-      start_col = "inizio",
-      end_col = "fine",
-      id_col = "id",
-      person_col = "cf", 
-      type_col = "prior"
-    )
-    
-    # Process segments
-    events[, arco := cumsum(value)]
-    events[, prior := fcase(prior <= 0, 0, default = 1)]
-    
-    segments <- events[, .(
-      cf = cf[1:(length(cf)-1)],
-      acf = cf[2:(length(cf))], 
-      inizio = cdata[1:(length(cf)-1)],
-      fine = cdata[2:(length(cf))],
-      arco = arco[1:(length(cf)-1)],
-      prior = prior[1:(length(cf)-1)],
-      id = id[1:(length(cf)-1)]
-    )]
-    
-    segments <- segments[cf == acf]
-    segments[, acf := NULL]
-    segments[arco == 0, id := 0]
-    
-    # Calculate duration  
-    segments[, durata := fcase(arco >= 1, fine - inizio, default = fine - inizio - 1)]
-    
-    # Apply status classification
+    # Apply transformation with or without status classification
     if (!is.null(status_rules)) {
       processing_info$modules_used <- c(processing_info$modules_used, "custom_status_rules")
-      result <- classify_employment_status(segments, rules = status_rules)
+      result <- vecshift(dt_processed, classify_status = TRUE, status_rules = status_rules)
     } else {
       processing_info$modules_used <- c(processing_info$modules_used, "default_status_rules")
-      result <- classify_employment_status(segments)
+      result <- vecshift(dt_processed, classify_status = TRUE)
     }
-    
-    # Filter positive durations
-    result <- result[durata > 0]
   }
   
   # Step 6: Post-processing status classification (if using fast core with custom rules)
@@ -301,14 +267,14 @@ vecshift_fast_path <- function(dt, validate_input = TRUE) {
   
   if (validate_input) {
     # Minimal validation only
-    required_cols <- c("id", "cf", "inizio", "fine", "prior") 
+    required_cols <- c("id", "cf", "INIZIO", "FINE", "prior") 
     missing_cols <- setdiff(required_cols, names(dt))
     if (length(missing_cols) > 0) {
       stop("Missing required columns: ", paste(missing_cols, collapse = ", "))
     }
   }
   
-  return(vecshift_core(dt))
+  return(vecshift(dt, classify_status = FALSE))
 }
 
 #' Development Mode Employment Transformation  

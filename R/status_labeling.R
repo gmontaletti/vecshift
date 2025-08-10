@@ -73,7 +73,7 @@ get_default_status_rules <- function() {
 #' @return Data.table with stato column containing employment status labels
 #'
 #' @export
-#' @importFrom data.table fcase shift setorder
+#' @importFrom data.table fcase shift setorder setorderv
 #' 
 #' @examples
 #' \dontrun{
@@ -97,9 +97,14 @@ classify_employment_status <- function(segments,
                                      rules = get_default_status_rules(),
                                      group_by = "cf") {
   
+  # Handle NULL rules by using defaults
+  if (is.null(rules)) {
+    rules <- get_default_status_rules()
+  }
+  
   # Ensure proper ordering for shift operations
   if (length(group_by) > 0) {
-    setorder(segments, c(group_by, "inizio"))
+    setorderv(segments, c(group_by, "inizio"))
   } else {
     setorder(segments, inizio)
   }
@@ -299,7 +304,7 @@ analyze_status_patterns <- function(classified_data,
       total_duration = sum(durata, na.rm = TRUE),
       has_unemployment = "disoccupato" %in% statuses,
       has_overlap = any(grepl("^over_", statuses)),
-      employment_rate = sum(durata[!grepl("disoccupato", stato)], na.rm = TRUE) / sum(durata, na.rm = TRUE)
+      employment_rate = as.numeric(sum(durata[!grepl("disoccupato", stato)], na.rm = TRUE)) / as.numeric(sum(durata, na.rm = TRUE))
     )
   }, by = c(person_col)]
   
@@ -317,7 +322,7 @@ analyze_status_patterns <- function(classified_data,
   
   # Transition analysis
   if (include_transitions) {
-    setorder(classified_data, get(person_col), inizio)
+    setorderv(classified_data, c(person_col, "inizio"))
     
     transitions <- classified_data[, {
       if (.N > 1) {
@@ -347,8 +352,8 @@ analyze_status_patterns <- function(classified_data,
     average_employment_segments = person_patterns[, mean(n_segments)],
     overlap_prevalence = person_patterns[, mean(has_overlap)],
     employment_concentration = classified_data[, {
-      emp_durations <- sum(durata[!grepl("disoccupato", stato)])
-      total_duration <- sum(durata)
+      emp_durations <- as.numeric(sum(durata[!grepl("disoccupato", stato)]))
+      total_duration <- as.numeric(sum(durata))
       emp_durations / total_duration
     }]
   )

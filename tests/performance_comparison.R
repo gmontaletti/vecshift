@@ -1,12 +1,12 @@
-# Performance Comparison: vecshift_fast vs vecshift (modular)
-# ===========================================================
+# Performance Comparison: vecshift with different options
+# ========================================================
 
 library(data.table)
 library(microbenchmark)
 
-# Source both implementations
+# Source implementations
 source("R/vecshift.R")
-source("R/vecshift_modular.R")
+source("R/status_labeling.R")  # Required for status classification
 
 # Create test datasets of various sizes
 generate_test_data <- function(n_records, n_persons = NULL) {
@@ -37,8 +37,8 @@ cat("==============================\n\n")
 cat("Small Dataset (100 records):\n")
 cat("-----------------------------\n")
 small_benchmark <- microbenchmark(
-  fast = vecshift_fast(small_data),
-  modular = vecshift(small_data),
+  with_status = vecshift(small_data),
+  no_status = vecshift(small_data, classify_status = FALSE),
   times = 100
 )
 print(small_benchmark)
@@ -48,8 +48,8 @@ cat("\n")
 cat("Medium Dataset (1,000 records):\n")
 cat("--------------------------------\n")
 medium_benchmark <- microbenchmark(
-  fast = vecshift_fast(medium_data),
-  modular = vecshift(medium_data),
+  with_status = vecshift(medium_data),
+  no_status = vecshift(medium_data, classify_status = FALSE),
   times = 50
 )
 print(medium_benchmark)
@@ -59,8 +59,8 @@ cat("\n")
 cat("Large Dataset (10,000 records):\n")
 cat("--------------------------------\n")
 large_benchmark <- microbenchmark(
-  fast = vecshift_fast(large_data),
-  modular = vecshift(large_data),
+  with_status = vecshift(large_data),
+  no_status = vecshift(large_data, classify_status = FALSE),
   times = 10
 )
 print(large_benchmark)
@@ -69,51 +69,51 @@ cat("\n")
 # Verify results are identical
 cat("Result Verification:\n")
 cat("-------------------\n")
-result_fast <- vecshift_fast(medium_data)
-result_modular <- vecshift(medium_data)
+result_with_status <- vecshift(medium_data)
+result_no_status <- vecshift(medium_data, classify_status = FALSE)
 
 # Sort both results for comparison (they might be in different orders)
-setorder(result_fast, cf, inizio)
-setorder(result_modular, cf, inizio)
+setorder(result_with_status, cf, inizio)
+setorder(result_no_status, cf, inizio)
 
-# Compare results
-identical_results <- identical(result_fast, result_modular)
+# Compare core columns (excluding status column)
+core_cols <- c("cf", "inizio", "fine", "arco", "prior", "id", "durata")
+identical_results <- identical(result_with_status[, ..core_cols], result_no_status[, ..core_cols])
 cat("Results identical:", identical_results, "\n")
 
 if (!identical_results) {
   cat("Differences found:\n")
   
   # Check dimensions
-  cat("Dimensions - Fast:", paste(dim(result_fast), collapse = "x"), 
-      ", Modular:", paste(dim(result_modular), collapse = "x"), "\n")
+  cat("Dimensions - With status:", paste(dim(result_with_status), collapse = "x"), 
+      ", No status:", paste(dim(result_no_status), collapse = "x"), "\n")
   
   # Check column names
-  if (!identical(names(result_fast), names(result_modular))) {
+  if (!identical(names(result_with_status), names(result_no_status))) {
     cat("Column names differ:\n")
-    cat("Fast:", paste(names(result_fast), collapse = ", "), "\n")
-    cat("Modular:", paste(names(result_modular), collapse = ", "), "\n")
+    cat("With status:", paste(names(result_with_status), collapse = ", "), "\n")
+    cat("No status:", paste(names(result_no_status), collapse = ", "), "\n")
   }
   
-  # Check for differences in key columns if dimensions match
-  if (nrow(result_fast) == nrow(result_modular) && ncol(result_fast) == ncol(result_modular)) {
-    common_cols <- intersect(names(result_fast), names(result_modular))
-    for (col in common_cols) {
-      if (!identical(result_fast[[col]], result_modular[[col]])) {
+  # Check for differences in core columns
+  for (col in core_cols) {
+    if (col %in% names(result_with_status) && col %in% names(result_no_status)) {
+      if (!identical(result_with_status[[col]], result_no_status[[col]])) {
         cat("Column", col, "differs between implementations\n")
       }
     }
   }
 } else {
-  cat("✓ Both implementations produce identical results\n")
+  cat("✓ Core columns are identical between implementations\n")
+  cat("  (Status column expected to differ)\n")
 }
 
 # Performance with validation disabled
 cat("\nPerformance with validation disabled:\n")
 cat("------------------------------------\n")
 validation_benchmark <- microbenchmark(
-  fast = vecshift_fast(medium_data),
-  modular_with_validation = vecshift(medium_data, validate = TRUE),
-  modular_no_validation = vecshift(medium_data, validate = FALSE),
+  no_status = vecshift(medium_data, classify_status = FALSE),
+  with_status = vecshift(medium_data, classify_status = TRUE),
   times = 50
 )
 print(validation_benchmark)
@@ -123,29 +123,23 @@ cat("\nMemory Usage Comparison:\n")
 cat("------------------------\n")
 library(pryr)
 
-mem_fast <- object_size(vecshift_fast)
-mem_modular <- object_size(vecshift)
-mem_helpers <- object_size(validate_input) + object_size(create_employment_events) + 
-              object_size(process_temporal_segments) + object_size(classify_employment_states)
+mem_vecshift <- object_size(vecshift)
+mem_status <- object_size(classify_employment_status)
 
-cat("Fast version function size:", format(mem_fast), "\n")
-cat("Modular version function size:", format(mem_modular), "\n")
-cat("Helper functions size:", format(mem_helpers), "\n")
-cat("Total modular approach size:", format(mem_modular + mem_helpers), "\n")
+cat("Main vecshift function size:", format(mem_vecshift), "\n")
+cat("Status classification function size:", format(mem_status), "\n")
+cat("Total size:", format(mem_vecshift + mem_status), "\n")
 
 # Summary
 cat("\nSummary:\n")
 cat("--------\n")
-fast_median <- median(large_benchmark$time[large_benchmark$expr == "fast"])
-modular_median <- median(large_benchmark$time[large_benchmark$expr == "modular"])
-speedup_ratio <- modular_median / fast_median
+no_status_median <- median(large_benchmark$time[large_benchmark$expr == "no_status"])
+with_status_median <- median(large_benchmark$time[large_benchmark$expr == "with_status"])
+overhead_ratio <- with_status_median / no_status_median
 
-if (speedup_ratio > 1) {
-  cat(sprintf("Fast version is %.2fx faster than modular version\n", speedup_ratio))
-} else {
-  cat(sprintf("Modular version is %.2fx faster than fast version\n", 1/speedup_ratio))
-}
+cat(sprintf("Status classification overhead: %.2fx\n", overhead_ratio))
+cat(sprintf("Performance difference: %.1f%%\n", (overhead_ratio - 1) * 100))
 
 cat("Trade-offs:\n")
-cat("- Fast version: Better performance, less readable code, harder to maintain\n")
-cat("- Modular version: Better maintainability, easier debugging, additional features\n")
+cat("- No status: Better performance, minimal output\n")
+cat("- With status: Full employment classification, slight performance cost\n")
