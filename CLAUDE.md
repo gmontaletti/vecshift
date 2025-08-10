@@ -129,9 +129,173 @@ Future refactoring should preserve the speed of the core event generation logic 
 
 This hybrid approach ensures production performance while enabling future extensibility and maintainability.
 
+## Date Logic and Temporal Processing
+
+### Overview of Date Logic
+The vecshift package implements precise date logic for employment period calculations that is critical for accurate unemployment and employment status determination. The core principle revolves around **inclusive contract periods** and **exclusive unemployment boundaries**.
+
+### Core Date Logic Rules
+
+#### 1. Contract Period Inclusivity
+Employment contracts define **inclusive** date ranges:
+- **Contract Duration**: From INIZIO to FINE (both days inclusive)
+- **Working Days**: Person works ON both the start date (INIZIO) and end date (FINE)
+
+**Example:**
+```
+Contract: INIZIO = 2023-01-01, FINE = 2023-01-31
+Working Days: January 1st through January 31st (31 days total)
+```
+
+#### 2. The Critical FINE+1 Logic
+When a contract ends on date FINE:
+- The person works **during** FINE (last day of employment)
+- Unemployment starts **the next day**: FINE + 1
+- This ensures no gaps or overlaps in temporal coverage
+
+**Example with FINE+1 Logic:**
+```
+Contract A: INIZIO = 2023-01-01, FINE = 2023-01-31
+Contract B: INIZIO = 2023-02-05, FINE = 2023-02-28
+
+Timeline:
+- Employment A: Jan 1 - Jan 31 (person works Jan 31)
+- Unemployment:  Feb 1 - Feb 4 (starts day after FINE: Jan 31 + 1 = Feb 1)
+- Employment B: Feb 5 - Feb 28 (starts immediately, no gap)
+```
+
+#### 3. Event-Based Transformation
+Each employment contract generates exactly two events:
+
+1. **Start Event**: 
+   - Date: INIZIO
+   - Value: +1 (employment begins)
+   - Type: Original contract type (prior value)
+
+2. **End Event**:
+   - Date: FINE + 1 (unemployment begins)
+   - Value: -1 (employment ends)  
+   - Type: 0 (marks transition to unemployment)
+
+**Cumulative Sum Interpretation:**
+- arco = 0: Unemployment (no active contracts)
+- arco = 1: Single employment (one active contract)
+- arco > 1: Multiple employment (overlapping contracts)
+
+### Duration Calculations
+
+Duration calculations depend on employment status and account for the event structure:
+
+#### Employment Duration (arco >= 1)
+```
+durata = fine - inizio
+```
+Standard date difference for employment segments.
+
+#### Unemployment Duration (arco = 0) 
+```
+durata = fine - inizio - 1
+```
+The -1 adjustment accounts for the fact that unemployment periods use exclusive end dates in the event structure.
+
+### Practical Examples
+
+#### Example 1: Consecutive Contracts (No Unemployment Gap)
+```
+Data:
+Contract 1: INIZIO = 2023-01-01, FINE = 2023-03-31 (90 days)
+Contract 2: INIZIO = 2023-04-01, FINE = 2023-06-30 (91 days)
+
+Generated Events:
+2023-01-01: +1 (start contract 1)
+2023-04-01: -1 (end contract 1, unemployment would start)
+2023-04-01: +1 (start contract 2, same day - no unemployment)
+2023-07-01: -1 (end contract 2)
+
+Result: No unemployment period between contracts
+```
+
+#### Example 2: Gap Between Contracts
+```
+Data:
+Contract 1: INIZIO = 2023-01-01, FINE = 2023-02-28 (59 days)
+Contract 2: INIZIO = 2023-04-01, FINE = 2023-05-31 (61 days)
+
+Generated Events:
+2023-01-01: +1 (start contract 1) 
+2023-03-01: -1 (end contract 1, unemployment starts)
+2023-04-01: +1 (start contract 2, unemployment ends)
+2023-06-01: -1 (end contract 2)
+
+Unemployment Period: March 1 - March 31 (31 days)
+```
+
+#### Example 3: Overlapping Contracts
+```
+Data:
+Contract 1: INIZIO = 2023-01-01, FINE = 2023-06-30
+Contract 2: INIZIO = 2023-04-01, FINE = 2023-09-30
+
+Generated Events:
+2023-01-01: +1 (start contract 1, arco=1)
+2023-04-01: +1 (start contract 2, arco=2) 
+2023-07-01: -1 (end contract 1, arco=1)
+2023-10-01: -1 (end contract 2, arco=0)
+
+Overlapping Period: April 1 - June 30 (arco=2, multiple employment)
+```
+
+### Modular Architecture Components
+
+The package implements date logic through specialized modules:
+
+#### R/date_logic.R
+- `contract_duration()`: Calculate inclusive contract durations
+- `unemployment_duration()`: Calculate gaps between contracts using FINE+1 logic
+- `create_employment_events_with_dates()`: Generate start/end events with proper date handling
+- `validate_date_consistency()`: Comprehensive date validation and quality checks
+- `standardize_dates()`: Handle various date formats (Date, numeric, character)
+- `analyze_temporal_coverage()`: Calculate employment rates and coverage statistics
+
+#### R/data_quality.R 
+- Input validation and data quality assessment
+- Detects invalid date ranges, overlaps, and temporal inconsistencies
+
+#### R/status_labeling.R
+- Employment status classification based on arco values and prior types
+- Maps overlapping periods to appropriate labels (occ_ft, occ_pt, over_*)
+
+#### Integration Points
+The modular architecture allows for:
+- **Independent testing** of date logic components
+- **Flexible validation** rules for different data sources
+- **Extensible classification** systems for custom employment types
+- **Performance optimization** of critical date operations
+
+### Data Quality Considerations
+
+#### Common Date Issues
+1. **Invalid Ranges**: FINE < INIZIO
+2. **Zero Duration**: FINE = INIZIO (handled correctly as 1-day contracts)
+3. **Overlapping Contracts**: Multiple contracts active simultaneously
+4. **Date Format Inconsistencies**: Mixed Date, numeric, and character formats
+
+#### Validation Functions
+- `validate_date_consistency()`: Detects logical inconsistencies
+- Quality assessment provides person-level employment statistics
+- Temporal coverage analysis identifies data gaps and employment patterns
+
+### Performance Implications
+
+The modular date logic enables:
+- **Development Mode**: Full validation and detailed diagnostics (vecshift_modular)
+- **Production Mode**: Optimized event generation with minimal overhead (vecshift_fast)
+- **Hybrid Approach**: Core date calculations optimized, business rules modular
+
 ## Important Notes
 
 - The package uses renv for dependency management - always restore the environment before development
 - The vecshift function relies heavily on data.table syntax and operations
 - Prior values: 0 or -1 indicate part-time, positive values indicate full-time employment
 - The function handles overlapping employment periods (multiple concurrent jobs)
+- **Critical**: The FINE+1 logic ensures temporal continuity - unemployment always starts the day after a contract ends

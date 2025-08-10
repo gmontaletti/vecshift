@@ -1,0 +1,368 @@
+---
+title: "Understanding Date Logic in vecshift"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Understanding Date Logic in vecshift}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  fig.width = 7,
+  fig.height = 5
+)
+```
+
+```{r setup}
+library(vecshift)
+library(data.table)
+```
+
+## Introduction
+
+The vecshift package processes employment records with temporal data, transforming them into continuous time segments with employment status classifications. At the heart of this transformation lies precise **date logic** that ensures accurate calculation of employment and unemployment periods.
+
+This vignette explains the critical date handling rules, particularly the **FINE+1 logic**, which is essential for correct temporal analysis of employment data.
+
+## Core Date Logic Principles
+
+### 1. Inclusive Contract Periods
+
+Employment contracts in vecshift are treated as **inclusive date ranges**:
+
+- **Contract duration**: From INIZIO to FINE (both days included)
+- **Person works**: ON both the start date and end date
+
+```{r contract-example}
+# Example: January contract
+contract_start <- as.Date("2023-01-01")
+contract_end <- as.Date("2023-01-31")
+
+# Calculate duration using vecshift's contract_duration function
+duration <- contract_duration(contract_start, contract_end)
+cat("Contract duration:", duration, "days\n")
+cat("Person works from:", format(contract_start, "%B %d"), 
+    "to", format(contract_end, "%B %d"), "(both days inclusive)\n")
+```
+
+### 2. The FINE+1 Logic
+
+**Critical Rule**: When a contract ends on date FINE, unemployment starts on FINE+1.
+
+This ensures:
+- No temporal gaps (person is either employed or unemployed, never "undefined")
+- No overlaps between employment and unemployment periods
+- Precise calculation of unemployment durations
+
+```{r fine-plus-one}
+# Example: Contract ends January 31st
+contract_end <- as.Date("2023-01-31")
+unemployment_start <- contract_end + 1
+
+cat("Last day of work:", format(contract_end, "%B %d, %Y"), "\n")
+cat("First day unemployed:", format(unemployment_start, "%B %d, %Y"), "\n")
+```
+
+### 3. Event-Based Transformation
+
+vecshift converts each employment contract into exactly two events:
+
+1. **Start Event**: Date = INIZIO, Value = +1
+2. **End Event**: Date = FINE + 1, Value = -1
+
+```{r event-creation}
+# Create sample employment data
+employment_data <- data.table(
+  id = 1:2,
+  cf = c("PERSON001", "PERSON001"),
+  inizio = as.Date(c("2023-01-01", "2023-04-01")),
+  fine = as.Date(c("2023-03-31", "2023-06-30")),
+  prior = c(1, 0)
+)
+
+print("Original employment data:")
+print(employment_data)
+
+# Generate events using FINE+1 logic
+events <- create_employment_events_with_dates(employment_data)
+print("\nGenerated events:")
+print(events)
+```
+
+Notice how the end events occur on the day AFTER the contract end dates (FINE+1).
+
+## Practical Examples
+
+### Scenario 1: Consecutive Contracts (No Gap)
+
+```{r consecutive-contracts}
+consecutive_data <- data.table(
+  id = 1:2,
+  cf = rep("PERSON001", 2),
+  inizio = as.Date(c("2023-01-01", "2023-04-01")),
+  fine = as.Date(c("2023-03-31", "2023-06-30")),
+  prior = c(1, 0)
+)
+
+print("Consecutive contracts:")
+print(consecutive_data)
+
+# Check if there's unemployment between contracts
+first_end <- consecutive_data$fine[1]
+second_start <- consecutive_data$inizio[2]
+gap_duration <- unemployment_duration(first_end, second_start)
+
+cat("\nFirst contract ends:", format(first_end, "%B %d"), "\n")
+cat("Second contract starts:", format(second_start, "%B %d"), "\n")
+cat("Unemployment duration:", gap_duration, "days\n")
+
+if (gap_duration == 0) {
+  cat("No unemployment gap - contracts are consecutive!\n")
+}
+```
+
+### Scenario 2: Gap Between Contracts
+
+```{r gap-between-contracts}
+gap_data <- data.table(
+  id = 1:2,
+  cf = rep("PERSON001", 2),
+  inizio = as.Date(c("2023-01-01", "2023-03-15")),
+  fine = as.Date(c("2023-02-28", "2023-05-31")),
+  prior = c(1, 0)
+)
+
+print("Contracts with gap:")
+print(gap_data)
+
+# Calculate unemployment period
+first_end <- gap_data$fine[1]
+second_start <- gap_data$inizio[2]
+gap_duration <- unemployment_duration(first_end, second_start)
+
+unemployment_start <- first_end + 1
+unemployment_end <- second_start - 1
+
+cat("\nFirst contract ends:", format(first_end, "%B %d"), "\n")
+cat("Unemployment period:", format(unemployment_start, "%B %d"), "to", 
+    format(unemployment_end, "%B %d"), "\n")
+cat("Second contract starts:", format(second_start, "%B %d"), "\n")
+cat("Total unemployment days:", gap_duration, "\n")
+```
+
+### Scenario 3: Overlapping Contracts
+
+```{r overlapping-contracts}
+overlap_data <- data.table(
+  id = 1:2,
+  cf = rep("PERSON001", 2),
+  inizio = as.Date(c("2023-01-01", "2023-03-01")),
+  fine = as.Date(c("2023-06-30", "2023-04-30")),
+  prior = c(1, 0)
+)
+
+print("Overlapping contracts:")
+print(overlap_data)
+
+# Generate events to see the overlap
+events <- create_employment_events_with_dates(overlap_data)
+events <- events[order(cdata)]
+
+print("\nChronological events:")
+print(events)
+
+# Calculate cumulative employment level (arco)
+events[, arco := cumsum(value)]
+print("\nEvents with employment level (arco):")
+print(events)
+
+# Identify overlap period
+overlap_start <- overlap_data$inizio[2]
+overlap_end <- min(overlap_data$fine)
+cat("\nOverlapping period:", format(overlap_start, "%B %d"), "to", 
+    format(overlap_end, "%B %d"), "\n")
+cat("During this period: arco = 2 (multiple employment)\n")
+```
+
+## Duration Calculations
+
+### Employment vs Unemployment Duration
+
+Duration calculations differ based on employment status due to the event structure:
+
+```{r duration-calculations}
+# Create data with both employment and unemployment periods
+mixed_data <- data.table(
+  id = 1:2,
+  cf = rep("PERSON001", 2),
+  inizio = as.Date(c("2023-01-01", "2023-04-01")),
+  fine = as.Date(c("2023-02-28", "2023-06-30")),
+  prior = c(1, 0)
+)
+
+# Calculate employment durations (inclusive)
+emp_duration_1 <- contract_duration(mixed_data$inizio[1], mixed_data$fine[1])
+emp_duration_2 <- contract_duration(mixed_data$inizio[2], mixed_data$fine[2])
+
+# Calculate unemployment duration (exclusive end date)
+unemp_duration <- unemployment_duration(mixed_data$fine[1], mixed_data$inizio[2])
+
+cat("Employment periods:\n")
+cat("  Contract 1:", emp_duration_1, "days (Jan 1 - Feb 28, inclusive)\n")
+cat("  Contract 2:", emp_duration_2, "days (Apr 1 - Jun 30, inclusive)\n")
+cat("\nUnemployment period:", unemp_duration, "days (Mar 1 - Mar 31)\n")
+
+# Verify total coverage
+total_days <- as.numeric(max(mixed_data$fine) - min(mixed_data$inizio) + 1)
+accounted_days <- emp_duration_1 + emp_duration_2 + unemp_duration
+cat("\nTotal period:", total_days, "days\n")
+cat("Accounted for:", accounted_days, "days\n")
+cat("Complete coverage:", total_days == accounted_days, "\n")
+```
+
+## Data Quality and Validation
+
+### Common Date Issues
+
+The date logic module includes comprehensive validation to detect common problems:
+
+```{r data-quality}
+# Create data with various quality issues
+problem_data <- data.table(
+  id = 1:4,
+  cf = rep("PERSON001", 4),
+  inizio = as.Date(c("2023-01-01", "2023-03-01", "2023-05-01", "2023-07-15")),
+  fine = as.Date(c("2023-02-28", "2023-02-15", "2023-05-01", "2023-07-10")),  # Issues!
+  prior = c(1, 0, 1, 0)
+)
+
+print("Data with quality issues:")
+print(problem_data)
+
+# Validate date consistency
+validation_results <- validate_date_consistency(problem_data, detailed = TRUE)
+
+cat("\nValidation Results:\n")
+cat("Invalid date ranges:", validation_results$invalid_ranges, "\n")
+cat("Zero duration contracts:", validation_results$zero_duration_contracts, "\n")
+cat("Persons with overlaps:", validation_results$total_persons_with_overlaps, "\n")
+
+# Identify specific problems
+invalid_rows <- which(problem_data$fine < problem_data$inizio)
+zero_duration_rows <- which(problem_data$fine == problem_data$inizio)
+
+if (length(invalid_rows) > 0) {
+  cat("\nInvalid ranges (FINE < INIZIO) in rows:", invalid_rows, "\n")
+}
+if (length(zero_duration_rows) > 0) {
+  cat("Zero duration contracts in rows:", zero_duration_rows, "\n")
+}
+```
+
+### Temporal Coverage Analysis
+
+```{r coverage-analysis}
+# Analyze employment coverage patterns
+clean_data <- data.table(
+  id = 1:3,
+  cf = rep("PERSON001", 3),
+  inizio = as.Date(c("2023-01-01", "2023-04-01", "2023-07-01")),
+  fine = as.Date(c("2023-03-31", "2023-05-31", "2023-09-30")),
+  prior = c(1, 0, 1)
+)
+
+coverage_analysis <- analyze_temporal_coverage(clean_data)
+
+print("Employment coverage analysis:")
+print(coverage_analysis$person_coverage)
+
+cat("\nSummary statistics:\n")
+cat("Mean employment rate:", round(coverage_analysis$summary$mean_employment_rate, 3), "\n")
+cat("Mean contracts per person:", coverage_analysis$summary$mean_contracts_per_person, "\n")
+```
+
+## Integration with vecshift Processing Modes
+
+### Modular Mode (Development)
+
+The modular implementation uses full date validation:
+
+```{r modular-processing, eval=FALSE}
+# Example of using modular processing with date validation
+result_modular <- vecshift_modular(employment_data, 
+                                   validate_dates = TRUE,
+                                   detailed_diagnostics = TRUE)
+```
+
+### Fast Mode (Production)
+
+The fast implementation optimizes date operations:
+
+```{r fast-processing, eval=FALSE}
+# Example of using fast processing mode
+result_fast <- vecshift_fast(employment_data)
+```
+
+Both modes implement the same core FINE+1 logic, but with different validation levels.
+
+## Best Practices
+
+### 1. Always Validate Input Data
+
+```{r validation-example}
+# Before processing, always check data quality
+validation <- validate_date_consistency(employment_data)
+
+if (validation$has_date_issues) {
+  warning("Date issues detected - review data before processing")
+}
+```
+
+### 2. Handle Different Date Formats
+
+```{r date-formats}
+# The package handles various date formats
+numeric_dates <- c(19358, 19387)  # Days since 1970-01-01
+char_dates <- c("2023-01-01", "2023-01-30")
+date_objects <- as.Date(char_dates)
+
+# Standardize all formats
+standardized_numeric <- standardize_dates(numeric_dates)
+standardized_char <- standardize_dates(char_dates)
+standardized_date <- standardize_dates(date_objects)
+
+print("All formats standardized to Date class:")
+print(list(numeric = standardized_numeric, 
+           character = standardized_char,
+           date = standardized_date))
+```
+
+### 3. Understand the Business Context
+
+The FINE+1 logic reflects real-world employment patterns:
+
+- **Legal/Administrative**: Employment contracts typically end "end of day" on FINE
+- **Benefits**: Unemployment benefits often start the day after employment ends
+- **Taxation**: Tax calculations need precise employment period boundaries
+- **Analysis**: Labor statistics require continuous temporal coverage
+
+## Summary
+
+The vecshift date logic ensures:
+
+1. **Temporal Continuity**: Every day is classified as either employed or unemployed
+2. **Precision**: FINE+1 logic eliminates ambiguity in unemployment start dates
+3. **Flexibility**: Handles consecutive, overlapping, and gap scenarios correctly
+4. **Validation**: Comprehensive quality checks prevent common date errors
+5. **Performance**: Optimized for large-scale employment datasets
+
+Understanding this date logic is crucial for:
+- Correctly interpreting vecshift results
+- Debugging unexpected outputs
+- Extending the package functionality
+- Integrating with other temporal analysis tools
+
+The modular architecture allows developers to leverage these date functions independently while maintaining the performance benefits of the integrated vecshift processing pipeline.

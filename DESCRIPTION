@@ -1,7 +1,7 @@
 Package: vecshift
 Type: Package
-Title: What the Package Does (Title Case)
-Version: 0.1.0
+Title: Temporal Analysis of Employment Data with Event-Based Processing
+Version: 0.2.0
 Authors@R: c(
     person(
       "Jane", "Doe",
@@ -9,11 +9,18 @@ Authors@R: c(
       role = c("aut", "cre")
     )
   )
-Description: More about what it does (maybe more than one line).
-    Continuation lines should be indented.
+Description: Processes employment records with temporal data, transforming them into 
+    continuous time segments with employment status classifications. Implements precise 
+    date logic including FINE+1 rules for unemployment calculations, handles overlapping 
+    contracts, and provides both high-performance and modular processing modes.
 License: What license is it under?
 Encoding: UTF-8
 LazyData: true
 Imports: data.table
-Suggests: testthat (>= 3.0.0)
+Suggests: 
+    testthat (>= 3.0.0),
+    knitr,
+    rmarkdown
+VignetteBuilder: knitr
 Config/testthat/edition: 3
+RoxygenNote: 7.3.2
