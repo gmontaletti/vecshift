@@ -7,5 +7,5 @@
 ^\.Rproj\.user$
 ^\.claude$
 ^CLAUDE\.md$
-^COMPREHENSIVE_EVALUATION\.md$
+^reference/COMPREHENSIVE_EVALUATION\.md$
 ^test\.R$
