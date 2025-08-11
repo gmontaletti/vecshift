@@ -5,7 +5,9 @@
       "Bash(sed:*)",
       "Bash(cp:*)",
       "Bash(R:*)",
-      "Bash(rm:*)"
+      "Bash(rm:*)",
+      "Bash(find:*)",
+      "Bash(grep:*)"
     ],
     "deny": []
   }

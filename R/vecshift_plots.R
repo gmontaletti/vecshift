@@ -444,9 +444,9 @@ plot_overlap_patterns <- function(data,
     
     # Aggregate by month and person
     heatmap_data <- overlap_data[, .(
-      avg_overlap = mean(overlap_level, na.rm = TRUE),
-      max_overlap = max(overlap_level, na.rm = TRUE),
-      n_periods = .N
+      avg_overlap = as.numeric(mean(overlap_level, na.rm = TRUE)),
+      max_overlap = as.numeric(max(overlap_level, na.rm = TRUE)),
+      n_periods = as.integer(.N)
     ), by = .(person = get(person_col), month)]
     
     # Limit to n_people
@@ -664,7 +664,7 @@ plot_duration_analysis <- function(data,
   p <- p +
     ggplot2::scale_fill_manual(values = colors, name = "Employment\nStatus") +
     ggplot2::labs(
-      title = paste("Duration Analysis:", str_to_title(plot_type)),
+      title = paste("Duration Analysis:", tools::toTitleCase(plot_type)),
       subtitle = paste("Analysis of", nrow(plot_data), "employment periods"),
       caption = "Generated with vecshift visualization functions"
     ) +
@@ -686,11 +686,11 @@ plot_duration_analysis <- function(data,
   # Add summary statistics annotation for boxplot/violin
   if (plot_type %in% c("boxplot", "violin")) {
     summary_stats <- plot_data[, .(
-      median = median(get(duration_col), na.rm = TRUE),
-      mean = mean(get(duration_col), na.rm = TRUE),
-      q75 = quantile(get(duration_col), 0.75, na.rm = TRUE),
-      n = .N
-    ), by = get(status_col)]
+      median = as.numeric(median(get(duration_col), na.rm = TRUE)),
+      mean = as.numeric(mean(get(duration_col), na.rm = TRUE)),
+      q75 = as.numeric(quantile(get(duration_col), 0.75, na.rm = TRUE)),
+      n = as.integer(.N)
+    ), by = .(status = get(status_col))]
     
     # Add text annotations could be implemented here if desired
   }
@@ -820,7 +820,7 @@ plot_transition_flows <- function(data,
   all_statuses <- unique(c(transition_counts$from, transition_counts$to))
   if (length(all_statuses) > max_categories) {
     # Keep the most common statuses
-    status_counts <- data[, .N, by = get(status_col)]
+    status_counts <- data[, .N, by = .(status = get(status_col))]
     setorderv(status_counts, "N", -1)
     keep_statuses <- head(status_counts[[1]], max_categories)
     transition_counts <- transition_counts[from %in% keep_statuses & to %in% keep_statuses]
@@ -1279,7 +1279,7 @@ plot_employment_heatmap <- function(data,
   } else if (heatmap_type == "duration") {
     # Average duration patterns
     heatmap_data <- plot_data[, .(
-      value = mean(durata, na.rm = TRUE),
+      value = as.numeric(mean(durata, na.rm = TRUE)),
       metric = "Average Duration (days)"
     ), by = .(time_period, person = get(person_col))]
     
@@ -1329,7 +1329,7 @@ plot_employment_heatmap <- function(data,
   if (heatmap_type == "density" || heatmap_type == "transitions") {
     p <- p + ggplot2::scale_fill_gradient(
       low = colors[1], high = colors[length(colors)],
-      name = stringr::str_wrap(unique(heatmap_data$metric), 10)
+      name = paste(strwrap(unique(heatmap_data$metric), width = 10), collapse = "\n")
     )
   } else if (heatmap_type == "status") {
     # Discrete color scale for status
@@ -1343,7 +1343,7 @@ plot_employment_heatmap <- function(data,
   } else if (heatmap_type == "duration") {
     p <- p + ggplot2::scale_fill_gradient2(
       low = colors[1], mid = colors[3], high = colors[5],
-      midpoint = median(heatmap_data$value, na.rm = TRUE),
+      midpoint = as.numeric(median(heatmap_data$value, na.rm = TRUE)),
       name = "Duration\n(days)"
     )
   }

@@ -16,7 +16,7 @@
 #'   \item{\strong{to}}: Value in the employment period after unemployment
 #'   \item{\strong{weight}}: Number of transitions (.N)
 #'   \item{\strong{transition_duration}}: Mean duration of intermediate unemployment periods
-#'   \item{\strong{For numeric columns}}: from_mean, to_mean (mean values for that transition)
+#'   \item{\strong{For numeric columns}}: from_mean, to_mean (duration-weighted mean values for that transition)
 #'   \item{\strong{For character columns}}: from_mode, to_mode (mode values for that transition)
 #' }
 #'
@@ -41,15 +41,20 @@
 #'     \item{\code{to}}: Value after transition
 #'     \item{\code{weight}}: Number of transitions
 #'     \item{\code{transition_duration}}: Mean unemployment duration
-#'     \item{\code{from_mean/from_mode}}: Aggregated "from" values (numeric/character)
-#'     \item{\code{to_mean/to_mode}}: Aggregated "to" values (numeric/character)
+#'     \item{\code{from_mean/from_mode}}: Duration-weighted aggregated "from" values (numeric/character)
+#'     \item{\code{to_mean/to_mode}}: Duration-weighted aggregated "to" values (numeric/character)
+#'     \item{\code{[column]_from_mean/[column]_from_mode}}: For each "other" column, duration-weighted aggregated values from the "from" period
+#'     \item{\code{[column]_to_mean/[column]_to_mode}}: For each "other" column, duration-weighted aggregated values from the "to" period
 #'   }
 #'   If return_list = TRUE, returns a named list of data.tables, one for each variable.
+#'   
+#'   "Other columns" are all columns in the dataset that are not in transition_columns and are not
+#'   standard vecshift output columns (cf, inizio, fine, arco, prior, durata, id, stato, collapsed, n_periods).
 #'
 #' @export
 #' @importFrom data.table data.table setorder copy rbindlist setcolorder setnames shift melt :=
 #' @importFrom collapse fmean fmode
-#' @importFrom stats median
+#' @importFrom stats median weighted.mean
 #' @importFrom utils head
 #'
 #' @examples
@@ -87,6 +92,11 @@
 #'   return_list = TRUE,
 #'   show_progress = FALSE
 #' )
+#' 
+#' # Note: If dataset has additional columns like 'salary', 'hours', 'region',
+#' # the output will include additional columns such as:
+#' # salary_from_mean, salary_to_mean (for numeric columns)
+#' # region_from_mode, region_to_mode (for character columns)
 #' }
 analyze_employment_transitions <- function(pipeline_result,
                                          transition_columns = NULL,
@@ -159,6 +169,17 @@ analyze_employment_transitions <- function(pipeline_result,
   if (length(missing_transition_cols) > 0) {
     stop(paste("Columns specified in 'transition_columns' not found in pipeline_result:",
                paste(missing_transition_cols, collapse = ", ")))
+  }
+  
+  # Identify "other columns" - all columns not in transition_columns and not standard vecshift columns
+  standard_cols <- c("cf", "inizio", "fine", "arco", "prior", "durata", "id", "stato", 
+                     "collapsed", "n_periods")
+  other_columns <- setdiff(names(pipeline_result), c(transition_columns, standard_cols))
+  
+  # Validate other_columns exist in the dataset
+  missing_other_cols <- setdiff(other_columns, names(pipeline_result))
+  if (length(missing_other_cols) > 0) {
+    other_columns <- setdiff(other_columns, missing_other_cols)
   }
   
   # Initialize progress tracking
@@ -307,6 +328,16 @@ analyze_employment_transitions <- function(pipeline_result,
     dt[, paste0("to_", col) := shift(get(col), n = 1, type = "lead"), by = cf]
   }
   
+  # Add from/to values for all other columns as well
+  for (col in other_columns) {
+    dt[, paste0("from_", col) := shift(get(col), n = 1, type = "lag"), by = cf]
+    dt[, paste0("to_", col) := shift(get(col), n = 1, type = "lead"), by = cf]
+  }
+  
+  # Also capture the durations of the from and to employment periods for weighting
+  dt[, from_durata := shift(durata, n = 1, type = "lag"), by = cf]
+  dt[, to_durata := shift(durata, n = 1, type = "lead"), by = cf]
+  
   # Identify unemployment periods that are part of transitions
   # Current period: unemployment (arco == 0), previous: employment (prev_arco >= 1), next: employment (next_arco >= 1)
   dt[, is_transition_unemployment := (
@@ -378,10 +409,21 @@ analyze_employment_transitions <- function(pipeline_result,
     from_col <- paste0("from_", col)
     to_col <- paste0("to_", col)
     
-    # Create subset with just this column's data
-    col_subset <- transition_periods[, c("cf", "durata", from_col, to_col), with = FALSE]
+    # Create base columns for subset
+    base_cols <- c("cf", "durata", from_col, to_col, "from_durata", "to_durata")
     
-    # Rename columns for consistent melting
+    # Add other columns' from/to values
+    other_from_cols <- paste0("from_", other_columns)
+    other_to_cols <- paste0("to_", other_columns)
+    all_other_cols <- c(other_from_cols, other_to_cols)
+    
+    # Filter to only include columns that exist in the dataset
+    existing_other_cols <- intersect(all_other_cols, names(transition_periods))
+    
+    # Create subset with transition column data and all other columns
+    col_subset <- transition_periods[, c(base_cols, existing_other_cols), with = FALSE]
+    
+    # Rename main transition columns for consistent processing
     setnames(col_subset, c(from_col, to_col), c("from", "to"))
     
     # Add variable identifier
@@ -411,22 +453,85 @@ analyze_employment_transitions <- function(pipeline_result,
     if (nrow(col_data) > 0) {
       # Determine if column is numeric or character
       if (is.numeric(pipeline_result[[col]])) {
-        # For numeric columns: calculate means and aggregate
-        result_col <- col_data[, .(
+        # For numeric columns: calculate duration-weighted means and aggregate
+        base_agg <- col_data[, .(
           weight = .N,
           transition_duration = fmean(durata),
-          from_mean = fmean(as.numeric(from)),
-          to_mean = fmean(as.numeric(to))
+          from_mean = {
+            w <- as.numeric(from_durata[!is.na(from) & !is.na(from_durata)])
+            v <- as.numeric(from)[!is.na(from) & !is.na(from_durata)]
+            if(length(w) > 0 && sum(w, na.rm = TRUE) > 0) weighted.mean(v, w = w) else fmean(as.numeric(from))
+          },
+          to_mean = {
+            w <- as.numeric(to_durata[!is.na(to) & !is.na(to_durata)])
+            v <- as.numeric(to)[!is.na(to) & !is.na(to_durata)]
+            if(length(w) > 0 && sum(w, na.rm = TRUE) > 0) weighted.mean(v, w = w) else fmean(as.numeric(to))
+          }
         ), by = .(from, to)]
       } else {
         # For character/factor columns: calculate modes
-        result_col <- col_data[, .(
+        base_agg <- col_data[, .(
           weight = .N,
           transition_duration = fmean(durata),
           from_mode = fmode(from),
           to_mode = fmode(to)
         ), by = .(from, to)]
       }
+      
+      # Add aggregations for other columns
+      if (length(other_columns) > 0) {
+        for (other_col in other_columns) {
+          other_from_col <- paste0("from_", other_col)
+          other_to_col <- paste0("to_", other_col)
+          
+          # Check if both from and to columns exist in the data
+          if (other_from_col %in% names(col_data) && other_to_col %in% names(col_data)) {
+            
+            # Determine if other column is numeric or character
+            if (is.numeric(pipeline_result[[other_col]])) {
+              # For numeric other columns: calculate duration-weighted means
+              # Use list() to create dynamic column names properly in data.table
+              from_col_name <- paste0(other_col, "_from_mean")
+              to_col_name <- paste0(other_col, "_to_mean")
+              
+              other_agg <- col_data[, {
+                from_value <- {
+                  w <- as.numeric(from_durata[!is.na(get(other_from_col)) & !is.na(from_durata)])
+                  v <- as.numeric(get(other_from_col))[!is.na(get(other_from_col)) & !is.na(from_durata)]
+                  if(length(w) > 0 && sum(w, na.rm = TRUE) > 0) weighted.mean(v, w = w) else fmean(as.numeric(get(other_from_col)))
+                }
+                to_value <- {
+                  w <- as.numeric(to_durata[!is.na(get(other_to_col)) & !is.na(to_durata)])
+                  v <- as.numeric(get(other_to_col))[!is.na(get(other_to_col)) & !is.na(to_durata)]
+                  if(length(w) > 0 && sum(w, na.rm = TRUE) > 0) weighted.mean(v, w = w) else fmean(as.numeric(get(other_to_col)))
+                }
+                # Return as a named list
+                result <- list(from_value, to_value)
+                names(result) <- c(from_col_name, to_col_name)
+                result
+              }, by = .(from, to)]
+            } else {
+              # For character other columns: calculate modes
+              from_col_name <- paste0(other_col, "_from_mode")
+              to_col_name <- paste0(other_col, "_to_mode")
+              
+              other_agg <- col_data[, {
+                from_value <- fmode(get(other_from_col))
+                to_value <- fmode(get(other_to_col))
+                # Return as a named list
+                result <- list(from_value, to_value)
+                names(result) <- c(from_col_name, to_col_name)
+                result
+              }, by = .(from, to)]
+            }
+            
+            # Merge with base aggregation
+            base_agg <- merge(base_agg, other_agg, by = c("from", "to"), all.x = TRUE)
+          }
+        }
+      }
+      
+      result_col <- base_agg
       
       # Order by weight (most common transitions first)
       setorder(result_col, -weight)
@@ -439,7 +544,7 @@ analyze_employment_transitions <- function(pipeline_result,
       results_list[[col]] <- result_col
       
     } else {
-      # No transitions found for this column
+      # No transitions found for this column - create empty result with proper structure
       if (is.numeric(pipeline_result[[col]])) {
         empty_result <- data.table(
           from = character(0), to = character(0), weight = integer(0),
@@ -450,6 +555,19 @@ analyze_employment_transitions <- function(pipeline_result,
           from = character(0), to = character(0), weight = integer(0),
           transition_duration = numeric(0), from_mode = character(0), to_mode = character(0)
         )
+      }
+      
+      # Add empty columns for other columns
+      if (length(other_columns) > 0) {
+        for (other_col in other_columns) {
+          if (is.numeric(pipeline_result[[other_col]])) {
+            empty_result[, paste0(other_col, "_from_mean") := numeric(0)]
+            empty_result[, paste0(other_col, "_to_mean") := numeric(0)]
+          } else {
+            empty_result[, paste0(other_col, "_from_mode") := character(0)]
+            empty_result[, paste0(other_col, "_to_mode") := character(0)]
+          }
+        }
       }
       
       if (!return_list) {

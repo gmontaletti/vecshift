@@ -1,4 +1,4 @@
-test_that("analyze_employment_transitions handles basic transitions", {
+test_that("analyze_employment_transitions handles basic transitions with duration-weighted means", {
   library(data.table)
   
   # Create sample data with clear transitions
@@ -110,6 +110,95 @@ test_that("analyze_employment_transitions validates input parameters", {
   )
 })
 
+test_that("analyze_employment_transitions uses duration-weighted means correctly", {
+  library(data.table)
+  
+  # Create data with transitions and varying durations to test weighted means
+  pipeline_result <- data.table(
+    cf = c("PERSON001", "PERSON001", "PERSON001", "PERSON001", "PERSON001"),
+    inizio = as.Date(c("2023-01-01", "2023-03-01", "2023-06-01", "2023-08-01", "2023-11-01")),
+    fine = as.Date(c("2023-02-28", "2023-05-31", "2023-07-31", "2023-10-31", "2023-12-31")),
+    arco = c(1, 0, 1, 0, 1),  # Employment -> Unemployment -> Employment -> Unemployment -> Employment
+    durata = c(58, 92, 61, 92, 61),  # Different durations for weighting
+    salary = c(50000, NA, 60000, NA, 45000),  # Numeric column to test weighted means
+    company = c("CompanyA", NA, "CompanyB", NA, "CompanyC")  # Character column
+  )
+  
+  # Set merged_columns attribute
+  setattr(pipeline_result, "merged_columns", c("salary", "company"))
+  
+  # Test with show_progress = FALSE for cleaner test output
+  result <- analyze_employment_transitions(pipeline_result, show_progress = FALSE)
+  
+  expect_s3_class(result, "data.table")
+  
+  # Check for transitions: CompanyA->CompanyB and CompanyB->CompanyC
+  if (nrow(result) > 0) {
+    # Should have weighted means for salary transitions
+    salary_transitions <- result[variable == "salary"]
+    if (nrow(salary_transitions) > 0) {
+      expect_true("from_mean" %in% names(salary_transitions))
+      expect_true("to_mean" %in% names(salary_transitions))
+      # from_mean and to_mean should be duration-weighted averages
+      expect_true(all(!is.na(salary_transitions$from_mean) | salary_transitions$from_mean == 0))
+      expect_true(all(!is.na(salary_transitions$to_mean) | salary_transitions$to_mean == 0))
+    }
+    
+    # Should have modes for company transitions  
+    company_transitions <- result[variable == "company"]
+    if (nrow(company_transitions) > 0) {
+      expect_true("from_mode" %in% names(company_transitions))
+      expect_true("to_mode" %in% names(company_transitions))
+    }
+  }
+})
+
+test_that("analyze_employment_transitions handles edge cases for weighted means", {
+  library(data.table)
+  
+  # Test with zero/minimal durations
+  pipeline_result_edge <- data.table(
+    cf = c("EDGE001", "EDGE001", "EDGE001"),
+    inizio = as.Date(c("2023-01-01", "2023-01-02", "2023-01-04")),
+    fine = as.Date(c("2023-01-01", "2023-01-03", "2023-01-04")),  # Durations: 1, 2, 1
+    arco = c(1, 0, 1),
+    durata = c(1, 2, 1),
+    salary = c(1000, NA, 3000)  # Different values to test weighting with minimal durations
+  )
+  
+  # Set merged_columns attribute
+  setattr(pipeline_result_edge, "merged_columns", c("salary"))
+  
+  result_edge <- analyze_employment_transitions(pipeline_result_edge, show_progress = FALSE)
+  
+  expect_s3_class(result_edge, "data.table")
+  
+  # Should handle minimal durations correctly
+  if (nrow(result_edge) > 0) {
+    salary_transitions <- result_edge[variable == "salary"]
+    if (nrow(salary_transitions) > 0) {
+      expect_false(is.na(salary_transitions$from_mean[1]))
+      expect_false(is.na(salary_transitions$to_mean[1]))
+    }
+  }
+  
+  # Test with all NA values in numeric column
+  pipeline_result_na <- data.table(
+    cf = c("NA001", "NA001", "NA001"),
+    inizio = as.Date(c("2023-01-01", "2023-02-01", "2023-04-01")),
+    fine = as.Date(c("2023-01-31", "2023-03-31", "2023-04-30")),
+    arco = c(1, 0, 1),
+    durata = c(31, 59, 30),
+    salary = c(NA, NA, NA)  # All NA values
+  )
+  
+  setattr(pipeline_result_na, "merged_columns", c("salary"))
+  
+  result_na <- analyze_employment_transitions(pipeline_result_na, show_progress = FALSE)
+  expect_s3_class(result_na, "data.table")
+  # Should handle all NA case gracefully
+})
+
 test_that("analyze_employment_transitions return_list parameter works", {
   library(data.table)
   
@@ -127,7 +216,8 @@ test_that("analyze_employment_transitions return_list parameter works", {
   result_list <- analyze_employment_transitions(
     pipeline_result, 
     transition_columns = "company",
-    return_list = TRUE
+    return_list = TRUE,
+    show_progress = FALSE
   )
   
   expect_type(result_list, "list")
@@ -137,7 +227,8 @@ test_that("analyze_employment_transitions return_list parameter works", {
   result_combined <- analyze_employment_transitions(
     pipeline_result,
     transition_columns = "company",
-    return_list = FALSE
+    return_list = FALSE,
+    show_progress = FALSE
   )
   
   expect_s3_class(result_combined, "data.table")

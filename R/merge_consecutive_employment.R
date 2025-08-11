@@ -21,9 +21,9 @@
 #'     \item{\code{inizio}}: Period start date
 #'     \item{\code{fine}}: Period end date
 #'     \item{\code{arco}}: Number of overlapping contracts (preserved for unemployment)
-#'     \item{\code{prior}}: Mean priority for collapsed periods
+#'     \item{\code{prior}}: Duration-weighted mean priority for collapsed periods
 #'     \item{Character columns}: Concatenated as "first->last" for collapsed periods
-#'     \item{Numeric columns}: Mean value for collapsed periods
+#'     \item{Numeric columns}: Duration-weighted mean value for collapsed periods
 #'     \item{Numeric columns with "_direction" suffix}: Direction of change (last - first)
 #'     \item{\code{durata}}: Duration of the period in days
 #'     \item{\code{collapsed}}: Logical indicating if period was collapsed (TRUE) or not (FALSE)
@@ -31,6 +31,7 @@
 #'
 #' @export
 #' @importFrom data.table data.table setDT copy rleid shift
+#' @importFrom stats weighted.mean
 #'
 #' @examples
 #' \dontrun{
@@ -102,19 +103,34 @@ merge_consecutive_employment <- function(dt) {
   dt_work[, final_group := rleid(cf, is_employment, 
                                   cumsum(!is_consecutive | is.na(is_consecutive)))]
   
+  # Add duration calculation for each record for weighting
+  dt_work[, record_durata := 1 + as.numeric(fine - inizio)]
+  
   # Build list of aggregation expressions
   agg_list <- list()
   agg_list[["inizio"]] <- quote(inizio[1])
   agg_list[["fine"]] <- quote(fine[.N])
-  agg_list[["arco"]] <- quote(if(.N == 1 || !is_employment[1]) arco[1] else round(mean(arco, na.rm = TRUE), 2))
-  agg_list[["prior"]] <- quote(if(.N == 1 || !is_employment[1]) prior[1] else round(mean(prior, na.rm = TRUE), 2))
+  agg_list[["arco"]] <- quote(if(.N == 1 || !is_employment[1]) arco[1] else {
+    w <- record_durata[!is.na(arco) & !is.na(record_durata)]
+    v <- arco[!is.na(arco) & !is.na(record_durata)]
+    if(length(w) > 0 && sum(w, na.rm = TRUE) > 0) round(weighted.mean(v, w = w), 2) else round(mean(arco, na.rm = TRUE), 2)
+  })
+  agg_list[["prior"]] <- quote(if(.N == 1 || !is_employment[1]) prior[1] else {
+    w <- record_durata[!is.na(prior) & !is.na(record_durata)]
+    v <- prior[!is.na(prior) & !is.na(record_durata)]
+    if(length(w) > 0 && sum(w, na.rm = TRUE) > 0) round(weighted.mean(v, w = w), 2) else round(mean(prior, na.rm = TRUE), 2)
+  })
   agg_list[["durata"]] <- quote(1 + as.numeric(fine[.N] - inizio[1]))
   agg_list[["collapsed"]] <- quote(.N > 1 & is_employment[1])
   
   # Add aggregations for numeric extra columns
   for (col in numeric_extra) {
     agg_list[[col]] <- substitute(
-      if(.N == 1 || !is_employment[1]) COL[1] else round(mean(COL, na.rm = TRUE), 2),
+      if(.N == 1 || !is_employment[1]) COL[1] else {
+        w <- record_durata[!is.na(COL) & !is.na(record_durata)]
+        v <- COL[!is.na(COL) & !is.na(record_durata)]
+        if(length(w) > 0 && sum(w, na.rm = TRUE) > 0) round(weighted.mean(v, w = w), 2) else round(mean(COL, na.rm = TRUE), 2)
+      },
       list(COL = as.name(col))
     )
     
@@ -204,12 +220,23 @@ merge_consecutive_employment_fast <- function(dt) {
   numeric_extra <- extra_cols[sapply(dt_work[, ..extra_cols], is.numeric)]
   character_extra <- extra_cols[sapply(dt_work[, ..extra_cols], is.character)]
   
+  # Add duration calculation for each record for weighting
+  dt_work[, record_durata := 1 + as.numeric(fine - inizio)]
+  
   # Aggregate
   agg_exprs <- list(
     inizio = quote(inizio[1]),
     fine = quote(fine[.N]),
-    arco = quote(ifelse(employment_status[1] == 0, arco[1], round(mean(arco, na.rm = TRUE), 2))),
-    prior = quote(ifelse(.N == 1, prior[1], round(mean(prior, na.rm = TRUE), 2))),
+    arco = quote(ifelse(employment_status[1] == 0, arco[1], {
+      w <- record_durata[!is.na(arco) & !is.na(record_durata)]
+      v <- arco[!is.na(arco) & !is.na(record_durata)]
+      if(length(w) > 0 && sum(w, na.rm = TRUE) > 0) round(weighted.mean(v, w = w), 2) else round(mean(arco, na.rm = TRUE), 2)
+    })),
+    prior = quote(ifelse(.N == 1, prior[1], {
+      w <- record_durata[!is.na(prior) & !is.na(record_durata)]
+      v <- prior[!is.na(prior) & !is.na(record_durata)]
+      if(length(w) > 0 && sum(w, na.rm = TRUE) > 0) round(weighted.mean(v, w = w), 2) else round(mean(prior, na.rm = TRUE), 2)
+    })),
     durata = quote(1 + as.numeric(fine[.N] - inizio[1])),
     collapsed = quote(.N > 1 & employment_status[1] == 1),
     n_periods = quote(.N)
@@ -218,7 +245,11 @@ merge_consecutive_employment_fast <- function(dt) {
   # Add aggregation for numeric extras
   for (col in numeric_extra) {
     agg_exprs[[col]] <- substitute(
-      ifelse(.N == 1 | employment_status[1] == 0, COL[1], round(mean(COL, na.rm = TRUE), 2)),
+      ifelse(.N == 1 | employment_status[1] == 0, COL[1], {
+        w <- record_durata[!is.na(COL) & !is.na(record_durata)]
+        v <- COL[!is.na(COL) & !is.na(record_durata)]
+        if(length(w) > 0 && sum(w, na.rm = TRUE) > 0) round(weighted.mean(v, w = w), 2) else round(mean(COL, na.rm = TRUE), 2)
+      }),
       list(COL = as.name(col))
     )
     

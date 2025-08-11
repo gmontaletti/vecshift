@@ -1,7 +1,7 @@
 Package: vecshift
 Type: Package
 Title: Temporal Analysis of Employment Data with Event-Based Processing
-Version: 0.3.1
+Version: 0.3.2
 Authors@R: c(
     person(
       "Jane", "Doe",

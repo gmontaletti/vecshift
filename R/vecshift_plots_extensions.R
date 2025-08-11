@@ -121,11 +121,11 @@ plot_employment_summary <- function(data,
   } else if (dashboard_type == "executive") {
     # High-level trend analysis
     monthly_data <- data[, .(
-      employment_rate = 1 - sum(get(status_col) == "disoccupato") / .N,
-      avg_duration = mean(get(duration_col), na.rm = TRUE),
-      overlap_rate = sum(arco > 1) / .N,
-      n_people = length(unique(get(person_col))),
-      n_periods = .N
+      employment_rate = as.numeric(1 - sum(get(status_col) == "disoccupato") / .N),
+      avg_duration = as.numeric(mean(get(duration_col), na.rm = TRUE)),
+      overlap_rate = as.numeric(sum(arco > 1) / .N),
+      n_people = as.integer(length(unique(get(person_col)))),
+      n_periods = as.integer(.N)
     ), by = .(month = format(get(time_col), "%Y-%m"))]
     
     monthly_data[, date := as.Date(paste0(month, "-01"))]
