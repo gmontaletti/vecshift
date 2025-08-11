@@ -1,7 +1,7 @@
 Package: vecshift
 Type: Package
 Title: Temporal Analysis of Employment Data with Event-Based Processing
-Version: 0.3.0
+Version: 0.3.1
 Authors@R: c(
     person(
       "Jane", "Doe",
@@ -21,7 +21,10 @@ Suggests:
     testthat (>= 3.0.0),
     knitr,
     rmarkdown,
-    progress
+    progress,
+    ggplot2 (>= 3.3.0),
+    ggraph (>= 2.0.0),
+    scales
 VignetteBuilder: knitr
 Config/testthat/edition: 3
 RoxygenNote: 7.3.2

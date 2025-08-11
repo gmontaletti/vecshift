@@ -24,9 +24,9 @@ A data.table with collapsed consecutive employment periods containing:
     \item{\code{inizio}}: Period start date
     \item{\code{fine}}: Period end date
     \item{\code{arco}}: Number of overlapping contracts (preserved for unemployment)
-    \item{\code{prior}}: Mean priority for collapsed periods
+    \item{\code{prior}}: Duration-weighted mean priority for collapsed periods
     \item{Character columns}: Concatenated as "first->last" for collapsed periods
-    \item{Numeric columns}: Mean value for collapsed periods
+    \item{Numeric columns}: Duration-weighted mean value for collapsed periods
     \item{Numeric columns with "_direction" suffix}: Direction of change (last - first)
     \item{\code{durata}}: Duration of the period in days
     \item{\code{collapsed}}: Logical indicating if period was collapsed (TRUE) or not (FALSE)

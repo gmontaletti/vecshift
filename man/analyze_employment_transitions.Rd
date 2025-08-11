@@ -39,8 +39,8 @@ If return_list = FALSE, returns a data.table with columns:
     \item{\code{to}}: Value after transition
     \item{\code{weight}}: Number of transitions
     \item{\code{transition_duration}}: Mean unemployment duration
-    \item{\code{from_mean/from_mode}}: Aggregated "from" values (numeric/character)
-    \item{\code{to_mean/to_mode}}: Aggregated "to" values (numeric/character)
+    \item{\code{from_mean/from_mode}}: Duration-weighted aggregated "from" values (numeric/character)
+    \item{\code{to_mean/to_mode}}: Duration-weighted aggregated "to" values (numeric/character)
   }
   If return_list = TRUE, returns a named list of data.tables, one for each variable.
 }
@@ -60,7 +60,7 @@ For each column, the function provides:
   \item{\strong{to}}: Value in the employment period after unemployment
   \item{\strong{weight}}: Number of transitions (.N)
   \item{\strong{transition_duration}}: Mean duration of intermediate unemployment periods
-  \item{\strong{For numeric columns}}: from_mean, to_mean (mean values for that transition)
+  \item{\strong{For numeric columns}}: from_mean, to_mean (duration-weighted mean values for that transition)
   \item{\strong{For character columns}}: from_mode, to_mode (mode values for that transition)
 }
 }
