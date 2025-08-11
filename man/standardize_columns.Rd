@@ -13,8 +13,8 @@ standardize_columns(dt, column_map, validate = TRUE)
 \itemize{
   \item{\code{id}}: Contract identifier column name (required)
   \item{\code{cf}}: Person identifier column name (required) 
-  \item{\code{inizio}}: Start date column name (required)
-  \item{\code{fine}}: End date column name (required)
+  \item{\code{INIZIO}}: Start date column name (required)
+  \item{\code{FINE}}: End date column name (required)
   \item{\code{prior}}: Employment type column name (required)
 }}
 
@@ -43,8 +43,8 @@ dt <- data.table(
 col_map <- list(
   id = "contract_id",
   cf = "person_code", 
-  inizio = "start_date",
-  fine = "end_date",
+  INIZIO = "start_date",
+  FINE = "end_date",
   prior = "employment_type"
 )
 

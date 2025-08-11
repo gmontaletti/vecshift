@@ -14,6 +14,8 @@ Thumbs.db
 src/*.o
 src/*.so
 src/*.dll
+*.Rcheck/
+vignettes/.build.timestamp
 
 # renv library (but keep renv.lock for reproducibility)
 renv/library/
