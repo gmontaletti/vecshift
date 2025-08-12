@@ -6,9 +6,11 @@
 \usage{
 analyze_employment_transitions(
   pipeline_result,
-  transition_columns = NULL,
+  transition_variable = NULL,
+  statistics_variables = NULL,
   min_unemployment_duration = 1,
-  return_list = FALSE,
+  max_unemployment_duration = NULL,
+  output_transition_matrix = FALSE,
   show_progress = TRUE
 )
 }
@@ -17,14 +19,27 @@ analyze_employment_transitions(
 with columns: cf (person identifier), arco (employment overlap count), 
 inizio/fine (period dates), and durata (period duration).}
 
-\item{transition_columns}{Character vector of column names to analyze. If NULL (default),
-uses the merged_columns attribute from pipeline_result.}
+\item{transition_variable}{Character string specifying the variable to use for 
+transition analysis (from/to values). If NULL (default), uses the first 
+non-standard attribute in the data.table.}
+
+\item{statistics_variables}{Character vector specifying variables to compute 
+summary statistics for. If NULL (default), uses all non-standard attributes 
+except the transition variable.}
 
 \item{min_unemployment_duration}{Minimum duration (in days) of unemployment period 
 to consider a transition (default: 1).}
 
-\item{return_list}{Logical. If TRUE, returns a list of data.tables (one per variable).
-If FALSE (default), returns a single combined data.table with a 'variable' column.}
+\item{max_unemployment_duration}{Maximum duration (in days) of unemployment period 
+to consider a transition. If NULL (default), no upper limit is applied. When not 
+NULL, only transitions with unemployment duration between min_unemployment_duration 
+and max_unemployment_duration (inclusive) are included.}
+
+\item{output_transition_matrix}{Logical. If TRUE, returns a square transition matrix 
+instead of the normal aggregated data.table. Rows represent "from" states, columns 
+represent "to" states, and values are transition weights (counts). Non-populated 
+cells contain zeros. Matrix uses unique values from the transition_variable as 
+row/column names (default: FALSE).}
 
 \item{show_progress}{Logical. If TRUE (default), displays a progress bar showing
 the current processing step, percentage completion, and estimated time remaining.
@@ -32,36 +47,46 @@ Uses the 'progress' package if available, falls back to utils::txtProgressBar or
 simple messages if not available.}
 }
 \value{
-If return_list = FALSE, returns a data.table with columns:
+When \code{output_transition_matrix} is FALSE (default), returns a data.table with columns:
   \itemize{
-    \item{\code{variable}}: Name of the analyzed variable
-    \item{\code{from}}: Value before transition
-    \item{\code{to}}: Value after transition
+    \item{\code{from}}: Value before transition (from transition_variable)
+    \item{\code{to}}: Value after transition (from transition_variable)
     \item{\code{weight}}: Number of transitions
     \item{\code{transition_duration}}: Mean unemployment duration
-    \item{\code{from_mean/from_mode}}: Duration-weighted aggregated "from" values (numeric/character)
-    \item{\code{to_mean/to_mode}}: Duration-weighted aggregated "to" values (numeric/character)
+    \item{\code{[variable]_from_median/[variable]_from_mode}}: For each statistics variable, 
+      duration-weighted aggregated values from the "from" period (median for numeric, mode for character)
+    \item{\code{[variable]_to_median/[variable]_to_mode}}: For each statistics variable, 
+      duration-weighted aggregated values from the "to" period (median for numeric, mode for character)
   }
-  If return_list = TRUE, returns a named list of data.tables, one for each variable.
+  
+  When \code{output_transition_matrix} is TRUE, returns a square matrix where rows represent 
+  "from" states, columns represent "to" states, and values are transition weights (counts). 
+  Non-populated cells contain zeros.
+  
+  Note: If the transition variable is also in statistics_variables, it will have
+  corresponding [transition_variable]_from_median and [transition_variable]_to_median columns.
 }
 \description{
 Analyzes employment transitions from the output of process_employment_pipeline().
 Identifies transitions between employment periods that are separated by unemployment
-periods and provides transition pattern analysis for specified variables.
+periods and provides transition pattern analysis. The function allows specification
+of which variable to use for transition analysis and which variables to compute
+statistics for.
 }
 \details{
 A transition occurs when there are consecutive employment periods (arco >= 1) 
 separated by an unemployment period (arco = 0) of at least the minimum duration.
-The function analyzes patterns in the "from" → "to" transitions for specified columns.
+The function analyzes patterns in the "from" → "to" transitions for one specified
+transition variable, while computing summary statistics for additional variables.
 
-For each column, the function provides:
+For each transition, the function provides:
 \itemize{
-  \item{\strong{from}}: Value in the employment period before unemployment
-  \item{\strong{to}}: Value in the employment period after unemployment
+  \item{\strong{from}}: Value in the employment period before unemployment (transition variable)
+  \item{\strong{to}}: Value in the employment period after unemployment (transition variable)
   \item{\strong{weight}}: Number of transitions (.N)
   \item{\strong{transition_duration}}: Mean duration of intermediate unemployment periods
-  \item{\strong{For numeric columns}}: from_mean, to_mean (duration-weighted mean values for that transition)
-  \item{\strong{For character columns}}: from_mode, to_mode (mode values for that transition)
+  \item{\strong{For numeric statistics variables}}: [variable]_from_median, [variable]_to_median
+  \item{\strong{For character statistics variables}}: [variable]_from_mode, [variable]_to_mode
 }
 }
 \examples{
@@ -87,17 +112,42 @@ result <- process_employment_pipeline(
   merge_columns = c("company", "salary")
 )
 
-# Analyze transitions with progress bar
-transitions <- analyze_employment_transitions(result, show_progress = TRUE)
+# Analyze company transitions with salary statistics
+transitions <- analyze_employment_transitions(
+  pipeline_result = result,
+  transition_variable = "company",
+  statistics_variables = c("salary")
+)
 print(transitions)
 
-# Analyze specific columns with minimum unemployment duration (no progress bar)
-transitions_company <- analyze_employment_transitions(
+# Analyze salary transitions with company statistics and minimum unemployment duration
+transitions_salary <- analyze_employment_transitions(
   pipeline_result = result,
-  transition_columns = "company",
+  transition_variable = "salary",
+  statistics_variables = c("company"),
   min_unemployment_duration = 7,
-  return_list = TRUE,
   show_progress = FALSE
 )
+
+# Analyze transitions with duration constraints (unemployment between 7-30 days)
+transitions_constrained <- analyze_employment_transitions(
+  pipeline_result = result,
+  transition_variable = "company",
+  min_unemployment_duration = 7,
+  max_unemployment_duration = 30
+)
+
+# Get transition matrix instead of data.table
+transition_matrix <- analyze_employment_transitions(
+  pipeline_result = result,
+  transition_variable = "company",
+  output_transition_matrix = TRUE
+)
+print(transition_matrix)
+
+# Output will include columns like:
+# from, to (salary values for transitions)
+# company_from_mode, company_to_mode (company statistics)
+# salary_from_median, salary_to_median (if salary is in statistics_variables)
 }
 }

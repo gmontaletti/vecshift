@@ -1,0 +1,656 @@
+---
+title: "Interactive Employment Transitions with g6r"
+author: "Giampaolo Montaletti"
+date: "`r Sys.Date()`"
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+    toc_depth: 3
+    code_folding: show
+    theme: flatly
+    highlight: tango
+vignette: >
+  %\VignetteIndexEntry{Interactive Employment Transitions with g6r}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo = TRUE,
+  eval = FALSE,  # Set to TRUE when g6R is available
+  warning = FALSE,
+  message = FALSE,
+  fig.width = 10,
+  fig.height = 6
+)
+```
+
+# Introduction to g6r for Employment Transitions
+
+This vignette demonstrates how to create interactive network visualizations of employment transitions using the **g6r** package. The g6r package provides R bindings to the powerful G6 JavaScript visualization library developed by Ant Design, enabling creation of sophisticated interactive network diagrams suitable for exploring complex employment patterns.
+
+## What is g6r?
+
+g6r is an R package that creates interactive network visualizations powered by the G6 graph visualization engine. Key features include:
+
+- **20+ Layout Algorithms**: Force-directed, circular, hierarchical, radial, and more
+- **15+ Interactive Behaviors**: Zooming, dragging, selecting, edge creation, brush selection
+- **17+ Plugins**: Minimap, tooltips, toolbars, grid lines, edge bundling
+- **High Performance**: Handles 20,000+ nodes efficiently
+- **Shiny Integration**: Full support for dynamic updates in Shiny applications
+- **Accessibility**: Support for colorblind-friendly palettes and high contrast modes
+
+## Installation
+
+```{r install}
+# Install from CRAN
+install.packages("g6R")
+
+# Or install development version
+# pak::pak("cynkra/g6R")
+
+# Also ensure vecshift is loaded
+library(vecshift)
+library(g6R)
+library(data.table)
+```
+
+# Basic Interactive Transitions
+
+## Creating Sample Data
+
+Let's start by creating sample employment data and processing it through the vecshift pipeline:
+
+```{r sample-data}
+library(data.table)
+library(vecshift)
+
+# Create comprehensive sample data
+set.seed(42)
+employment_data <- data.table(
+  id = 1:12,
+  cf = rep(c("PERSON001", "PERSON002", "PERSON003"), each = 4),
+  INIZIO = as.Date(c(
+    "2023-01-01", "2023-04-01", "2023-08-01", "2023-12-01",  # Person 1
+    "2023-02-01", "2023-06-01", "2023-09-01", "2023-12-15",  # Person 2  
+    "2023-01-15", "2023-05-01", "2023-07-01", "2023-10-01"   # Person 3
+  )),
+  FINE = as.Date(c(
+    "2023-02-28", "2023-06-30", "2023-11-30", "2023-12-31",  # Person 1
+    "2023-04-30", "2023-08-31", "2023-11-30", "2023-12-31",  # Person 2
+    "2023-03-31", "2023-06-30", "2023-09-30", "2023-12-31"   # Person 3
+  )),
+  prior = c(1, 0, 1, 1,   # Person 1: Full-time, Part-time, Full-time, Full-time
+           1, 1, 0, 1,    # Person 2: Full-time, Full-time, Part-time, Full-time
+           0, 1, 1, 0),   # Person 3: Part-time, Full-time, Full-time, Part-time
+  company = c(
+    "TechCorp", "RetailChain", "Manufacturing", "TechCorp",        # Person 1
+    "Healthcare", "TechCorp", "RetailChain", "Manufacturing",      # Person 2
+    "RetailChain", "Healthcare", "TechCorp", "RetailChain"         # Person 3
+  ),
+  salary = c(
+    50000, 25000, 55000, 60000,    # Person 1
+    65000, 55000, 28000, 58000,    # Person 2
+    22000, 70000, 62000, 26000     # Person 3
+  ),
+  region = c(
+    "North", "South", "North", "North",      # Person 1
+    "East", "North", "South", "North",       # Person 2  
+    "South", "East", "North", "South"        # Person 3
+  )
+)
+
+print(employment_data)
+```
+
+## Processing Through vecshift Pipeline
+
+```{r process-data}
+# Process through the vecshift pipeline
+pipeline_result <- process_employment_pipeline(
+  original_data = employment_data,
+  merge_columns = c("company", "salary", "region"),
+  show_progress = TRUE
+)
+
+# Check the processed data
+print(head(pipeline_result, 10))
+```
+
+## Analyzing Employment Transitions  
+
+```{r analyze-transitions}
+# Analyze company transitions with salary and region statistics
+company_transitions <- analyze_employment_transitions(
+  pipeline_result = pipeline_result,
+  transition_variable = "company",
+  statistics_variables = c("salary", "region"),
+  min_unemployment_duration = 1,
+  show_progress = TRUE
+)
+
+print(company_transitions)
+
+# Also create a transition matrix for comparison
+transition_matrix <- analyze_employment_transitions(
+  pipeline_result = pipeline_result,
+  transition_variable = "company",
+  output_transition_matrix = TRUE
+)
+
+print(transition_matrix)
+```
+
+## Basic Interactive Visualization
+
+```{r basic-g6r}
+library(g6R)
+
+# Load the g6r integration functions
+source("R/interactive_transitions_g6r.R")
+
+# Create basic interactive visualization
+basic_plot <- plot_interactive_transitions(
+  transitions_data = company_transitions,
+  layout = "force",
+  height = "600px"
+)
+
+basic_plot
+```
+
+## Exploring Different Layouts
+
+```{r layouts}
+# Force-directed layout (good for organic network exploration)
+force_plot <- plot_interactive_transitions(
+  company_transitions,
+  layout = "force",
+  show_minimap = TRUE,
+  height = "500px"
+)
+
+# Circular layout (good for comparing relationships)
+circular_plot <- plot_interactive_transitions(
+  company_transitions,
+  layout = "circular", 
+  show_minimap = FALSE,
+  height = "500px"
+)
+
+# Hierarchical layout (good for directed flows)
+hierarchical_plot <- plot_interactive_transitions(
+  company_transitions,
+  layout = "dagre",
+  height = "500px"
+)
+
+# Display the plots
+force_plot
+circular_plot  
+hierarchical_plot
+```
+
+# Advanced Customization
+
+## Customizing Node and Edge Appearance
+
+```{r customization}
+# Customize based on different metrics
+custom_plot <- plot_interactive_transitions(
+  transitions_data = company_transitions,
+  layout = "force",
+  # Use transition duration for edge width instead of count
+  edge_width_metric = "transition_duration",
+  # Use incoming transitions for node size
+  node_size_metric = "in_degree",
+  # Filter to significant transitions only
+  min_weight_threshold = 2,
+  # Enable edge bundling for cleaner visualization
+  edge_bundling = TRUE,
+  # Custom colors
+  node_color_palette = c("#1f77b4", "#ff7f0e", "#2ca02c", "#d62728", "#9467bd"),
+  edge_color = "#999999"
+)
+
+custom_plot
+```
+
+## Working with Transition Matrices
+
+```{r matrix-format}
+# Convert matrix format to interactive visualization
+matrix_plot <- plot_interactive_transitions(
+  transitions_data = transition_matrix,
+  layout = "circular",
+  show_labels = TRUE,
+  enable_select = TRUE
+)
+
+matrix_plot
+```
+
+## Accessibility Features
+
+```{r accessibility}
+# Create colorblind-friendly visualization
+accessible_plot <- plot_interactive_transitions(
+  transitions_data = company_transitions,
+  layout = "force",
+  accessibility_mode = TRUE,
+  # High contrast colorblind-friendly palette
+  node_color_palette = c("#000000", "#E69F00", "#56B4E9", "#009E73", 
+                        "#CC79A7", "#F0E442", "#0072B2", "#D55E00"),
+  show_labels = TRUE,
+  height = "600px"
+)
+
+accessible_plot
+
+# Test different accessibility scenarios
+accessibility_tests <- test_g6r_accessibility(
+  transitions_data = company_transitions,
+  test_scenarios = c("colorblind", "high_contrast", "large_nodes")
+)
+
+# View each accessibility test
+accessibility_tests$colorblind_safe
+accessibility_tests$high_contrast
+accessibility_tests$large_elements
+```
+
+# Shiny Integration
+
+## Basic Shiny Application
+
+```{r shiny-basic}
+library(shiny)
+library(g6R)
+
+# Create a basic Shiny app for exploring transitions
+ui <- fluidPage(
+  titlePanel("Interactive Employment Transitions Explorer"),
+  
+  sidebarLayout(
+    sidebarPanel(
+      selectInput("layout", "Choose Layout:",
+                 choices = list(
+                   "Force-directed" = "force",
+                   "Circular" = "circular",
+                   "Hierarchical" = "dagre",
+                   "Radial" = "radial"
+                 ),
+                 selected = "force"),
+      
+      numericInput("min_weight", "Minimum Transition Weight:",
+                  value = 1, min = 1, step = 1),
+      
+      checkboxInput("show_minimap", "Show Minimap", TRUE),
+      checkboxInput("accessibility_mode", "Accessibility Mode", FALSE),
+      
+      hr(),
+      
+      h4("Export Options"),
+      downloadButton("export_data", "Download Data", class = "btn-primary")
+    ),
+    
+    mainPanel(
+      g6Output("transition_plot", height = "600px"),
+      
+      br(),
+      
+      h4("Transition Statistics"),
+      tableOutput("stats_table")
+    )
+  )
+)
+
+server <- function(input, output, session) {
+  
+  # Reactive data processing
+  transitions_data <- reactive({
+    analyze_employment_transitions(
+      pipeline_result = pipeline_result,
+      transition_variable = "company",
+      statistics_variables = c("salary", "region"),
+      min_unemployment_duration = input$min_weight
+    )
+  })
+  
+  # Main visualization
+  output$transition_plot <- renderG6({
+    plot_interactive_transitions(
+      transitions_data = transitions_data(),
+      layout = input$layout,
+      show_minimap = input$show_minimap,
+      accessibility_mode = input$accessibility_mode,
+      min_weight_threshold = input$min_weight
+    )
+  })
+  
+  # Statistics table
+  output$stats_table <- renderTable({
+    data <- transitions_data()
+    
+    if (nrow(data) > 0) {
+      data.frame(
+        Transition = paste(data$from, "→", data$to),
+        Count = data$weight,
+        `Avg Unemployment (days)` = round(data$transition_duration, 1),
+        check.names = FALSE
+      )
+    }
+  })
+  
+  # Download handler
+  output$export_data <- downloadHandler(
+    filename = function() {
+      paste0("transitions_", Sys.Date(), ".csv")
+    },
+    content = function(file) {
+      write.csv(transitions_data(), file, row.names = FALSE)
+    }
+  )
+}
+
+# Run the app (uncomment to run)
+# shinyApp(ui, server)
+```
+
+## Advanced Shiny Module
+
+The package includes a complete Shiny module for employment transitions exploration:
+
+```{r shiny-module}
+# Use the built-in module
+library(shiny)
+
+ui <- fluidPage(
+  titlePanel("Advanced Employment Transitions Explorer"),
+  
+  # Use the pre-built module
+  interactive_transitions_module()$ui("transitions")
+)
+
+server <- function(input, output, session) {
+  
+  # Your transition data (reactive)
+  transition_data <- reactive({
+    analyze_employment_transitions(
+      pipeline_result = pipeline_result,
+      transition_variable = "company",
+      statistics_variables = c("salary", "region")
+    )
+  })
+  
+  # Call the module server
+  interactive_transitions_module()$server("transitions", transition_data)
+}
+
+# Run the advanced app (uncomment to run)
+# shinyApp(ui, server)
+```
+
+# Advanced Use Cases
+
+## Comparing Groups
+
+```{r group-comparison}
+# Create data for different regions
+north_data <- employment_data[region == "North"]
+south_data <- employment_data[region == "South"]
+
+# Process each region separately
+north_result <- process_employment_pipeline(north_data, merge_columns = "company")
+south_result <- process_employment_pipeline(south_data, merge_columns = "company")
+
+# Analyze transitions for each region
+north_transitions <- analyze_employment_transitions(
+  north_result, 
+  transition_variable = "company",
+  show_progress = FALSE
+)
+
+south_transitions <- analyze_employment_transitions(
+  south_result,
+  transition_variable = "company", 
+  show_progress = FALSE
+)
+
+# Create comparison visualizations
+regional_comparison <- compare_transitions_between_groups(
+  transitions_list = list(
+    "North Region" = north_transitions,
+    "South Region" = south_transitions
+  ),
+  layout = "circular",
+  min_weight_threshold = 1
+)
+
+# Display each region's transitions
+regional_comparison$`North Region`
+regional_comparison$`South Region`
+```
+
+## Time-Based Analysis
+
+```{r time-analysis}
+# Simulate data for different years
+data_2022 <- employment_data[year(INIZIO) == 2023]  # Using 2023 as proxy for demo
+data_2022[, `:=`(INIZIO = INIZIO - 365, FINE = FINE - 365)]
+
+# Process each year
+result_2022 <- process_employment_pipeline(data_2022, merge_columns = "company")
+result_2023 <- process_employment_pipeline(employment_data, merge_columns = "company")
+
+# Create time-based visualization (foundation for animation)
+time_based_plot <- plot_transitions_over_time(
+  pipeline_results = list(result_2022, result_2023),
+  time_periods = c("2022", "2023"),
+  transition_variable = "company",
+  animation_speed = 2000
+)
+
+time_based_plot
+```
+
+## Large-Scale Data Performance
+
+```{r large-scale}
+# Generate larger dataset for performance testing
+large_demo_data <- generate_g6r_demo_data(
+  n_persons = 200,
+  n_companies = 20,
+  time_span_years = 2,
+  transition_probability = 0.4
+)
+
+print(paste("Generated", nrow(large_demo_data), "employment records"))
+
+# Process large dataset
+large_pipeline_result <- process_employment_pipeline(
+  large_demo_data,
+  merge_columns = c("company", "region", "employment_type")
+)
+
+# Analyze transitions (filter to significant ones)
+large_transitions <- analyze_employment_transitions(
+  large_pipeline_result,
+  transition_variable = "company",
+  statistics_variables = c("salary", "region"),
+  min_unemployment_duration = 7  # Focus on longer unemployment gaps
+)
+
+print(paste("Found", nrow(large_transitions), "unique transition patterns"))
+
+# Create visualization optimized for performance
+large_scale_plot <- plot_interactive_transitions(
+  transitions_data = large_transitions,
+  layout = "force",
+  min_weight_threshold = 3,  # Filter to significant transitions
+  edge_bundling = TRUE,      # Reduce visual clutter
+  show_minimap = TRUE,       # Help navigation
+  height = "700px"
+)
+
+large_scale_plot
+```
+
+# Data Export and Integration
+
+## Exporting g6r Data
+
+```{r export}
+# Convert transitions to g6r format for inspection
+g6_data <- convert_transitions_to_g6r(company_transitions)
+
+# Examine the node structure
+print("Node data:")
+print(head(g6_data$nodes))
+
+print("Edge data:")
+print(head(g6_data$edges))
+
+# Export for external use
+write.csv(g6_data$nodes, "employment_transitions_nodes.csv", row.names = FALSE)
+write.csv(g6_data$edges, "employment_transitions_edges.csv", row.names = FALSE)
+```
+
+## Integration with Other R Packages
+
+```{r integration}
+# Convert g6r data for use with other network packages
+library(igraph, warn.conflicts = FALSE)
+
+# Create igraph object from g6r data  
+graph_data <- g6_data
+edges_igraph <- graph_data$edges[, c("source", "target", "weight")]
+
+# Create igraph network
+ig <- graph_from_data_frame(
+  d = edges_igraph, 
+  vertices = graph_data$nodes,
+  directed = TRUE
+)
+
+# Calculate network metrics
+print("Network metrics:")
+print(paste("Nodes:", vcount(ig)))
+print(paste("Edges:", ecount(ig)))
+print(paste("Density:", round(edge_density(ig), 3)))
+print(paste("Components:", components(ig)$no))
+
+# Calculate centrality measures that can inform g6r visualization
+centrality_measures <- data.frame(
+  node = V(ig)$name,
+  betweenness = betweenness(ig, normalized = TRUE),
+  closeness = closeness(ig, normalized = TRUE),
+  eigenvector = eigen_centrality(ig)$vector
+)
+
+print("Top nodes by betweenness centrality:")
+print(head(centrality_measures[order(-centrality_measures$betweenness), ]))
+```
+
+# Best Practices and Performance Tips
+
+## Performance Optimization
+
+1. **Filter Data Appropriately**: Use `min_weight_threshold` to focus on significant transitions
+2. **Choose Layouts Wisely**: Force-directed layouts are computationally intensive for large networks
+3. **Enable Edge Bundling**: Reduces visual clutter and improves rendering performance
+4. **Limit Simultaneous Features**: Don't enable all plugins at once for large datasets
+
+## Accessibility Guidelines
+
+1. **Use Colorblind-Friendly Palettes**: Always test with simulated color vision deficiency
+2. **Provide Redundant Encoding**: Use size + color, or shape + color for critical information
+3. **Ensure Sufficient Contrast**: Test with WCAG AA standards (4.5:1 minimum)
+4. **Include Alternative Text**: Document what the visualization shows for screen readers
+
+## Shiny Performance
+
+1. **Use Reactive Efficiently**: Cache expensive computations
+2. **Implement Progressive Loading**: Start with filtered data, allow expansion
+3. **Debounce User Inputs**: Prevent excessive re-rendering during slider adjustments
+4. **Provide Export Options**: Allow users to save visualizations and data
+
+# Troubleshooting
+
+## Common Issues
+
+### g6R Package Installation
+```{r troubleshooting-install}
+# If installation fails, try:
+# install.packages("g6R", dependencies = TRUE)
+# 
+# For development version:
+# remotes::install_github("cynkra/g6R")
+#
+# Check installation
+if (requireNamespace("g6R", quietly = TRUE)) {
+  message("g6R is available")
+} else {
+  message("g6R is not installed - install with: install.packages('g6R')")
+}
+```
+
+### Empty Visualizations
+```{r troubleshooting-empty}
+# Check your data has transitions
+check_transitions <- function(transitions_data) {
+  if (is.matrix(transitions_data)) {
+    total_transitions <- sum(transitions_data)
+    message("Matrix format: ", total_transitions, " total transitions")
+  } else if (is.data.frame(transitions_data) || data.table::is.data.table(transitions_data)) {
+    message("Data.table format: ", nrow(transitions_data), " transition patterns")
+    message("Total transitions: ", sum(transitions_data$weight, na.rm = TRUE))
+  }
+  
+  if (nrow(transitions_data) == 0 || (is.matrix(transitions_data) && sum(transitions_data) == 0)) {
+    message("No transitions found. Check your min_unemployment_duration parameter.")
+  }
+}
+
+check_transitions(company_transitions)
+```
+
+### Performance Issues
+```{r troubleshooting-performance}
+# For large datasets, optimize by:
+
+# 1. Pre-filtering data
+optimized_transitions <- company_transitions[weight >= 2]  # Focus on frequent transitions
+
+# 2. Using simpler layouts
+simple_plot <- plot_interactive_transitions(
+  optimized_transitions,
+  layout = "circular",  # Faster than force-directed
+  show_minimap = FALSE, # Reduces rendering load
+  edge_bundling = FALSE # Disable for better performance
+)
+```
+
+# Conclusion
+
+The g6r package provides powerful capabilities for creating interactive employment transition visualizations. Key advantages include:
+
+- **Rich Interactivity**: Users can explore data through zooming, selecting, and filtering
+- **Professional Appearance**: High-quality visualizations suitable for presentations and reports
+- **Shiny Integration**: Seamless embedding in interactive web applications
+- **Accessibility Support**: Built-in features for inclusive design
+- **Performance**: Efficient rendering of large networks
+
+This integration with the vecshift package creates a complete pipeline from raw employment data to interactive visualizations, enabling deep exploration of career transition patterns and employment dynamics.
+
+## Next Steps
+
+- Explore custom JavaScript integration for advanced features
+- Implement real-time data updates in Shiny applications
+- Create dashboard templates for common employment analysis scenarios
+- Develop time-series animation capabilities
+- Add statistical overlays and clustering visualizations
+
+For additional examples and advanced features, see the package documentation and the g6R project website at https://cynkra.github.io/g6R/.
