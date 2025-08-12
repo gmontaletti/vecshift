@@ -1,0 +1,1023 @@
+---
+title: "Static Network Visualizations with ggraph"
+author: "Giampaolo Montaletti"
+date: "`r Sys.Date()`"
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+    toc_depth: 3
+    code_folding: show
+    theme: flatly
+    highlight: tango
+vignette: >
+  %\VignetteIndexEntry{Static Network Visualizations with ggraph}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo = TRUE,
+  eval = TRUE,
+  warning = FALSE,
+  message = FALSE,
+  fig.width = 10,
+  fig.height = 7,
+  dpi = 150
+)
+
+# Load required packages
+library(vecshift)
+library(data.table)
+if (requireNamespace("ggraph", quietly = TRUE)) {
+  library(ggraph)
+}
+if (requireNamespace("tidygraph", quietly = TRUE)) {
+  library(tidygraph)
+}
+if (requireNamespace("ggplot2", quietly = TRUE)) {
+  library(ggplot2)
+}
+```
+
+# Introduction to ggraph for Employment Transitions
+
+This vignette demonstrates how to create publication-ready static network visualizations of employment transitions using the **ggraph** package. The ggraph package extends ggplot2's grammar of graphics to network data, enabling creation of sophisticated, customizable network diagrams perfect for analyzing employment patterns in academic publications, reports, and presentations.
+
+## What is ggraph?
+
+ggraph is an R package that creates static network visualizations using the grammar of graphics approach. Key features include:
+
+- **Grammar of Graphics**: Consistent with ggplot2 syntax and approach
+- **Multiple Layout Algorithms**: Force-directed, circular, hierarchical, tree, and more
+- **Full Customization**: Complete control over aesthetics using ggplot2 principles
+- **Publication Ready**: High-quality outputs suitable for academic publications
+- **Accessibility Support**: Built-in support for colorblind-friendly palettes and high contrast
+- **Reproducible**: Static visualizations that render consistently across environments
+
+## ggraph vs g6r: Choosing the Right Tool
+
+| Feature | ggraph (Static) | g6r (Interactive) |
+|---------|----------------|-------------------|
+| **Best for** | Publications, reports | Exploration, dashboards |
+| **Interactivity** | None | Full interactivity |
+| **Customization** | Complete control | Template-based |
+| **Performance** | Excellent for complex layouts | Better for large datasets |
+| **Learning curve** | ggplot2 knowledge helpful | JavaScript concepts helpful |
+| **Reproducibility** | Perfect | Good |
+| **Accessibility** | Full control over contrast/colors | Built-in accessibility modes |
+
+## Installation
+
+```{r install}
+# Install required packages
+# install.packages(c("ggraph", "tidygraph", "igraph", "ggplot2"))
+
+# Verify installation
+required_packages <- c("ggraph", "tidygraph", "igraph", "ggplot2")
+available_packages <- sapply(required_packages, function(pkg) {
+  requireNamespace(pkg, quietly = TRUE)
+})
+
+if (all(available_packages)) {
+  message("All required packages are available!")
+} else {
+  missing <- names(available_packages)[!available_packages]
+  message("Missing packages: ", paste(missing, collapse = ", "))
+}
+
+# Load vecshift
+library(vecshift)
+library(data.table)
+```
+
+# Basic Static Network Visualizations
+
+## Creating Sample Data
+
+Let's start with the same comprehensive employment data used in the g6r vignette:
+
+```{r sample-data}
+library(data.table)
+library(vecshift)
+
+# Create comprehensive sample data
+set.seed(42)
+employment_data <- data.table(
+  id = 1:15,
+  cf = rep(c("PERSON001", "PERSON002", "PERSON003"), each = 5),
+  INIZIO = as.Date(c(
+    "2023-01-01", "2023-04-01", "2023-08-01", "2023-12-01", "2024-03-01",  # Person 1
+    "2023-02-01", "2023-06-01", "2023-09-01", "2023-12-15", "2024-02-15",  # Person 2  
+    "2023-01-15", "2023-05-01", "2023-07-01", "2023-10-01", "2024-01-01"   # Person 3
+  )),
+  FINE = as.Date(c(
+    "2023-02-28", "2023-06-30", "2023-11-30", "2024-02-29", "2024-05-31",  # Person 1
+    "2023-04-30", "2023-08-31", "2023-11-30", "2024-02-14", "2024-05-31",  # Person 2
+    "2023-03-31", "2023-06-30", "2023-09-30", "2023-12-31", "2024-05-31"   # Person 3
+  )),
+  prior = c(1, 0, 1, 1, 1,   # Person 1: Full-time, Part-time, Full-time, Full-time, Full-time
+           1, 1, 0, 1, 0,    # Person 2: Full-time, Full-time, Part-time, Full-time, Part-time
+           0, 1, 1, 0, 1),   # Person 3: Part-time, Full-time, Full-time, Part-time, Full-time
+  company = c(
+    "TechCorp", "RetailChain", "Manufacturing", "TechCorp", "FinanceGroup",     # Person 1
+    "Healthcare", "TechCorp", "RetailChain", "Manufacturing", "Healthcare",     # Person 2
+    "RetailChain", "Healthcare", "TechCorp", "RetailChain", "FinanceGroup"      # Person 3
+  ),
+  salary = c(
+    50000, 25000, 55000, 60000, 65000,    # Person 1
+    65000, 55000, 28000, 58000, 70000,    # Person 2
+    22000, 70000, 62000, 26000, 72000     # Person 3
+  ),
+  region = c(
+    "North", "South", "North", "North", "East",      # Person 1
+    "East", "North", "South", "North", "East",       # Person 2  
+    "South", "East", "North", "South", "East"        # Person 3
+  )
+)
+
+print(employment_data)
+```
+
+## Processing Through vecshift Pipeline
+
+```{r process-data}
+# Process through the vecshift pipeline
+pipeline_result <- process_employment_pipeline(
+  original_data = employment_data,
+  merge_columns = c("company", "salary", "region"),
+  show_progress = TRUE
+)
+
+# Check the processed data
+print("Sample of processed data:")
+print(head(pipeline_result, 10))
+```
+
+## Analyzing Employment Transitions
+
+```{r analyze-transitions}
+# Analyze company transitions with comprehensive statistics
+company_transitions <- analyze_employment_transitions(
+  pipeline_result = pipeline_result,
+  transition_variable = "company",
+  statistics_variables = c("salary", "region"),
+  min_unemployment_duration = 1,
+  show_progress = TRUE
+)
+
+print("Company transitions:")
+print(company_transitions)
+
+# Also create regional transitions for comparison
+regional_transitions <- analyze_employment_transitions(
+  pipeline_result = pipeline_result,
+  transition_variable = "region",
+  min_unemployment_duration = 1
+)
+
+print("Regional transitions:")
+print(regional_transitions)
+```
+
+## Basic Network Plot
+
+```{r basic-network}
+# Load ggraph packages
+if (requireNamespace("ggraph", quietly = TRUE) && 
+    requireNamespace("tidygraph", quietly = TRUE) && 
+    requireNamespace("igraph", quietly = TRUE)) {
+  
+  library(ggraph)
+  library(tidygraph)
+  library(igraph)
+  
+  # Create basic network visualization using tidygraph and ggraph directly
+  # Convert transitions to tidygraph object
+  tg <- tbl_graph(
+    nodes = data.frame(name = unique(c(company_transitions$from, company_transitions$to))),
+    edges = company_transitions[, .(from, to, weight)],
+    directed = TRUE
+  )
+  
+  # Create the plot
+  basic_plot <- tg %>%
+    ggraph(layout = "fr") +  # Fruchterman-Reingold layout
+    geom_edge_link(aes(width = weight), 
+                   arrow = arrow(length = unit(3, "mm")), 
+                   alpha = 0.6, 
+                   color = "steelblue") +
+    geom_node_point(aes(size = centrality_degree()), 
+                    color = "darkblue", 
+                    alpha = 0.8) +
+    geom_node_text(aes(label = name), 
+                   repel = TRUE, 
+                   size = 3, 
+                   color = "black") +
+    scale_edge_width_continuous(range = c(0.5, 3), name = "Transitions") +
+    scale_size_continuous(range = c(3, 15), name = "Degree") +
+    theme_graph() +
+    labs(title = "Basic Employment Transitions Network",
+         subtitle = "Company-to-company transitions with Fruchterman-Reingold layout")
+  
+  print(basic_plot)
+  
+} else {
+  message("ggraph packages not available - install with: install.packages(c('ggraph', 'tidygraph', 'igraph'))")
+}
+```
+
+# Layout Algorithms and Customization
+
+## Exploring Different Layouts
+
+```{r layout-comparison, fig.height=10}
+if (requireNamespace("ggraph", quietly = TRUE)) {
+  
+  # Force-directed layout (organic, good for general networks)
+  fr_plot <- plot_transitions_network(
+    company_transitions,
+    layout = "fr",
+    node_color_var = "degree",
+    title = "Fruchterman-Reingold Layout",
+    subtitle = "Organic layout - nodes repel, connected nodes attract"
+  )
+  
+  # Kamada-Kawai layout (preserves distances, good for smaller networks)
+  kk_plot <- plot_transitions_network(
+    company_transitions,
+    layout = "kk", 
+    node_color_var = "degree",
+    title = "Kamada-Kawai Layout",
+    subtitle = "Distance-preserving layout - good for detailed analysis"
+  )
+  
+  # Circular layout (equal emphasis on all nodes)
+  circle_plot <- plot_transitions_network(
+    company_transitions,
+    layout = "circle",
+    node_color_var = "degree",
+    title = "Circular Layout",
+    subtitle = "Equal emphasis layout - good for comparing relationships"
+  )
+  
+  # Grid layout (systematic arrangement)
+  grid_plot <- plot_transitions_network(
+    company_transitions,
+    layout = "grid",
+    node_color_var = "degree",
+    title = "Grid Layout", 
+    subtitle = "Systematic arrangement - good for ordered data"
+  )
+  
+  # Display all layouts
+  print(fr_plot)
+  print(kk_plot)
+  print(circle_plot)
+  print(grid_plot)
+  
+}
+```
+
+## Advanced Customization Options
+
+```{r advanced-customization}
+if (requireNamespace("ggraph", quietly = TRUE)) {
+  
+  # Highly customized network with different node sizing and coloring
+  custom_plot <- plot_transitions_network(
+    transitions_data = company_transitions,
+    layout = "kk",
+    # Node customization
+    node_size_var = "betweenness",  # Size by betweenness centrality
+    node_color_var = "degree",      # Color by degree centrality
+    node_size_range = c(5, 20),     # Larger size range
+    node_alpha = 0.9,               # More opaque nodes
+    
+    # Edge customization
+    edge_width_var = "weight",      # Width by transition count
+    edge_width_range = c(1, 4),     # Wider edge range
+    edge_alpha = 0.7,               # More visible edges
+    show_edge_labels = TRUE,        # Show transition counts
+    
+    # Label customization
+    show_labels = TRUE,
+    label_size = 3.5,
+    label_repel = TRUE,
+    
+    # Aesthetic options
+    palette = "viridis",
+    accessibility_mode = FALSE,
+    
+    title = "Customized Employment Transitions Network",
+    subtitle = "Node size = betweenness centrality • Node color = degree centrality • Edge width = transition frequency"
+  )
+  
+  print(custom_plot)
+}
+```
+
+# Specialized Network Layouts
+
+## Circular Layouts for Flow Analysis
+
+```{r circular-layouts}
+if (requireNamespace("ggraph", quietly = TRUE)) {
+  
+  # Chord diagram style
+  chord_plot <- plot_transitions_circular(
+    transitions_data = company_transitions,
+    circular_type = "chord",
+    node_order = "frequency",  # Order by most connected
+    show_flow_direction = TRUE,
+    title = "Employment Transitions: Chord Diagram",
+    subtitle = "Curved edges show flow direction and intensity"
+  )
+  
+  # Arc diagram style  
+  arc_plot <- plot_transitions_circular(
+    transitions_data = company_transitions,
+    circular_type = "arc",
+    node_order = "alphabetical",
+    show_flow_direction = TRUE,
+    title = "Employment Transitions: Arc Diagram", 
+    subtitle = "Linear arrangement with arc connections"
+  )
+  
+  # Wheel diagram style
+  wheel_plot <- plot_transitions_circular(
+    transitions_data = company_transitions,
+    circular_type = "wheel",
+    edge_curve = 0.2,
+    title = "Employment Transitions: Wheel Diagram",
+    subtitle = "Circular arrangement with straight connections"
+  )
+  
+  print(chord_plot)
+  print(arc_plot)
+  print(wheel_plot)
+}
+```
+
+## Hierarchical Layouts for Career Progression
+
+```{r hierarchical-layouts}
+if (requireNamespace("ggraph", quietly = TRUE)) {
+  
+  # Sugiyama layout (good for directed hierarchies)
+  sugiyama_plot <- plot_transitions_hierarchical(
+    transitions_data = company_transitions,
+    hierarchy_type = "sugiyama",
+    layout_direction = "vertical",
+    show_levels = TRUE,
+    title = "Career Progression: Sugiyama Layout",
+    subtitle = "Hierarchical view showing employment advancement patterns"
+  )
+  
+  # Tree layout (natural hierarchy)
+  tree_plot <- plot_transitions_hierarchical(
+    transitions_data = company_transitions,
+    hierarchy_type = "tree",
+    layout_direction = "horizontal", 
+    show_edge_labels = TRUE,
+    title = "Career Progression: Tree Layout",
+    subtitle = "Tree structure showing branching career paths"
+  )
+  
+  print(sugiyama_plot)
+  print(tree_plot)
+}
+```
+
+# Heatmap Visualizations
+
+## Basic Transition Heatmaps
+
+```{r basic-heatmap}
+if (requireNamespace("ggplot2", quietly = TRUE)) {
+  
+  # Basic heatmap with counts
+  basic_heatmap <- plot_transitions_heatmap(
+    transitions_data = company_transitions,
+    cell_value = "weight",
+    title = "Employment Transition Frequency Heatmap",
+    subtitle = "Raw transition counts between companies"
+  )
+  
+  print(basic_heatmap)
+}
+```
+
+## Normalized and Advanced Heatmaps
+
+```{r advanced-heatmaps}
+if (requireNamespace("ggplot2", quietly = TRUE)) {
+  
+  # Row-normalized heatmap (transition probabilities)
+  prob_heatmap <- plot_transitions_heatmap(
+    transitions_data = company_transitions,
+    normalize = "row",
+    cell_value = "percentage", 
+    color_scale = "gradient",
+    title = "Employment Transition Probabilities",
+    subtitle = "Row-normalized: probability of transitioning from each company"
+  )
+  
+  # High contrast accessibility version
+  accessible_heatmap <- plot_transitions_heatmap(
+    transitions_data = company_transitions,
+    normalize = "total",
+    accessibility_mode = TRUE,
+    use_bw = TRUE,
+    text_color = "black",
+    text_size = 3.5,
+    title = "Accessible Employment Transitions Heatmap",
+    subtitle = "High contrast version with total normalization"
+  )
+  
+  print(prob_heatmap)
+  print(accessible_heatmap)
+}
+```
+
+# Accessibility and Best Practices
+
+## Colorblind-Friendly Visualizations
+
+```{r colorblind-friendly}
+if (requireNamespace("ggraph", quietly = TRUE)) {
+  
+  # Using Okabe-Ito colorblind-friendly palette
+  okabe_plot <- plot_transitions_network(
+    company_transitions,
+    layout = "fr",
+    palette = "okabe_ito",
+    node_size_var = "strength",
+    node_color_var = "degree",
+    edge_width_var = "weight",
+    show_labels = TRUE,
+    title = "Colorblind-Friendly Network Visualization",
+    subtitle = "Using Okabe-Ito palette optimized for all types of color vision"
+  )
+  
+  # Black and white version for maximum accessibility
+  bw_plot <- plot_transitions_network(
+    company_transitions,
+    layout = "circle", 
+    use_bw = TRUE,
+    accessibility_mode = TRUE,
+    node_size_var = "degree",
+    edge_width_var = "weight",
+    show_labels = TRUE,
+    label_size = 4,
+    title = "High Contrast Black & White Network",
+    subtitle = "Maximum accessibility with black and white theme"
+  )
+  
+  print(okabe_plot)
+  print(bw_plot)
+}
+```
+
+## Accessibility Assessment
+
+```{r accessibility-assessment}
+if (requireNamespace("ggraph", quietly = TRUE)) {
+  
+  # Generate comprehensive accessibility report
+  accessibility_report <- create_accessibility_report(
+    transitions_data = company_transitions,
+    layout = "fr",
+    palette = "viridis",
+    check_color_contrast = TRUE,
+    check_layout_complexity = TRUE
+  )
+  
+  print("Accessibility Assessment Results:")
+  cat("Overall Score:", accessibility_report$accessibility_percentage, "%\n")
+  cat("Assessment:", accessibility_report$overall_assessment, "\n\n")
+  
+  if (length(accessibility_report$issues) > 0) {
+    cat("Issues Identified:\n")
+    for (issue in accessibility_report$issues) {
+      cat("•", issue, "\n")
+    }
+    cat("\n")
+  }
+  
+  if (length(accessibility_report$recommendations) > 0) {
+    cat("Recommendations:\n")
+    for (rec in accessibility_report$recommendations) {
+      cat("•", rec, "\n")
+    }
+  }
+}
+```
+
+# Advanced Analysis and Network Metrics
+
+## Network Structure Analysis
+
+```{r network-analysis}
+if (requireNamespace("ggraph", quietly = TRUE)) {
+  
+  # Comprehensive network analysis
+  network_analysis <- analyze_transitions_network(
+    transitions_data = company_transitions,
+    min_edge_weight = 1,
+    compute_communities = TRUE
+  )
+  
+  print("Network Structure Analysis:")
+  print(network_analysis$network_summary)
+  
+  print("\nTop nodes by centrality:")
+  print("Degree centrality (most connected):")
+  print(head(network_analysis$centrality$degree$top_nodes, 3))
+  
+  print("Betweenness centrality (bridge nodes):")
+  print(head(network_analysis$centrality$betweenness$top_nodes, 3))
+  
+  if (!is.null(network_analysis$communities)) {
+    print(paste("\nCommunity structure: ", network_analysis$communities$n_communities, "communities detected"))
+    print("Community sizes:")
+    print(network_analysis$communities$size_distribution)
+  }
+}
+```
+
+## Comparative Visualizations
+
+```{r comparative-analysis}
+if (requireNamespace("ggraph", quietly = TRUE)) {
+  
+  # Compare different transition variables
+  
+  # Company transitions (what we've been using)
+  company_net <- plot_transitions_network(
+    company_transitions,
+    layout = "circle",
+    node_color_var = "degree",
+    title = "Company Transitions",
+    subtitle = "Movements between different companies"
+  )
+  
+  # Regional transitions
+  regional_net <- plot_transitions_network(
+    regional_transitions,
+    layout = "circle", 
+    node_color_var = "degree",
+    palette = "viridis",
+    title = "Regional Employment Transitions",
+    subtitle = "Geographic mobility patterns between regions"
+  )
+  
+  print(company_net)
+  print(regional_net)
+  
+  # Side-by-side heatmap comparison
+  company_heatmap <- plot_transitions_heatmap(
+    company_transitions,
+    normalize = "row",
+    cell_value = "percentage",
+    title = "Company Transition Probabilities"
+  )
+  
+  regional_heatmap <- plot_transitions_heatmap(
+    regional_transitions,
+    normalize = "row", 
+    cell_value = "percentage",
+    palette = "viridis",
+    title = "Regional Transition Probabilities"
+  )
+  
+  print(company_heatmap)
+  print(regional_heatmap)
+}
+```
+
+# Working with Different Data Formats
+
+## Matrix Input Format
+
+```{r matrix-input}
+if (requireNamespace("ggraph", quietly = TRUE)) {
+  
+  # Create transition matrix
+  transition_matrix <- analyze_employment_transitions(
+    pipeline_result = pipeline_result,
+    transition_variable = "company",
+    output_transition_matrix = TRUE
+  )
+  
+  print("Transition matrix:")
+  print(transition_matrix)
+  
+  # Visualize matrix directly
+  matrix_network <- plot_transitions_network(
+    transitions_data = transition_matrix,
+    input_format = "matrix",
+    layout = "circle",
+    node_color_var = "degree",
+    title = "Network from Transition Matrix",
+    subtitle = "Direct visualization from adjacency matrix format"
+  )
+  
+  matrix_heatmap <- plot_transitions_heatmap(
+    transitions_data = transition_matrix,
+    input_format = "matrix",
+    normalize = "none",
+    cell_value = "weight",
+    title = "Heatmap from Transition Matrix"
+  )
+  
+  print(matrix_network)
+  print(matrix_heatmap)
+}
+```
+
+# Integration with ggplot2 Ecosystem
+
+## Custom Themes and Styling
+
+```{r custom-styling}
+if (requireNamespace("ggraph", quietly = TRUE) && requireNamespace("ggplot2", quietly = TRUE)) {
+  
+  # Create network plot and customize with ggplot2 elements
+  base_plot <- plot_transitions_network(
+    company_transitions,
+    layout = "fr",
+    node_color_var = "degree",
+    palette = "viridis",
+    show_labels = TRUE
+  )
+  
+  # Add custom ggplot2 styling
+  custom_styled_plot <- base_plot +
+    ggplot2::theme(
+      plot.title = ggplot2::element_text(size = 16, face = "bold", hjust = 0.5),
+      plot.subtitle = ggplot2::element_text(size = 12, hjust = 0.5, color = "gray60"),
+      plot.background = ggplot2::element_rect(fill = "#f8f9fa", color = NA),
+      panel.background = ggplot2::element_rect(fill = "white", color = NA),
+      legend.position = "bottom",
+      legend.title = ggplot2::element_text(size = 11, face = "bold"),
+      plot.margin = ggplot2::margin(20, 20, 20, 20)
+    ) +
+    ggplot2::labs(
+      title = "Publication-Ready Employment Network",
+      subtitle = "Custom styled with ggplot2 theme elements",
+      caption = "Data source: vecshift employment pipeline | Visualization: ggraph + ggplot2"
+    )
+  
+  print(custom_styled_plot)
+}
+```
+
+## Combining Multiple Plots
+
+```{r multi-panel}
+if (requireNamespace("ggraph", quietly = TRUE) && requireNamespace("gridExtra", quietly = TRUE)) {
+  
+  # Create multiple related visualizations
+  
+  # Small network plot
+  small_network <- plot_transitions_network(
+    company_transitions,
+    layout = "circle",
+    node_color_var = "degree",
+    show_labels = TRUE,
+    label_size = 2.5,
+    title = "Network View"
+  ) + ggplot2::theme(plot.title = ggplot2::element_text(size = 12))
+  
+  # Small heatmap
+  small_heatmap <- plot_transitions_heatmap(
+    company_transitions,
+    cell_value = "weight",
+    text_size = 2.5,
+    title = "Matrix View"
+  ) + ggplot2::theme(plot.title = ggplot2::element_text(size = 12))
+  
+  # If gridExtra is available, combine plots
+  if (requireNamespace("gridExtra", quietly = TRUE)) {
+    combined_plot <- gridExtra::grid.arrange(small_network, small_heatmap, ncol = 2,
+                                           top = "Employment Transitions: Network and Matrix Views")
+    print(combined_plot)
+  } else {
+    # Show plots separately if gridExtra not available
+    print(small_network)
+    print(small_heatmap)
+  }
+}
+```
+
+# Performance and Large Dataset Considerations
+
+## Working with Larger Datasets
+
+```{r large-dataset, fig.height=8}
+if (requireNamespace("ggraph", quietly = TRUE)) {
+  
+  # Create a larger synthetic dataset
+  large_employment_data <- create_sample_employment_data(
+    n_people = 100,
+    n_periods = 6,
+    date_range = c("2022-01-01", "2024-12-31"),
+    include_overlaps = TRUE,
+    include_gaps = TRUE,
+    seed = 456
+  )
+  
+  # Add company information to the larger dataset
+  companies <- c("TechCorp", "RetailChain", "Manufacturing", "Healthcare", 
+                 "FinanceGroup", "Education", "Government", "Consulting",
+                 "StartupA", "StartupB")
+  large_employment_data[, company := sample(companies, nrow(large_employment_data), replace = TRUE)]
+  
+  # Process larger dataset through pipeline with company merging
+  large_pipeline_result <- process_employment_pipeline(
+    large_employment_data,
+    merge_columns = "company",
+    classify_status = TRUE
+  )
+  
+  # Check what columns are available after processing
+  print("Available columns in processed data:")
+  print(colnames(large_pipeline_result))
+  
+  # Analyze transitions using company
+  large_transitions <- analyze_employment_transitions(
+    large_pipeline_result,
+    transition_variable = "company",  # Company transitions
+    min_unemployment_duration = 7  # Filter to significant gaps
+  )
+  
+  print(paste("Large dataset:", nrow(large_transitions), "transition patterns"))
+  
+  # Visualize with filtering for clarity
+  large_network <- plot_transitions_network(
+    large_transitions,
+    layout = "fr",
+    min_edge_weight = 2,  # Filter to frequent transitions
+    node_size_var = "strength",
+    node_color_var = "degree",
+    edge_width_var = "weight",
+    palette = "viridis",
+    title = "Large Company Network",
+    subtitle = paste("Company transitions with ≥2 occurrences •", 
+                     sum(large_transitions$weight >= 2), "patterns shown")
+  )
+  
+  print(large_network)
+  
+  # Performance-optimized heatmap
+  large_heatmap <- plot_transitions_heatmap(
+    large_transitions,
+    normalize = "row",
+    cell_value = "none",  # Don't show text for clarity
+    title = "Large Dataset Transition Probabilities",
+    subtitle = "Color-only heatmap for better performance with many states"
+  )
+  
+  print(large_heatmap)
+}
+```
+
+# Export and Production Workflow
+
+## High-Quality Export
+
+```{r export-workflow}
+if (requireNamespace("ggraph", quietly = TRUE)) {
+  
+  # Create publication-quality plot
+  publication_plot <- plot_transitions_network(
+    company_transitions,
+    layout = "kk",
+    node_size_var = "betweenness",
+    node_color_var = "degree", 
+    edge_width_var = "weight",
+    palette = "okabe_ito",
+    show_labels = TRUE,
+    label_size = 3,
+    accessibility_mode = FALSE,
+    title = "Employment Transition Networks",
+    subtitle = "Node size: betweenness centrality • Node color: degree centrality • Edge width: transition frequency"
+  ) +
+    ggplot2::theme(
+      text = ggplot2::element_text(family = "Arial"),  # Use common font
+      plot.title = ggplot2::element_text(size = 14, face = "bold"),
+      plot.subtitle = ggplot2::element_text(size = 11),
+      plot.caption = ggplot2::element_text(size = 9, color = "gray60")
+    ) +
+    ggplot2::labs(
+      caption = "Data: vecshift employment analysis | Visualization: ggraph"
+    )
+  
+  print(publication_plot)
+  
+  # Export instructions (commented out to avoid creating files)
+  # High-resolution PNG for presentations
+  # ggplot2::ggsave("employment_network.png", publication_plot, 
+  #                width = 12, height = 8, dpi = 300, bg = "white")
+  
+  # Vector PDF for publications  
+  # ggplot2::ggsave("employment_network.pdf", publication_plot,
+  #                width = 12, height = 8, device = "pdf")
+  
+  # SVG for web use
+  # ggplot2::ggsave("employment_network.svg", publication_plot,
+  #                width = 12, height = 8, device = "svg")
+  
+  message("Export ready! Use ggplot2::ggsave() to save in desired format.")
+}
+```
+
+# Best Practices and Guidelines
+
+## Layout Selection Guide
+
+When choosing layouts for employment transition networks:
+
+### **Force-Directed Layouts** (`layout = "fr"`, `"kk"`)
+- **Best for**: General exploration, organic clustering
+- **Pros**: Natural groupings, good for medium networks
+- **Cons**: Non-deterministic, can be cluttered with many nodes
+- **Use when**: Exploring overall structure, identifying communities
+
+### **Circular Layouts** (`layout = "circle"` or `circular_type = "chord"`)
+- **Best for**: Comparing all relationships equally
+- **Pros**: Clear connections, good for flow analysis
+- **Cons**: Can be crowded with many nodes
+- **Use when**: Analyzing flow patterns, comparing transition volumes
+
+### **Hierarchical Layouts** (`hierarchy_type = "sugiyama"`, `"tree"`)
+- **Best for**: Career progression, directed flows
+- **Pros**: Shows direction clearly, good for temporal data
+- **Cons**: May not work well with cyclic patterns
+- **Use when**: Analyzing career advancement, skill progression
+
+### **Heatmaps** (`plot_transitions_heatmap()`)
+- **Best for**: Precise comparison of transition rates
+- **Pros**: Exact values visible, works with many categories
+- **Cons**: Less intuitive than network views
+- **Use when**: Need exact probabilities, many employment states
+
+## Color and Accessibility Guidelines
+
+1. **Always test colorblind accessibility**:
+   - Use `palette = "okabe_ito"` or `"viridis"`
+   - Test with accessibility_mode = TRUE
+   - Provide redundant encoding (size + color)
+
+2. **Ensure sufficient contrast**:
+   - Use `create_accessibility_report()` to check
+   - Consider `use_bw = TRUE` for maximum accessibility
+   - Test with high contrast system settings
+
+3. **Label appropriately**:
+   - Always include informative titles and subtitles
+   - Use `show_labels = TRUE` for smaller networks
+   - Consider `label_repel = TRUE` to avoid overlaps
+
+## Performance Optimization
+
+1. **Filter appropriately**:
+   - Use `min_edge_weight` to focus on significant transitions
+   - Consider `min_unemployment_duration` in the analysis phase
+
+2. **Choose layouts wisely**:
+   - Force-directed layouts are slower for large networks
+   - Circular and grid layouts are faster
+   - Heatmaps scale better than network plots
+
+3. **Optimize aesthetics**:
+   - Use `cell_value = "none"` in heatmaps for better performance
+   - Reduce `node_size_range` and `edge_width_range` for simpler plots
+   - Consider `show_edge_labels = FALSE` for cleaner appearance
+
+# Troubleshooting Common Issues
+
+## Package Installation
+
+```{r troubleshooting}
+# Check package availability
+check_ggraph_installation <- function() {
+  packages <- c("ggraph", "tidygraph", "igraph", "ggplot2")
+  installed <- sapply(packages, requireNamespace, quietly = TRUE)
+  
+  if (all(installed)) {
+    message("✓ All ggraph packages are available")
+    return(TRUE)
+  } else {
+    missing <- names(installed)[!installed]
+    message("✗ Missing packages: ", paste(missing, collapse = ", "))
+    message("Install with: install.packages(c('", paste(missing, collapse = "', '"), "'))")
+    return(FALSE)
+  }
+}
+
+check_ggraph_installation()
+```
+
+## Common Error Solutions
+
+### Empty or Error Plots
+```{r troubleshooting-empty}
+# Function to diagnose transition data issues
+diagnose_transitions <- function(transitions_data) {
+  if (is.matrix(transitions_data)) {
+    total <- sum(transitions_data)
+    message("Matrix format: ", total, " total transitions")
+    if (total == 0) {
+      message("✗ Empty matrix - check your analysis parameters")
+    }
+  } else if (is.data.frame(transitions_data)) {
+    message("Data frame format: ", nrow(transitions_data), " rows")
+    if (nrow(transitions_data) == 0) {
+      message("✗ No transition patterns found")
+      message("Try reducing min_unemployment_duration or min_edge_weight")
+    } else {
+      message("✓ Data looks good: ", sum(transitions_data$weight), " total transitions")
+    }
+  }
+}
+
+# Test with our data
+diagnose_transitions(company_transitions)
+```
+
+### Layout Issues
+```{r troubleshooting-layout}
+# Function to suggest appropriate layouts based on data size
+suggest_layout <- function(transitions_data) {
+  if (is.matrix(transitions_data)) {
+    n_nodes <- nrow(transitions_data)
+  } else {
+    n_nodes <- length(unique(c(transitions_data$from, transitions_data$to)))
+  }
+  
+  if (n_nodes <= 10) {
+    message("Small network (", n_nodes, " nodes): Any layout works well")
+    message("Recommended: 'kk' or 'circle'")
+  } else if (n_nodes <= 25) {
+    message("Medium network (", n_nodes, " nodes): Most layouts work")
+    message("Recommended: 'fr' or 'circle'")
+  } else {
+    message("Large network (", n_nodes, " nodes): Choose carefully")
+    message("Recommended: 'circle' or heatmap, avoid force-directed")
+    message("Consider filtering with min_edge_weight parameter")
+  }
+}
+
+suggest_layout(company_transitions)
+```
+
+# Conclusion
+
+The ggraph package provides powerful capabilities for creating publication-ready static visualizations of employment transitions. Key advantages include:
+
+- **Grammar of Graphics**: Consistent with ggplot2 approach for easy learning
+- **Complete Control**: Full customization of every visual element
+- **Publication Quality**: High-resolution outputs suitable for academic papers
+- **Accessibility Support**: Built-in colorblind-friendly palettes and high contrast options
+- **Reproducibility**: Consistent output across different environments
+- **Performance**: Excellent handling of complex layouts and large networks
+
+## When to Use ggraph vs g6r
+
+**Choose ggraph (static) when you need**:
+- Publication-ready figures for papers or reports
+- Complete control over visual aesthetics  
+- Consistent, reproducible visualizations
+- High-resolution outputs for print media
+- Integration with existing ggplot2 workflows
+
+**Choose g6r (interactive) when you need**:
+- Data exploration and discovery
+- Interactive dashboards and web applications
+- Real-time filtering and selection capabilities
+- User engagement through interactivity
+- Large datasets requiring dynamic filtering
+
+## Integration with vecshift Pipeline
+
+The combination of vecshift's employment data processing with ggraph's visualization capabilities creates a complete analytical workflow:
+
+1. **Data Processing**: vecshift handles complex temporal employment data
+2. **Transition Analysis**: Built-in functions compute transition patterns
+3. **Static Visualization**: ggraph creates publication-ready network diagrams
+4. **Interactive Exploration**: g6r enables dynamic data exploration
+
+This comprehensive toolkit supports the full spectrum of employment transition analysis, from initial exploration to final publication.
+
+## Next Steps
+
+- Explore advanced ggraph layouts and customizations
+- Integrate with other tidyverse packages for data manipulation
+- Create template workflows for common employment analysis scenarios
+- Develop custom themes for organizational branding
+- Combine static and interactive approaches in comprehensive reports
+
+For more details on ggraph capabilities, see the [ggraph documentation](https://ggraph.data-imaginist.com/) and the [tidygraph package](https://tidygraph.data-imaginist.com/) for advanced graph data manipulation.

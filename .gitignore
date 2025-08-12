@@ -30,3 +30,5 @@ renv/staging/
 # OS generated files
 *.log
 *~
+/doc/
+/Meta/

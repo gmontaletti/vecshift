@@ -680,4 +680,77 @@ The pattern system is designed to work with or without the ggpattern package:
 - **Fallback Strategy**: Solid borders and alpha transparency provide distinction when patterns aren't available
 - **Future Enhancement**: Pattern rendering may be expanded in future versions
 
+# Network Visualizations with Vecshift Themes
+
+The vecshift theme system integrates seamlessly with the package's network visualization functions, providing consistent styling across both traditional plots and network diagrams.
+
+## ggraph Integration
+
+The vecshift color palettes and accessibility features work with both static (ggraph) and interactive (g6r) network visualizations:
+
+```{r network-integration, eval = FALSE}
+# Example using vecshift themes with network visualizations
+# (Not run due to data requirements)
+
+# # Process employment data
+# pipeline_result <- process_employment_pipeline(employment_data, merge_columns = "company")
+# transitions <- analyze_employment_transitions(pipeline_result, transition_variable = "company")
+# 
+# # Create network visualization with vecshift theme
+# network_plot <- plot_transitions_network(
+#   transitions_data = transitions,
+#   layout = "fr",
+#   palette = "employment",  # Uses vecshift employment colors
+#   accessibility_mode = FALSE,
+#   title = "Employment Transition Network"
+# )
+# 
+# # The network plot automatically uses vecshift theme elements
+# print(network_plot)
+```
+
+## Network Accessibility Features
+
+Network visualizations support the same accessibility principles as traditional plots:
+
+```{r network-accessibility, eval = FALSE}
+# High-contrast network for accessibility
+# accessible_network <- plot_transitions_network(
+#   transitions,
+#   layout = "circle",
+#   palette = "viridis",        # Colorblind-friendly
+#   accessibility_mode = TRUE,   # High contrast mode
+#   use_bw = TRUE,              # Black and white version
+#   show_labels = TRUE          # Clear node labels
+# )
+# 
+# # Create accessibility report for network visualizations
+# accessibility_report <- create_accessibility_report(
+#   transitions_data = transitions,
+#   layout = "fr",
+#   palette = "viridis"
+# )
+```
+
+## Available Network Visualization Functions
+
+The vecshift package provides four main types of network visualizations, all of which use the theme system:
+
+1. **`plot_transitions_network()`** - General network layouts (force-directed, circular, grid)
+2. **`plot_transitions_heatmap()`** - Matrix heatmaps with vecshift color palettes  
+3. **`plot_transitions_circular()`** - Specialized circular layouts (chord, arc, wheel)
+4. **`plot_transitions_hierarchical()`** - Tree and hierarchy layouts for career progression
+
+All functions support:
+- Vecshift color palettes (`palette = "employment"`, `"main"`, `"viridis"`, etc.)
+- Accessibility modes (`accessibility_mode = TRUE`, `use_bw = TRUE`)
+- Consistent theme styling with traditional ggplot2 charts
+
+## Cross-Reference with Other Vignettes
+
+For detailed examples of network visualizations:
+- See **"Static Network Visualizations with ggraph"** for comprehensive ggraph examples
+- See **"Interactive Employment Transitions with g6r"** for interactive network visualizations
+- See **"Status Classification"** for employment status analysis workflows
+
 For more information about the vecshift package and its analytical capabilities, see the other package vignettes and documentation.

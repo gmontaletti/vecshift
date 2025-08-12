@@ -1,7 +1,7 @@
 Package: vecshift
 Type: Package
 Title: Temporal Analysis of Employment Data with Event-Based Processing
-Version: 0.4.0
+Version: 0.5.0
 Authors@R: c(
     person(
       "Jane", "Doe",
@@ -24,14 +24,18 @@ Suggests:
     progress,
     ggplot2 (>= 3.3.0),
     ggraph (>= 2.0.0),
+    tidygraph (>= 1.2.0),
+    igraph (>= 1.2.0),
     scales,
     g6R,
     viridis,
+    ggrepel,
+    stringr,
+    rlang,
     shiny,
     shinydashboard,
     DT,
-    plotly,
-    igraph
+    plotly
 VignetteBuilder: knitr
 Config/testthat/edition: 3
 RoxygenNote: 7.3.2

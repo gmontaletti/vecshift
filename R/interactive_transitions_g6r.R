@@ -406,7 +406,7 @@ plot_interactive_transitions <- function(transitions_data,
   }
   
   if (enable_drag) {
-    behaviors <- append(behaviors, list(g6R::drag_canvas(), g6R::drag_node()))
+    behaviors <- append(behaviors, list(g6R::drag_canvas(), g6R::drag_element()))
   }
   
   if (enable_select) {
@@ -425,7 +425,7 @@ plot_interactive_transitions <- function(transitions_data,
   }
   
   if (show_tooltip) {
-    plugins <- append(plugins, list(g6R::tooltip()))
+    plugins <- append(plugins, list(g6R::tooltips()))
   }
   
   if (edge_bundling) {
