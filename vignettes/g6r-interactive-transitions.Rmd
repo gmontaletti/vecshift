@@ -148,10 +148,7 @@ print(transition_matrix)
 ```{r basic-g6r}
 library(g6R)
 
-# Load the g6r integration functions
-source("R/interactive_transitions_g6r.R")
-
-# Create basic interactive visualization
+# Create basic interactive visualization using package function
 basic_plot <- plot_interactive_transitions(
   transitions_data = company_transitions,
   layout = "force",
@@ -626,7 +623,7 @@ optimized_transitions <- company_transitions[weight >= 2]  # Focus on frequent t
 
 # 2. Using simpler layouts
 simple_plot <- plot_interactive_transitions(
-  optimized_transitions,
+  transitions_data = optimized_transitions,
   layout = "circular",  # Faster than force-directed
   show_minimap = FALSE, # Reduces rendering load
   edge_bundling = FALSE # Disable for better performance
