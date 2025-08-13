@@ -19,6 +19,8 @@ plot_transitions_circular(
   palette = "viridis",
   use_bw = FALSE,
   accessibility_mode = FALSE,
+  use_consolidated_periods = TRUE,
+  consolidation_type = "both",
   show_percentages = FALSE,
   label_distance = 1.1,
   title = NULL,
@@ -55,6 +57,10 @@ plot_transitions_circular(
 
 \item{accessibility_mode}{Logical. Enable accessibility mode (default: FALSE)}
 
+\item{use_consolidated_periods}{Logical. Apply consolidation for cleaner circular layout (default: TRUE)}
+
+\item{consolidation_type}{Character. Type of consolidation (default: "both")}
+
 \item{show_percentages}{Logical. Show edge percentages instead of raw counts (default: FALSE)}
 
 \item{label_distance}{Numeric. Distance of labels from circle (default: 1.1)}
@@ -73,13 +79,15 @@ Particularly effective for showing flow patterns and state relationships.
 }
 \examples{
 \dontrun{
-# Basic circular chord diagram
-plot_transitions_circular(transitions)
+# Basic consolidated circular chord diagram
+plot_transitions_circular(pipeline_result)
 
-# Arc diagram with frequency-based ordering
-plot_transitions_circular(transitions, circular_type = "arc", node_order = "frequency")
+# Arc diagram with frequency-based ordering, overlapping consolidation only
+plot_transitions_circular(pipeline_result, circular_type = "arc", node_order = "frequency",
+                         consolidation_type = "overlapping")
 
-# Wheel layout with percentages
-plot_transitions_circular(transitions, circular_type = "wheel", show_percentages = TRUE)
+# Wheel layout with percentages, no consolidation
+plot_transitions_circular(pipeline_result, circular_type = "wheel", show_percentages = TRUE,
+                         use_consolidated_periods = FALSE)
 }
 }

@@ -10,7 +10,10 @@ analyze_transitions_network(
   min_edge_weight = 1,
   directed = TRUE,
   compute_communities = TRUE,
-  return_tidygraph = FALSE
+  return_tidygraph = FALSE,
+  use_consolidated_periods = TRUE,
+  consolidation_type = "both",
+  transition_variable = "prior"
 )
 }
 \arguments{
@@ -36,11 +39,16 @@ employment flow patterns and identifying key states.
 }
 \examples{
 \dontrun{
-# Analyze network structure
-network_analysis <- analyze_transitions_network(transitions)
+# Analyze consolidated network structure (default)
+network_analysis <- analyze_transitions_network(pipeline_result)
 print(network_analysis)
 
-# Get tidygraph object for further analysis
-tg <- analyze_transitions_network(transitions, return_tidygraph = TRUE)
+# Get tidygraph object for further analysis with overlapping consolidation only
+tg <- analyze_transitions_network(pipeline_result, return_tidygraph = TRUE,
+                                 consolidation_type = "overlapping")
+
+# Analyze pre-computed transitions without consolidation
+transitions <- analyze_employment_transitions(pipeline_result, use_consolidated_periods = FALSE)
+network_analysis_raw <- analyze_transitions_network(transitions, use_consolidated_periods = FALSE)
 }
 }

@@ -10,11 +10,13 @@ create_accessibility_report(
   palette = "viridis",
   check_color_contrast = TRUE,
   check_layout_complexity = TRUE,
-  return_suggestions = TRUE
+  return_suggestions = TRUE,
+  use_consolidated_periods = TRUE,
+  consolidation_type = "both"
 )
 }
 \arguments{
-\item{transitions_data}{Data.table with transitions data}
+\item{transitions_data}{Data.table with transitions data or pipeline data}
 
 \item{layout}{Layout algorithm to test}
 
@@ -25,6 +27,10 @@ create_accessibility_report(
 \item{check_layout_complexity}{Logical. Check layout complexity (default: TRUE)}
 
 \item{return_suggestions}{Logical. Return improvement suggestions (default: TRUE)}
+
+\item{use_consolidated_periods}{Logical. Test consolidation benefits (default: TRUE)}
+
+\item{consolidation_type}{Character. Type of consolidation to test (default: "both")}
 }
 \value{
 List with accessibility assessment and recommendations
@@ -32,14 +38,19 @@ List with accessibility assessment and recommendations
 \description{
 Generates a comprehensive accessibility report for network visualizations,
 checking color contrast, layout readability, and providing recommendations
-for improving accessibility.
+for improving accessibility. Now includes analysis of consolidation benefits
+for cleaner, more accessible visualizations.
 }
 \examples{
 \dontrun{
-# Generate accessibility report
-accessibility_report <- create_accessibility_report(transitions, 
+# Generate accessibility report with consolidation assessment
+accessibility_report <- create_accessibility_report(pipeline_result, 
                                                     layout = "fr", 
                                                     palette = "viridis")
 print(accessibility_report)
+
+# Test specific consolidation type
+report_overlapping <- create_accessibility_report(pipeline_result,
+                                                  consolidation_type = "overlapping")
 }
 }

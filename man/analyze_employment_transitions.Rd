@@ -10,14 +10,18 @@ analyze_employment_transitions(
   statistics_variables = NULL,
   min_unemployment_duration = 1,
   max_unemployment_duration = NULL,
+  use_consolidated_periods = TRUE,
+  consolidation_type = "both",
   output_transition_matrix = FALSE,
+  eval_chain = "last",
   show_progress = TRUE
 )
 }
 \arguments{
 \item{pipeline_result}{Output from process_employment_pipeline(). Must be a data.table
 with columns: cf (person identifier), arco (employment overlap count), 
-inizio/fine (period dates), and durata (period duration).}
+inizio/fine (period dates), durata (period duration), and optionally over_id
+(overlap identifier, required if use_consolidated_periods = TRUE).}
 
 \item{transition_variable}{Character string specifying the variable to use for 
 transition analysis (from/to values). If NULL (default), uses the first 
@@ -35,11 +39,39 @@ to consider a transition. If NULL (default), no upper limit is applied. When not
 NULL, only transitions with unemployment duration between min_unemployment_duration 
 and max_unemployment_duration (inclusive) are included.}
 
+\item{use_consolidated_periods}{Logical. If TRUE (default), first consolidate
+employment periods using merge_consecutive_employment() before analyzing transitions.
+This provides more accurate transition analysis by treating overlapping and/or
+consecutive employment periods as single episodes. Requires over_id column from
+vecshift() output.}
+
+\item{consolidation_type}{Character string specifying consolidation approach when
+use_consolidated_periods = TRUE (default: "both"). Options:
+\itemize{
+  \item{\code{"both"}}: First consolidate overlapping periods (same over_id > 0),
+    then merge consecutive periods. Provides complete employment history consolidation.
+  \item{\code{"overlapping"}}: Only consolidate segments with same over_id > 0.
+    Merges simultaneous/overlapping contracts into single periods.
+  \item{\code{"consecutive"}}: Only merge periods that are contiguous in time,
+    regardless of over_id. Traditional consecutive period merging.
+  \item{\code{"none"}}: No consolidation (equivalent to use_consolidated_periods = FALSE).
+}}
+
 \item{output_transition_matrix}{Logical. If TRUE, returns a square transition matrix 
 instead of the normal aggregated data.table. Rows represent "from" states, columns 
 represent "to" states, and values are transition weights (counts). Non-populated 
 cells contain zeros. Matrix uses unique values from the transition_variable as 
 row/column names (default: FALSE).}
+
+\item{eval_chain}{Character string specifying how to handle chained values in 
+from/to columns that contain "->" separators (default: "last"). Options:
+\itemize{
+  \item{\code{"last"}}: Extract the last value from chains like "val1->val2->val3" (returns "val3")
+  \item{\code{"first"}}: Extract the first value from chains (returns "val1")
+  \item{\code{"none"}}: Leave chain values unchanged (returns "val1->val2->val3")
+}
+When there is only one value (no "->"), the original value is always used regardless 
+of this parameter.}
 
 \item{show_progress}{Logical. If TRUE (default), displays a progress bar showing
 the current processing step, percentage completion, and estimated time remaining.
@@ -49,8 +81,8 @@ simple messages if not available.}
 \value{
 When \code{output_transition_matrix} is FALSE (default), returns a data.table with columns:
   \itemize{
-    \item{\code{from}}: Value before transition (from transition_variable)
-    \item{\code{to}}: Value after transition (from transition_variable)
+    \item{\code{from}}: Value before transition (from transition_variable, processed according to eval_chain parameter)
+    \item{\code{to}}: Value after transition (from transition_variable, processed according to eval_chain parameter)
     \item{\code{weight}}: Number of transitions
     \item{\code{transition_duration}}: Mean unemployment duration
     \item{\code{[variable]_from_median/[variable]_from_mode}}: For each statistics variable, 
@@ -72,12 +104,35 @@ Identifies transitions between employment periods that are separated by unemploy
 periods and provides transition pattern analysis. The function allows specification
 of which variable to use for transition analysis and which variables to compute
 statistics for.
+
+With the \code{use_consolidated_periods} option, the function can first consolidate
+overlapping and/or consecutive employment periods using the \code{over_id} column
+from vecshift() output, providing more accurate transition analysis by treating
+continuous employment episodes as single periods rather than administrative splits.
 }
 \details{
 A transition occurs when there are consecutive employment periods (arco >= 1) 
 separated by an unemployment period (arco = 0) of at least the minimum duration.
 The function analyzes patterns in the "from" → "to" transitions for one specified
 transition variable, while computing summary statistics for additional variables.
+
+The \code{eval_chain} parameter provides flexible handling of chained values that 
+contain "->" separators, allowing extraction of the first value, last value, or 
+preservation of the complete chain for complex transition analysis scenarios.
+
+When \code{use_consolidated_periods = TRUE}, the function first applies 
+\code{merge_consecutive_employment()} to consolidate employment periods based on
+the \code{over_id} column. This provides several key benefits:
+\itemize{
+  \item{\strong{Accurate Transitions}}: Analyzes transitions between true employment
+    episodes rather than administrative contract splits
+  \item{\strong{Better Unemployment Duration}}: More precise calculation of time
+    between actual employment periods
+  \item{\strong{Cleaner Patterns}}: Reduces noise from overlapping contracts that
+    represent the same underlying employment relationship
+  \item{\strong{Career Progression}}: Better identification of genuine career moves
+    vs. contract renewals or administrative changes
+}
 
 For each transition, the function provides:
 \itemize{
@@ -112,13 +167,24 @@ result <- process_employment_pipeline(
   merge_columns = c("company", "salary")
 )
 
-# Analyze company transitions with salary statistics
+# Analyze company transitions with salary statistics (using consolidated periods)
 transitions <- analyze_employment_transitions(
   pipeline_result = result,
   transition_variable = "company",
-  statistics_variables = c("salary")
+  statistics_variables = c("salary"),
+  use_consolidated_periods = TRUE,
+  consolidation_type = "both"
 )
 print(transitions)
+
+# Compare with original (non-consolidated) analysis
+transitions_original <- analyze_employment_transitions(
+  pipeline_result = result,
+  transition_variable = "company",
+  statistics_variables = c("salary"),
+  use_consolidated_periods = FALSE
+)
+print(transitions_original)
 
 # Analyze salary transitions with company statistics and minimum unemployment duration
 transitions_salary <- analyze_employment_transitions(
@@ -144,6 +210,38 @@ transition_matrix <- analyze_employment_transitions(
   output_transition_matrix = TRUE
 )
 print(transition_matrix)
+
+# Example using eval_chain parameter with chained values
+# Suppose your data has chained company transitions like "CompanyA->CompanyB->CompanyC"
+sample_data_chains <- copy(result)
+sample_data_chains[, company := ifelse(company == "CompanyA", "StartupA->CompanyA->MegaCorp", company)]
+
+# Extract last company in chain (default behavior)
+transitions_last <- analyze_employment_transitions(
+  pipeline_result = sample_data_chains,
+  transition_variable = "company",
+  eval_chain = "last"  # "StartupA->CompanyA->MegaCorp" becomes "MegaCorp"
+)
+
+# Extract first company in chain
+transitions_first <- analyze_employment_transitions(
+  pipeline_result = sample_data_chains,
+  transition_variable = "company",
+  eval_chain = "first"  # "StartupA->CompanyA->MegaCorp" becomes "StartupA"
+)
+
+# Keep full chain unchanged
+transitions_full <- analyze_employment_transitions(
+  pipeline_result = sample_data_chains,
+  transition_variable = "company",
+  eval_chain = "none"  # Keeps "StartupA->CompanyA->MegaCorp" as is
+)
+
+# Example showing impact of consolidation:
+# Without consolidation: May show transitions between overlapping contracts
+# CompanyA -> CompanyA (due to contract renewals during same employment episode)
+# With consolidation: Shows true transitions between different employers
+# CompanyA -> CompanyB (actual career moves)
 
 # Output will include columns like:
 # from, to (salary values for transitions)

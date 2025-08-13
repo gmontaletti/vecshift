@@ -24,13 +24,17 @@ plot_transitions_network(
   directed = TRUE,
   show_edge_labels = FALSE,
   accessibility_mode = FALSE,
+  use_consolidated_periods = TRUE,
+  consolidation_type = "both",
+  show_consolidation_comparison = FALSE,
   title = NULL,
   subtitle = NULL
 )
 }
 \arguments{
 \item{transitions_data}{Data.table output from analyze_employment_transitions(), 
-or a transition matrix when input_format = "matrix"}
+or a transition matrix when input_format = "matrix". When using consolidated 
+transitions (use_consolidated_periods = TRUE), provides cleaner network structure.}
 
 \item{input_format}{Character. Format of input data: "data.table" or "matrix" (default: "data.table")}
 
@@ -82,6 +86,13 @@ or a transition matrix when input_format = "matrix"}
 
 \item{accessibility_mode}{Logical. Enable high contrast accessibility mode (default: FALSE)}
 
+\item{use_consolidated_periods}{Logical. Apply consolidation for cleaner heatmap (default: TRUE)}
+
+\item{consolidation_type}{Character. Type of consolidation (default: "both")}
+
+\item{show_consolidation_comparison}{Logical. If TRUE, create side-by-side comparison 
+of raw vs consolidated transitions (default: FALSE). Only works with pipeline data input.}
+
 \item{title}{Character. Plot title (default: auto-generated)}
 
 \item{subtitle}{Character. Plot subtitle (default: auto-generated)}
@@ -92,7 +103,8 @@ A ggplot2 object showing the network visualization
 \description{
 Creates network visualizations of employment transitions using ggraph and tidygraph.
 Supports multiple layout algorithms, accessibility features, and customization options.
-Designed to work with output from analyze_employment_transitions().
+Designed to work with output from analyze_employment_transitions(). Now includes
+support for consolidated transitions using over_id grouping for cleaner visualizations.
 }
 \examples{
 \dontrun{
@@ -102,20 +114,25 @@ library(tidygraph)
 
 # Create sample data
 sample_data <- create_sample_employment_data(n_people = 50, n_periods = 4)
-pipeline_result <- process_employment_pipeline(sample_data)
-transitions <- analyze_employment_transitions(pipeline_result, transition_variable = "prior")
+pipeline_result <- vecshift(sample_data)  # Creates over_id column
 
-# Basic network plot
-plot_transitions_network(transitions)
+# Basic consolidated network plot (default)
+plot_transitions_network(pipeline_result, transition_variable = "prior")
+
+# Compare raw vs consolidated transitions
+plot_transitions_network(pipeline_result, show_consolidation_comparison = TRUE)
+
+# Use only overlapping period consolidation
+plot_transitions_network(pipeline_result, consolidation_type = "overlapping")
 
 # Kamada-Kawai layout with degree-based node sizing
-plot_transitions_network(transitions, layout = "kk", node_size_var = "degree")
+plot_transitions_network(pipeline_result, layout = "kk", node_size_var = "degree")
 
 # Accessibility mode with high contrast
-plot_transitions_network(transitions, accessibility_mode = TRUE, use_bw = TRUE)
+plot_transitions_network(pipeline_result, accessibility_mode = TRUE, use_bw = TRUE)
 
-# Using transition matrix input
-trans_matrix <- analyze_employment_transitions(pipeline_result, output_transition_matrix = TRUE)
-plot_transitions_network(trans_matrix, input_format = "matrix")
+# Using pre-computed transitions (no consolidation applied)
+transitions <- analyze_employment_transitions(pipeline_result, transition_variable = "prior")
+plot_transitions_network(transitions, use_consolidated_periods = FALSE)
 }
 }

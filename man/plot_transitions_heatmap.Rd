@@ -17,6 +17,8 @@ plot_transitions_heatmap(
   text_size = 3,
   show_marginals = FALSE,
   accessibility_mode = FALSE,
+  use_consolidated_periods = TRUE,
+  consolidation_type = "both",
   aspect_ratio = 1,
   border_color = "white",
   border_size = 0.5,
@@ -73,17 +75,19 @@ data.table inputs with comprehensive accessibility features.
 }
 \examples{
 \dontrun{
-# Basic heatmap
-plot_transitions_heatmap(transitions)
+# Basic consolidated heatmap (default)
+plot_transitions_heatmap(pipeline_result)
 
-# Row-normalized with percentages
-plot_transitions_heatmap(transitions, normalize = "row", cell_value = "percentage")
+# Row-normalized with percentages and overlapping consolidation only
+plot_transitions_heatmap(pipeline_result, normalize = "row", cell_value = "percentage",
+                        consolidation_type = "overlapping")
 
-# High contrast accessibility mode
-plot_transitions_heatmap(transitions, accessibility_mode = TRUE)
+# High contrast accessibility mode with no consolidation
+plot_transitions_heatmap(pipeline_result, accessibility_mode = TRUE, 
+                        use_consolidated_periods = FALSE)
 
-# Using matrix input
-trans_matrix <- analyze_employment_transitions(pipeline_result, output_transition_matrix = TRUE)
-plot_transitions_heatmap(trans_matrix, input_format = "matrix")
+# Using pre-computed transitions data
+transitions <- analyze_employment_transitions(pipeline_result)
+plot_transitions_heatmap(transitions, input_format = "data.table")
 }
 }

@@ -8,7 +8,9 @@ assess_data_quality(
   dt,
   person_col = "cf",
   include_distributions = TRUE,
-  include_temporal = TRUE
+  include_temporal = TRUE,
+  validate_over_id = TRUE,
+  validate_duration = TRUE
 )
 }
 \arguments{
@@ -19,6 +21,10 @@ assess_data_quality(
 \item{include_distributions}{Logical. Include distribution analysis}
 
 \item{include_temporal}{Logical. Include temporal pattern analysis}
+
+\item{validate_over_id}{Logical. Include over_id consistency checks}
+
+\item{validate_duration}{Logical. Include duration invariant validation}
 }
 \value{
 List with comprehensive quality assessment results
@@ -26,5 +32,6 @@ List with comprehensive quality assessment results
 \description{
 Performs exhaustive data quality analysis including missing values,
 duplicates, outliers, temporal patterns, and logical inconsistencies.
-Generates detailed quality report with recommendations.
+Generates detailed quality report with recommendations. Includes
+validation for over_id consistency and duration calculation invariant.
 }

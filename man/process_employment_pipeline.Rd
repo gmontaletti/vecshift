@@ -10,8 +10,11 @@ process_employment_pipeline(
   merge_columns = NULL,
   handle_overlaps = !is.null(merge_columns),
   collapse_consecutive = TRUE,
+  consolidate_periods = TRUE,
+  consolidation_type = "both",
   classify_status = TRUE,
   status_rules = NULL,
+  validate_over_id = TRUE,
   validate_functions = TRUE,
   show_progress = TRUE
 )
@@ -36,12 +39,21 @@ Set to NULL (default) to skip column merging step.}
 processes overlapping employment values. Only applies when merge_columns is not NULL.}
 
 \item{collapse_consecutive}{Logical. If TRUE (default), collapses consecutive
-employment periods using the fast implementation.}
+employment periods using the over_id-based implementation.}
+
+\item{consolidate_periods}{Logical. If TRUE (default), enables period consolidation
+when collapse_consecutive is TRUE. Passed to merge_consecutive_employment().}
+
+\item{consolidation_type}{Character. Consolidation strategy when consolidate_periods is TRUE:
+"both" (default), "overlapping", "consecutive", or "none".}
 
 \item{classify_status}{Logical. If TRUE (default), applies employment status
 classification during vecshift step.}
 
 \item{status_rules}{Optional custom status rules for vecshift. If NULL, uses defaults.}
+
+\item{validate_over_id}{Logical. If TRUE (default), validates over_id consistency
+and duration invariant after vecshift transformation.}
 
 \item{validate_functions}{Logical. If TRUE (default), checks for function availability
 before execution and provides informative error messages.}
@@ -55,24 +67,32 @@ simple messages if not available.}
 A data.table containing the processed employment segments. The exact structure
   depends on which pipeline steps were applied:
   \itemize{
-    \item \strong{Base vecshift output}: cf, inizio, fine, arco, prior, id, durata, stato
+    \item \strong{Base vecshift output}: cf, inizio, fine, arco, prior, id, durata, stato, over_id
     \item \strong{With merged columns}: Additional columns from original_data
-    \item \strong{With collapsed consecutive}: collapsed, n_periods, and aggregated values
+    \item \strong{With period consolidation}: collapsed, n_periods, and aggregated values
+  }
+  
+  The result also includes attributes:
+  \itemize{
+    \item \strong{pipeline_steps}: Logical vector of applied steps
+    \item \strong{validation_results}: over_id and duration validation results
+    \item \strong{consolidation_stats}: Statistics on period consolidation (if applied)
   }
 }
 \description{
 An optimized helper function that chains together vecshift(), merge_original_columns(),
-and merge_consecutive_employment_fast() operations for efficient memory usage and
+and merge_consecutive_employment() operations for efficient memory usage and
 performance. This function provides a complete pipeline from raw employment contracts
-to processed temporal segments with merged original data and collapsed consecutive periods.
+to processed temporal segments with merged original data and period consolidation using over_id.
 }
 \details{
 The function performs the following operations in sequence:
 \enumerate{
-  \item \strong{vecshift()}: Transforms employment records into temporal segments
+  \item \strong{vecshift()}: Transforms employment records into temporal segments with over_id
+  \item \strong{Validation}: Validates over_id consistency and duration invariant
   \item \strong{merge_original_columns()}: Merges additional columns from original data (optional)
   \item \strong{merge_overlapping_values()}: Handles overlapping employment values (optional)
-  \item \strong{merge_consecutive_employment_fast()}: Collapses consecutive employment periods (optional)
+  \item \strong{merge_consecutive_employment()}: Consolidates periods using over_id (optional)
 }
 
 The function is optimized for memory efficiency by:
@@ -86,8 +106,11 @@ The function is optimized for memory efficiency by:
 \note{
 This function automatically detects which processing functions are available and
 gracefully handles missing dependencies. If merge_original_columns() or
-merge_consecutive_employment_fast() are not available, the corresponding steps
+merge_consecutive_employment() are not available, the corresponding steps
 are skipped with a warning message.
+
+The over_id functionality requires vecshift() output with over_id column.
+If over_id is not available, consolidation falls back to traditional consecutive merging.
 }
 \examples{
 \dontrun{
@@ -111,9 +134,12 @@ result_full <- process_employment_pipeline(
   merge_columns = c("company", "salary", "department"),
   handle_overlaps = TRUE,
   collapse_consecutive = TRUE,
+  consolidate_periods = TRUE,
+  consolidation_type = "both",
   show_progress = TRUE
 )
 print(result_full)
+print(attr(result_full, "validation_results"))
 
 # Only vecshift transformation without progress bar
 result_basic <- process_employment_pipeline(
@@ -127,7 +153,8 @@ result_basic <- process_employment_pipeline(
 result_merged <- process_employment_pipeline(
   original_data = employment_data,
   merge_columns = c("company", "salary"),
-  collapse_consecutive = FALSE
+  collapse_consecutive = FALSE,
+  validate_over_id = TRUE
 )
 
 # Process already-transformed vecshift output
@@ -136,7 +163,8 @@ result_post <- process_employment_pipeline(
   original_data = employment_data,
   apply_vecshift = FALSE,
   merge_columns = c("company"),
-  collapse_consecutive = TRUE
+  collapse_consecutive = TRUE,
+  consolidation_type = "overlapping"
 )
 }
 }

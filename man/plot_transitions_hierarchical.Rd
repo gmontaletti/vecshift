@@ -22,6 +22,8 @@ plot_transitions_hierarchical(
   palette = "viridis",
   use_bw = FALSE,
   accessibility_mode = FALSE,
+  use_consolidated_periods = TRUE,
+  consolidation_type = "both",
   show_edge_labels = FALSE,
   show_node_labels = TRUE,
   label_angle = 0,
@@ -65,6 +67,10 @@ plot_transitions_hierarchical(
 
 \item{accessibility_mode}{Logical. Enable accessibility mode (default: FALSE)}
 
+\item{use_consolidated_periods}{Logical. Apply consolidation for cleaner hierarchy (default: TRUE)}
+
+\item{consolidation_type}{Character. Type of consolidation (default: "both")}
+
 \item{show_edge_labels}{Logical. Show edge weight labels (default: FALSE)}
 
 \item{show_node_labels}{Logical. Show node labels (default: TRUE)}
@@ -85,14 +91,16 @@ or directional flow between employment states.
 }
 \examples{
 \dontrun{
-# Basic hierarchical tree
-plot_transitions_hierarchical(transitions)
+# Basic consolidated hierarchical tree
+plot_transitions_hierarchical(pipeline_result)
 
-# Sugiyama layout with level highlighting
-plot_transitions_hierarchical(transitions, hierarchy_type = "sugiyama", show_levels = TRUE)
+# Sugiyama layout with level highlighting, both consolidation types
+plot_transitions_hierarchical(pipeline_result, hierarchy_type = "sugiyama", 
+                             show_levels = TRUE, consolidation_type = "both")
 
-# Horizontal dendrogram
-plot_transitions_hierarchical(transitions, hierarchy_type = "dendrogram", 
-                             layout_direction = "horizontal")
+# Horizontal dendrogram with no consolidation
+plot_transitions_hierarchical(pipeline_result, hierarchy_type = "dendrogram", 
+                             layout_direction = "horizontal", 
+                             use_consolidated_periods = FALSE)
 }
 }

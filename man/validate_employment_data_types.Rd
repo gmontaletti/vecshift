@@ -4,12 +4,21 @@
 \alias{validate_employment_data_types}
 \title{Validate Employment Data Types and Formats}
 \usage{
-validate_employment_data_types(dt, strict = FALSE)
+validate_employment_data_types(
+  dt,
+  strict = FALSE,
+  validate_over_id = TRUE,
+  validate_duration = TRUE
+)
 }
 \arguments{
 \item{dt}{Data.table with standardized employment columns}
 
 \item{strict}{Logical. If TRUE, throws errors for warnings}
+
+\item{validate_over_id}{Logical. If TRUE, validates over_id column consistency}
+
+\item{validate_duration}{Logical. If TRUE, validates duration calculation invariant}
 }
 \value{
 Invisible validation results list
@@ -17,5 +26,6 @@ Invisible validation results list
 \description{
 Performs comprehensive validation of employment data types, formats,
 and basic logical consistency. Throws errors for critical issues
-and warnings for potential problems.
+and warnings for potential problems. Includes validation for over_id
+and duration calculation consistency.
 }
