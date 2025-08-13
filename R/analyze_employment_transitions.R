@@ -1,3 +1,60 @@
+# Helper function to process chain values like "val1->val2->val3"
+.process_chain_value <- function(value, eval_chain) {
+  # Handle NULL input
+  if (is.null(value)) {
+    return(value)
+  }
+  
+  # Convert to character if not already
+  value_char <- as.character(value)
+  
+  # Use vectorized operations for NA and empty string checks
+  is_na_or_empty <- is.na(value_char) | value_char == ""
+  
+  # If eval_chain is "none", return original character values
+  if (eval_chain == "none") {
+    return(value_char)
+  }
+  
+  # Initialize result vector
+  result <- value_char
+  
+  # Find values that contain "->" indicating a chain
+  has_chain <- grepl("->", value_char, fixed = TRUE) & !is_na_or_empty
+  
+  if (any(has_chain)) {
+    # Process only values with chains
+    chain_values <- value_char[has_chain]
+    
+    if (eval_chain == "last") {
+      # Extract last part of each chain
+      processed <- sapply(chain_values, function(x) {
+        parts <- strsplit(x, "->", fixed = TRUE)[[1]]
+        parts <- trimws(parts)
+        parts[length(parts)]
+      }, USE.NAMES = FALSE)
+    } else if (eval_chain == "first") {
+      # Extract first part of each chain
+      processed <- sapply(chain_values, function(x) {
+        parts <- strsplit(x, "->", fixed = TRUE)[[1]]
+        parts <- trimws(parts)
+        parts[1]
+      }, USE.NAMES = FALSE)
+    } else {
+      # For any other eval_chain value, return original
+      processed <- chain_values
+    }
+    
+    # Update result for values with chains
+    result[has_chain] <- processed
+  }
+  
+  # Preserve NA values in the original positions
+  result[is_na_or_empty] <- value_char[is_na_or_empty]
+  
+  return(result)
+}
+
 #' Analyze Employment Transitions from Pipeline Output
 #'
 #' @description
@@ -17,6 +74,10 @@
 #' separated by an unemployment period (arco = 0) of at least the minimum duration.
 #' The function analyzes patterns in the "from" → "to" transitions for one specified
 #' transition variable, while computing summary statistics for additional variables.
+#' 
+#' The \code{eval_chain} parameter provides flexible handling of chained values that 
+#' contain "->" separators, allowing extraction of the first value, last value, or 
+#' preservation of the complete chain for complex transition analysis scenarios.
 #' 
 #' When \code{use_consolidated_periods = TRUE}, the function first applies 
 #' \code{merge_consecutive_employment()} to consolidate employment periods based on
@@ -63,6 +124,15 @@
 #'   represent "to" states, and values are transition weights (counts). Non-populated 
 #'   cells contain zeros. Matrix uses unique values from the transition_variable as 
 #'   row/column names (default: FALSE).
+#' @param eval_chain Character string specifying how to handle chained values in 
+#'   from/to columns that contain "->" separators (default: "last"). Options:
+#'   \itemize{
+#'     \item{\code{"last"}}: Extract the last value from chains like "val1->val2->val3" (returns "val3")
+#'     \item{\code{"first"}}: Extract the first value from chains (returns "val1")
+#'     \item{\code{"none"}}: Leave chain values unchanged (returns "val1->val2->val3")
+#'   }
+#'   When there is only one value (no "->"), the original value is always used regardless 
+#'   of this parameter.
 #' @param use_consolidated_periods Logical. If TRUE (default), first consolidate
 #'   employment periods using merge_consecutive_employment() before analyzing transitions.
 #'   This provides more accurate transition analysis by treating overlapping and/or
@@ -86,8 +156,8 @@
 #'
 #' @return When \code{output_transition_matrix} is FALSE (default), returns a data.table with columns:
 #'   \itemize{
-#'     \item{\code{from}}: Value before transition (from transition_variable)
-#'     \item{\code{to}}: Value after transition (from transition_variable)
+#'     \item{\code{from}}: Value before transition (from transition_variable, processed according to eval_chain parameter)
+#'     \item{\code{to}}: Value after transition (from transition_variable, processed according to eval_chain parameter)
 #'     \item{\code{weight}}: Number of transitions
 #'     \item{\code{transition_duration}}: Mean unemployment duration
 #'     \item{\code{[variable]_from_median/[variable]_from_mode}}: For each statistics variable, 
@@ -175,6 +245,32 @@
 #' )
 #' print(transition_matrix)
 #' 
+#' # Example using eval_chain parameter with chained values
+#' # Suppose your data has chained company transitions like "CompanyA->CompanyB->CompanyC"
+#' sample_data_chains <- copy(result)
+#' sample_data_chains[, company := ifelse(company == "CompanyA", "StartupA->CompanyA->MegaCorp", company)]
+#' 
+#' # Extract last company in chain (default behavior)
+#' transitions_last <- analyze_employment_transitions(
+#'   pipeline_result = sample_data_chains,
+#'   transition_variable = "company",
+#'   eval_chain = "last"  # "StartupA->CompanyA->MegaCorp" becomes "MegaCorp"
+#' )
+#' 
+#' # Extract first company in chain
+#' transitions_first <- analyze_employment_transitions(
+#'   pipeline_result = sample_data_chains,
+#'   transition_variable = "company",
+#'   eval_chain = "first"  # "StartupA->CompanyA->MegaCorp" becomes "StartupA"
+#' )
+#' 
+#' # Keep full chain unchanged
+#' transitions_full <- analyze_employment_transitions(
+#'   pipeline_result = sample_data_chains,
+#'   transition_variable = "company",
+#'   eval_chain = "none"  # Keeps "StartupA->CompanyA->MegaCorp" as is
+#' )
+#' 
 #' # Example showing impact of consolidation:
 #' # Without consolidation: May show transitions between overlapping contracts
 #' # CompanyA -> CompanyA (due to contract renewals during same employment episode)
@@ -194,6 +290,7 @@ analyze_employment_transitions <- function(pipeline_result,
                                          use_consolidated_periods = TRUE,
                                          consolidation_type = "both",
                                          output_transition_matrix = FALSE,
+                                         eval_chain = "last",
                                          show_progress = TRUE) {
   
   # Load required packages
@@ -247,6 +344,13 @@ analyze_employment_transitions <- function(pipeline_result,
   if (!consolidation_type %in% valid_consolidation_types) {
     stop(paste("Parameter 'consolidation_type' must be one of:", 
                paste(valid_consolidation_types, collapse = ", ")))
+  }
+  
+  # Validate eval_chain parameter
+  valid_eval_chain <- c("last", "first", "none")
+  if (!eval_chain %in% valid_eval_chain) {
+    stop(paste("Parameter 'eval_chain' must be one of:", 
+               paste(valid_eval_chain, collapse = ", ")))
   }
   
   # Check for over_id column if consolidation is requested
@@ -488,6 +592,12 @@ analyze_employment_transitions <- function(pipeline_result,
   
   # Rename transition columns for consistent processing
   setnames(col_subset, c(from_transition_col, to_transition_col), c("from", "to"))
+  
+  # Process chain values in from/to columns based on eval_chain parameter
+  if (eval_chain != "none") {
+    col_subset[, from := .process_chain_value(from, eval_chain)]
+    col_subset[, to := .process_chain_value(to, eval_chain)]
+  }
   
   # Remove rows where either from or to is NA for the transition variable
   transitions_data <- col_subset[!is.na(from) & !is.na(to)]

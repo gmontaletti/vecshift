@@ -270,73 +270,54 @@ merge_overlapping_values <- function(segments_with_columns, columns) {
     setorder(result, cf)
   }
   
-  # Process each person separately
-  unique_persons <- unique(result$cf)
+  # Use data.table's efficient operations to process overlapping periods
+  # Add row numbers within each person group for efficient lag operations
+  result[, row_num := seq_len(.N), by = cf]
   
-  for (person in unique_persons) {
-    # Get rows for this person
-    person_rows <- result[cf == person]
-    person_indices <- which(result$cf == person)
+  # Process each column separately for better performance
+  for (col in columns) {
+    # Create lag column for previous row values within each person
+    result[, paste0(col, "_prev") := shift(.SD[[col]], 1, type = "lag"), by = cf, .SDcols = col]
     
-    if (nrow(person_rows) <= 1) {
-      next  # Skip persons with only one row
-    }
+    # Determine column type once
+    col_class <- class(result[[col]])[1]
     
-    # Process each row (starting from the second row)
-    for (i in 2:nrow(person_rows)) {
-      current_arco <- person_rows$arco[i]
-      
-      # Only process if current period is overlapping (arco > 1)
-      if (is.na(current_arco) || current_arco <= 1) {
-        next
-      }
-      
-      # Get the actual row index in the full result table
-      result_row_idx <- person_indices[i]
-      prev_result_row_idx <- person_indices[i-1]
-      
-      # Process each requested column
-      for (col in columns) {
-        current_value <- result[[col]][result_row_idx]
-        previous_value <- result[[col]][prev_result_row_idx]
-        
-        # Skip if either value is NA
-        if (is.na(current_value) || is.na(previous_value)) {
-          next
-        }
-        
-        # Handle different data types
-        if (is.factor(result[[col]])) {
-          # Convert factors to character for processing
-          current_char <- as.character(current_value)
-          previous_char <- as.character(previous_value)
-          
-          # Combine with arrow notation
-          merged_value <- paste(previous_char, current_char, sep = "->")
-          
-          # Convert back to factor if necessary, or leave as character
-          result[result_row_idx, (col) := merged_value]
-          
-        } else if (is.character(result[[col]])) {
-          # Combine character values with arrow notation
-          merged_value <- paste(previous_value, current_value, sep = "->")
-          result[result_row_idx, (col) := merged_value]
-          
-        } else if (is.numeric(result[[col]])) {
-          # Sum numeric values
-          merged_value <- previous_value + current_value
-          result[result_row_idx, (col) := merged_value]
-          
-        } else {
-          # For other types, convert to character and combine
-          current_char <- as.character(current_value)
-          previous_char <- as.character(previous_value)
-          merged_value <- paste(previous_char, current_char, sep = "->")
-          result[result_row_idx, (col) := merged_value]
-        }
+    # Only update rows where arco > 1 and both current and previous values are not NA
+    overlap_condition <- result$arco > 1 & result$row_num > 1 & 
+                        !is.na(result[[col]]) & !is.na(result[[paste0(col, "_prev")]])
+    
+    if (any(overlap_condition, na.rm = TRUE)) {
+      if (col_class == "factor") {
+        # Convert factors to character and combine with arrow notation
+        result[overlap_condition, 
+               (col) := paste(as.character(get(paste0(col, "_prev"))), 
+                             as.character(get(col)), 
+                             sep = "->")]
+      } else if (col_class == "character") {
+        # Combine character values with arrow notation
+        result[overlap_condition, 
+               (col) := paste(get(paste0(col, "_prev")), 
+                             get(col), 
+                             sep = "->")]
+      } else if (col_class %in% c("numeric", "integer", "double")) {
+        # Sum numeric values
+        result[overlap_condition, 
+               (col) := get(paste0(col, "_prev")) + get(col)]
+      } else {
+        # For other types, convert to character and combine
+        result[overlap_condition, 
+               (col) := paste(as.character(get(paste0(col, "_prev"))), 
+                             as.character(get(col)), 
+                             sep = "->")]
       }
     }
+    
+    # Clean up the temporary lag column
+    result[, paste0(col, "_prev") := NULL]
   }
+  
+  # Clean up the row number column
+  result[, row_num := NULL]
   
   return(result)
 }

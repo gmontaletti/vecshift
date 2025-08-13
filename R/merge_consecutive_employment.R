@@ -121,8 +121,14 @@ merge_consecutive_employment <- function(dt, consolidation_type = "both") {
   
   # Handle case where there are no extra columns
   if (length(extra_cols) > 0) {
-    numeric_extra <- extra_cols[sapply(dt_work[, ..extra_cols], is.numeric)]
-    character_extra <- extra_cols[sapply(dt_work[, ..extra_cols], is.character)]
+    # Get column types safely
+    col_types <- sapply(dt_work[, ..extra_cols], class)
+    # Handle cases where sapply returns a list (when columns have multiple classes)
+    is_numeric <- sapply(col_types, function(x) any(c("numeric", "integer") %in% x))
+    is_character <- sapply(col_types, function(x) any(c("character", "factor") %in% x))
+    
+    numeric_extra <- extra_cols[is_numeric]
+    character_extra <- extra_cols[is_character]
   } else {
     numeric_extra <- character()
     character_extra <- character()
@@ -304,12 +310,25 @@ merge_consecutive_employment_fast <- function(dt) {
   dt_work[, subgroup_id := cumsum(has_gap | status_change), by = cf]
   
   # Identify extra columns
-  base_cols <- c("cf", "inizio", "fine", "arco", "prior", "durata", "id", "stato")
+  base_cols <- c("cf", "inizio", "fine", "arco", "prior", "durata", "id", "stato", "over_id")
   extra_cols <- setdiff(names(dt_work), c(base_cols, "employment_status", 
                                             "status_change", "group_id", 
                                             "prev_fine", "has_gap", "subgroup_id"))
-  numeric_extra <- extra_cols[sapply(dt_work[, ..extra_cols], is.numeric)]
-  character_extra <- extra_cols[sapply(dt_work[, ..extra_cols], is.character)]
+  
+  # Handle case where there are no extra columns
+  if (length(extra_cols) > 0) {
+    # Get column types safely
+    col_types <- sapply(dt_work[, ..extra_cols], class)
+    # Handle cases where sapply returns a list (when columns have multiple classes)
+    is_numeric <- sapply(col_types, function(x) any(c("numeric", "integer") %in% x))
+    is_character <- sapply(col_types, function(x) any(c("character", "factor") %in% x))
+    
+    numeric_extra <- extra_cols[is_numeric]
+    character_extra <- extra_cols[is_character]
+  } else {
+    numeric_extra <- character()
+    character_extra <- character()
+  }
   
   # Add duration calculation for each record for weighting
   dt_work[, record_durata := 1 + as.numeric(fine - inizio)]
@@ -330,8 +349,13 @@ merge_consecutive_employment_fast <- function(dt) {
     })),
     durata = quote(1 + as.numeric(fine[.N] - inizio[1])),
     collapsed = quote(.N > 1 & employment_status[1] == 1),
-    n_periods = quote(.N)
+    n_periods = quote(as.integer(.N))
   )
+  
+  # Include over_id in aggregation if it exists
+  if ("over_id" %in% names(dt_work)) {
+    agg_exprs[["over_id"]] <- quote(if(.N == 1 || employment_status[1] == 0) over_id[1] else over_id[1])
+  }
   
   # Add aggregation for numeric extras
   for (col in numeric_extra) {
