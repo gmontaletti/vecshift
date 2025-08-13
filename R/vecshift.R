@@ -51,7 +51,7 @@
 #' function from the status_labeling module, ensuring consistent and customizable
 #' employment status attribution across the package.
 #'
-#' @seealso 
+#' @seealso
 #' \code{\link{classify_employment_status}} for status classification details
 #' \code{\link{get_default_status_rules}} for default classification rules
 #' \code{\link{create_custom_status_rules}} for creating custom rules
@@ -124,34 +124,41 @@ vecshift <- function(dt, classify_status = TRUE, status_rules = NULL) {
       list(
         dt[, .(id, cf, cdata = INIZIO, value = 1
                , prior
-               )]
-      , dt[, .(id, cf, cdata = FINE, value = -1
-               , prior = 0
-               )]
+        )]
+        , dt[, .(id, cf, cdata = FINE, value = -1
+                 , prior = 0
+        )]
       )
-      )
-  , cf, cdata)[
-    , arco := cumsum(value)][
-      , prior := fcase(prior <= 0, 0, default = 1)
-    ][
-      , .(
-      cf = cf[1:(length(cf)-1)]
-      , acf = cf[2:(length(cf))]
-      , inizio = cdata[1:(length(cf)-1)]
-      , fine = cdata[2:(length(cf))]
-      , arco = arco[1:(length(cf)-1)]
-      , prior = prior[1:(length(cf)-1)]
-      , id = id[1:(length(cf)-1)]
-    )][cf == acf][, acf := NULL][
-      arco == 0, id := 0][
-      arco == 0, inizio := inizio + 1][
-      arco == 0, fine := fine - 1][, durata := 1 + fine-inizio][durata > 0]
-  
+    )
+    , cf, cdata)[
+      , arco := cumsum(value)][
+        , prior := fcase(prior <= 0, 0, default = 1)
+      ][
+        , .(
+          cf = cf[1:(length(cf)-1)]
+          , acf = cf[2:(length(cf))]
+          , inizio = cdata[1:(length(cf)-1)]
+          , fine = cdata[2:(length(cf))]
+          , arco = arco[1:(length(cf)-1)]
+          , prior = prior[1:(length(cf)-1)]
+          , id = id[1:(length(cf)-1)]
+        )][, over_id := (arco > 0)][
+          shift(over_id, type = "lag") == TRUE, over_id := FALSE ][
+            , first_in_over := fcase(over_id == TRUE | arco == 0, 0L, default = -1L)][
+              , over_id := cumsum(over_id)][arco == 0, over_id := 0][
+                cf == acf][
+                  , acf := NULL][
+                    arco == 0, id := 0][
+                      arco == 0, inizio := inizio + 1][
+                        arco == 0, fine := fine - 1][
+                          , durata := 1 + fine-inizio + first_in_over][durata > 0][
+                            , first_in_over := NULL]
+
   # Apply employment status classification if requested
   if (classify_status) {
     result <- classify_employment_status(result, rules = status_rules, group_by = "cf")
   }
-  
+
   return(result)
 }
 
