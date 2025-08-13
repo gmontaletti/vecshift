@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-The `vecshift` package is an R package that performs temporal data analysis operations on employment/labor data. The main function `vecshift()` processes data.table objects containing employment records with start/end dates and transforms them into continuous temporal segments with employment status classifications.
+The `vecshift` package is an R package that performs temporal data analysis operations on employment/labor data. The main function `vecshift()` processes data.table objects containing employment records with start/end dates and transforms them into continuous temporal segments with employment status classifications and overlap consolidation identifiers (`over_id`).
 
 ## Development Commands
 
@@ -58,11 +58,20 @@ The `vecshift()` function transforms employment records into temporal segments u
 2. **Event Processing**: Creates interval boundaries by splitting each record into start/end events
 3. **Temporal Logic**: Creates end events at FINE, then adjusts unemployment periods (inizio+1, fine-1)
 4. **Overlap Calculation**: Calculates overlapping employment periods (`arco`)
-5. **Status Classification** (optional): Delegates to `classify_employment_status()` for employment state labeling
+5. **Consolidation Assignment**: Generates `over_id` to identify continuous overlapping employment periods
+6. **Duration Correction**: Ensures mathematical invariant that elapsed time equals sum of durations by cf
+7. **Status Classification** (optional): Delegates to `classify_employment_status()` for employment state labeling
 
 **Key Parameters:**
 - `classify_status` (default: TRUE): Apply employment status classification
 - `status_rules` (default: NULL): Custom classification rules
+
+**Output Columns:**
+- `over_id`: Consolidation identifier for overlapping employment periods
+  - `over_id = 0`: Unemployment periods
+  - `over_id > 0`: Employment periods (same value for contracts in continuous overlapping time)
+- `durata`: Corrected duration ensuring temporal consistency
+- `arco`: Number of overlapping contracts at any point in time
 
 **Employment States (when classified):**
 - `disoccupato`: unemployed periods
@@ -145,6 +154,87 @@ The core event generation logic in `vecshift()` is highly optimized. The event-b
 - Output formatting and export functions
 - Integration with other temporal analysis packages
 - Visualization and reporting components
+
+## Overlap Consolidation with over_id
+
+### Overview of over_id Functionality
+
+The `over_id` column is a key innovation in vecshift that provides a unique identifier for continuous employment periods, enabling powerful consolidation and analysis capabilities.
+
+#### Core Concept
+**over_id** assigns the same identifier to all employment contracts that belong to the same continuous overlapping time period:
+- **over_id = 0**: Unemployment periods (no active contracts)
+- **over_id > 0**: Employment periods where the same value indicates contracts belonging to the same continuous overlapping employment period
+
+#### Mathematical Invariant: Duration Consistency
+The package ensures temporal accuracy through a critical mathematical property:
+
+```
+For each person (cf): elapsed_time = sum(durata)
+
+Where:
+- elapsed_time = last(FINE) - first(INIZIO) + 1
+- sum(durata) = total duration across all segments
+```
+
+This invariant guarantees that the sum of all segment durations exactly equals the total elapsed time from first employment start to last employment end.
+
+### Practical Examples
+
+#### Example 1: Simple Overlapping Contracts
+```
+Input Contracts:
+Contract A: 2023-01-01 to 2023-06-30
+Contract B: 2023-04-01 to 2023-09-30
+
+Generated Segments:
+Segment 1: 2023-01-01 to 2023-03-31, over_id=1, arco=1 (A only)
+Segment 2: 2023-04-01 to 2023-06-30, over_id=1, arco=2 (A+B overlap)
+Segment 3: 2023-07-01 to 2023-09-30, over_id=1, arco=1 (B only)
+
+All segments share over_id=1 because they form one continuous employment period.
+```
+
+#### Example 2: Gap Between Employment Periods
+```
+Input Contracts:
+Contract A: 2023-01-01 to 2023-03-31
+Contract B: 2023-06-01 to 2023-08-31
+
+Generated Segments:
+Segment 1: 2023-01-01 to 2023-03-31, over_id=1, arco=1 (Employment A)
+Segment 2: 2023-04-01 to 2023-05-31, over_id=0, arco=0 (Unemployment)
+Segment 3: 2023-06-01 to 2023-08-31, over_id=2, arco=1 (Employment B)
+
+Two distinct employment periods (over_id=1 and over_id=2) separated by unemployment.
+```
+
+#### Example 3: Complex Overlapping Pattern
+```
+Input Contracts:
+Contract A: 2023-01-01 to 2023-04-30
+Contract B: 2023-02-01 to 2023-06-30
+Contract C: 2023-05-01 to 2023-07-31
+Contract D: 2023-10-01 to 2023-12-31
+
+Generated Segments:
+Segment 1: 2023-01-01 to 2023-01-31, over_id=1, arco=1 (A)
+Segment 2: 2023-02-01 to 2023-04-30, over_id=1, arco=2 (A+B)
+Segment 3: 2023-05-01 to 2023-06-30, over_id=1, arco=2 (B+C)
+Segment 4: 2023-07-01 to 2023-07-31, over_id=1, arco=1 (C)
+Segment 5: 2023-08-01 to 2023-09-30, over_id=0, arco=0 (Unemployment)
+Segment 6: 2023-10-01 to 2023-12-31, over_id=2, arco=1 (D)
+
+Contracts A, B, C form one continuous period (over_id=1), while D is separate (over_id=2).
+```
+
+### Benefits of over_id Consolidation
+
+1. **Simplified Analysis**: Group related employment periods for career progression analysis
+2. **Accurate Duration Calculation**: Eliminate double-counting in overlapping periods
+3. **Transition Analysis**: Clean identification of true employment-to-unemployment transitions
+4. **Visualization**: Better network graphs showing consolidated employment states
+5. **Performance**: Faster aggregations using pre-computed consolidation groups
 
 ## Date Logic and Temporal Processing
 
@@ -294,10 +384,12 @@ The package implements functionality through specialized modules:
 2. **Zero Duration**: FINE = INIZIO (handled correctly as 1-day contracts)
 3. **Overlapping Contracts**: Multiple contracts active simultaneously
 4. **Date Format Inconsistencies**: Mixed Date, numeric, and character formats
+5. **Duration Inconsistency**: Sum of durations ≠ elapsed time (automatically corrected by over_id processing)
 
 #### Validation Functions
 - `validate_date_consistency()`: Detects logical inconsistencies
-- Quality assessment provides person-level employment statistics
+- `validate_over_id_integrity()`: Verifies over_id assignments and duration calculations
+- Quality assessment provides person-level employment statistics including over_id patterns
 - Temporal coverage analysis identifies data gaps and employment patterns
 
 ### Performance
@@ -334,6 +426,95 @@ The vecshift package supports advanced visualization of employment transitions u
    - States arranged linearly with arcs showing transitions
    - Best for: Clear presentation with fewer states
 
+## Enhanced Analysis Functions with over_id Support
+
+### New Analysis Functions
+
+The package now includes three powerful new analysis functions that leverage over_id consolidation:
+
+#### 1. analyze_consolidated_periods()
+Analyzes consolidated employment periods using over_id groupings:
+
+```r
+consolidated_analysis <- analyze_consolidated_periods(
+  pipeline_result = processed_data,
+  consolidation_type = "both",  # "overlapping", "consecutive", "both", "none"
+  min_employment_duration = 30,
+  min_unemployment_duration = 7
+)
+```
+
+**Output includes:**
+- `over_id`: Consolidation period identifier
+- `period_type`: "employment" or "unemployment"
+- `total_duration`: Total days in consolidated period
+- `contract_count`: Number of original contracts in period
+- `max_overlap`: Maximum concurrent contracts
+- `start_date`, `end_date`: Period boundaries
+- `employment_types`: Summary of employment types in period
+
+#### 2. create_consolidated_transition_matrix()
+Creates transition matrices based on consolidated periods:
+
+```r
+transition_matrix <- create_consolidated_transition_matrix(
+  pipeline_result = processed_data,
+  transition_variable = "employment_type",
+  consolidation_type = "both",
+  output_probabilities = TRUE  # Convert counts to transition probabilities
+)
+```
+
+**Features:**
+- Transitions between consolidated periods rather than individual segments
+- Eliminates artificial transitions within overlapping employment
+- More accurate representation of true career movements
+- Supports probability calculation for Markov chain analysis
+
+#### 3. analyze_employment_overlaps()
+Detailed analysis of overlapping employment patterns:
+
+```r
+overlap_analysis <- analyze_employment_overlaps(
+  pipeline_result = processed_data,
+  min_overlap_duration = 7,
+  employment_type_variable = "prior"
+)
+```
+
+**Output includes:**
+- `over_id`: Consolidation period identifier
+- `overlap_segments`: Number of segments with arco > 1
+- `max_concurrent_contracts`: Peak overlap level
+- `overlap_duration`: Total days with multiple contracts
+- `overlap_percentage`: Percentage of employment period with overlaps
+- `dominant_employment_type`: Most common employment type
+- `employment_type_diversity`: Number of different employment types
+
+### Enhanced analyze_employment_transitions()
+
+The core transition analysis function now supports consolidation parameters:
+
+```r
+transitions <- analyze_employment_transitions(
+  pipeline_result = your_data,
+  transition_variable = "employment_type",
+  min_unemployment_duration = 7,
+  max_unemployment_duration = 365,
+  consolidation_type = "both",        # NEW: Consolidation approach
+  use_consolidated_periods = TRUE     # NEW: Use over_id for grouping
+)
+```
+
+#### Consolidation Types Explained
+
+| Type | Description | Use Case |
+|------|-------------|----------|
+| **"overlapping"** | Merge only overlapping contracts | Focus on concurrent employment analysis |
+| **"consecutive"** | Merge only consecutive contracts | Analyze career continuity without gaps |
+| **"both"** | Merge both overlapping and consecutive | Complete consolidation for career analysis |
+| **"none"** | No consolidation (original behavior) | Detailed segment-level analysis |
+
 ### Working with analyze_employment_transitions() Output
 
 The function provides two output formats suitable for visualization:
@@ -360,7 +541,7 @@ The function provides two output formats suitable for visualization:
 3. **Clear Labels**: Use repel algorithms to prevent overlapping text
 4. **Legends**: Position prominently with sufficient size for readability
 
-### Example Visualization Workflow
+### Example Visualization Workflow with over_id Consolidation
 
 ```r
 # Load required libraries
@@ -369,12 +550,20 @@ library(ggraph)
 library(tidygraph)
 library(viridis)
 
-# Analyze transitions
+# Analyze transitions with consolidation
 transitions <- analyze_employment_transitions(
   pipeline_result = your_data,
   transition_variable = "employment_type",
   min_unemployment_duration = 7,
-  max_unemployment_duration = 365  # New parameter
+  max_unemployment_duration = 365,
+  consolidation_type = "both",        # Use over_id consolidation
+  use_consolidated_periods = TRUE
+)
+
+# Alternative: Analyze consolidated periods directly
+consolidated <- analyze_consolidated_periods(
+  pipeline_result = your_data,
+  consolidation_type = "both"
 )
 
 # Create network visualization
@@ -384,13 +573,17 @@ tg <- tbl_graph(
   directed = TRUE
 )
 
-# Visualize with ggraph
+# Visualize with ggraph - cleaner due to consolidation
 ggraph(tg, layout = "fr") +
-  geom_edge_link(aes(width = weight), 
+  geom_edge_link(aes(width = weight, alpha = weight), 
                  arrow = arrow(length = unit(3, "mm"))) +
-  geom_node_point(size = 5, color = "steelblue") +
-  geom_node_text(aes(label = name), repel = TRUE) +
-  theme_graph()
+  geom_node_point(aes(size = degree), color = "steelblue") +
+  geom_node_text(aes(label = name), repel = TRUE, size = 3) +
+  scale_edge_alpha_continuous(range = c(0.3, 1)) +
+  scale_size_continuous(range = c(3, 8)) +
+  theme_graph() +
+  labs(title = "Employment Transitions (Consolidated Periods)",
+       subtitle = "Based on over_id consolidation")
 ```
 
 ### Layout Algorithm Selection Guide
@@ -441,11 +634,13 @@ g6r provides interactive, web-based network visualizations through R, leveraging
 library(g6R)
 library(vecshift)
 
-# Process employment data
+# Process employment data with consolidation
 transitions <- analyze_employment_transitions(
   pipeline_result = your_data,
   transition_variable = "company",
-  max_unemployment_duration = 365  # New parameter
+  max_unemployment_duration = 365,
+  consolidation_type = "both",        # Use over_id consolidation
+  use_consolidated_periods = TRUE
 )
 
 # Convert to g6r format
@@ -581,11 +776,132 @@ sampled_data <- transitions[sample(.N, min(.N, 1000))]
 - **Interactive Sharing**: Shareable dashboard URLs
 - **Embedded Widgets**: Integration with external websites
 
+## Enhanced Function Parameters with over_id Support
+
+### merge_consecutive_employment() - New Consolidation Parameter
+
+```r
+merged_data <- merge_consecutive_employment(
+  data = vecshift_output,
+  consolidation_type = "both"  # NEW parameter
+)
+```
+
+**Consolidation Types:**
+- `"overlapping"`: Merge only overlapping employment periods (same over_id, arco > 1)
+- `"consecutive"`: Merge only consecutive periods with no unemployment gap
+- `"both"`: Merge both overlapping and consecutive periods (recommended)
+- `"none"`: No consolidation (preserves original segments)
+
+### Pipeline Functions with Consolidation Support
+
+All major pipeline functions now support consolidation parameters:
+
+```r
+# Full pipeline with consolidation
+result <- process_employment_pipeline(
+  data = raw_data,
+  consolidation_type = "both",
+  min_employment_duration = 1,
+  min_unemployment_duration = 7,
+  quality_assessment = TRUE
+)
+
+# Integrated processing
+integrated_result <- vecshift_integrated(
+  data = raw_data,
+  consolidation_type = "both",
+  classify_status = TRUE,
+  data_quality_assessment = TRUE
+)
+```
+
+### Status Classification with over_id
+
+The status labeling system has been enhanced to work with over_id:
+
+```r
+# Classify employment status considering consolidation
+classified <- classify_employment_status(
+  data = vecshift_output,
+  status_rules = get_default_status_rules(),
+  use_over_id = TRUE  # Consider consolidation in classification
+)
+
+# Custom rules for consolidated periods
+custom_rules <- create_custom_status_rules(
+  overlapping_employment = "over_consolidated",
+  consecutive_employment = "continuous_career",
+  use_consolidation = TRUE
+)
+```
+
+## Migration Notes and Benefits
+
+### What Changed in the Latest Version
+
+1. **over_id Column**: All vecshift() output now includes over_id for consolidation
+2. **Duration Correction**: Automatic correction ensures elapsed_time = sum(durata) invariant
+3. **Enhanced Functions**: Major analysis functions support consolidation parameters
+4. **New Analysis Tools**: Three new functions for consolidated period analysis
+5. **Improved Accuracy**: Consolidation eliminates artificial transitions and double-counting
+
+### Benefits of over_id Consolidation
+
+#### For Researchers
+- **Cleaner Analysis**: Focus on meaningful employment transitions rather than contract technicalities
+- **Accurate Duration**: No more double-counting of overlapping employment time
+- **Career Insights**: Better understanding of continuous vs. fragmented employment patterns
+- **Visualization**: Clearer network graphs with fewer artificial edges
+
+#### For Policymakers
+- **True Transitions**: Identify genuine employment-to-unemployment transitions
+- **Employment Stability**: Measure continuous employment periods accurately
+- **Multiple Job Analysis**: Understand patterns of concurrent employment
+- **Duration Analysis**: Accurate measurement of employment and unemployment spells
+
+#### For Data Analysts
+- **Performance**: Faster aggregations using pre-computed consolidation groups
+- **Flexibility**: Choose appropriate consolidation level for different analyses
+- **Validation**: Built-in checks ensure data consistency and quality
+- **Integration**: Seamless compatibility with existing visualization and analysis tools
+
+### Example: Before and After Consolidation
+
+```r
+# Before: Multiple artificial segments for overlapping contracts
+# Person has two overlapping contracts Jan-June and Mar-Sept
+original_segments <- data.table(
+  cf = rep("ABC123", 3),
+  inizio = as.Date(c("2023-01-01", "2023-03-01", "2023-07-01")),
+  fine = as.Date(c("2023-02-28", "2023-06-30", "2023-09-30")),
+  arco = c(1, 2, 1),
+  employment_type = c("Contract A", "A+B Overlap", "Contract B")
+)
+# Result: 3 segments, complex transition analysis
+
+# After: Consolidated view using over_id
+consolidated_view <- data.table(
+  cf = "ABC123",
+  over_id = 1,
+  start_date = as.Date("2023-01-01"),
+  end_date = as.Date("2023-09-30"),
+  total_duration = 273,  # Total days
+  contract_count = 2,    # Original contracts
+  max_overlap = 2,       # Peak concurrent contracts
+  employment_type = "Continuous Employment"
+)
+# Result: 1 consolidated period, cleaner analysis
+```
+
 ## Important Notes
 
 - The package uses renv for dependency management - always restore the environment before development
 - The vecshift function relies heavily on data.table syntax and operations
 - Prior values: 0 or -1 indicate part-time, positive values indicate full-time employment
 - The function handles overlapping employment periods (multiple concurrent jobs)
+- **over_id Innovation**: Unique consolidation system for continuous employment period analysis
+- **Duration Invariant**: Mathematical guarantee that elapsed_time = sum(durata) by person
 - **Date Logic**: Creates end events at FINE and adjusts unemployment periods afterward (inizio+1, fine-1)
-- **Visualization**: ggraph and tidygraph provide comprehensive network visualization capabilities for transition analysis
+- **Consolidation Types**: Choose appropriate level ("overlapping", "consecutive", "both", "none") for your analysis needs
+- **Visualization**: ggraph and tidygraph provide comprehensive network visualization capabilities for transition analysis, enhanced by consolidation

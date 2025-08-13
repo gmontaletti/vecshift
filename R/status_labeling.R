@@ -543,3 +543,85 @@ print.employment_status_validation <- function(x, ...) {
   
   invisible(x)
 }
+
+#' Classify Employment Status with Consolidated Overlaps
+#'
+#' @description
+#' Internal function that provides consolidated classification of overlapping 
+#' employment periods using over_id grouping. This creates single status
+#' labels for entire overlapping employment periods rather than 
+#' segment-by-segment classification.
+#'
+#' @param segments Data.table with employment segments including over_id column
+#' @param rules Classification rules 
+#' @param group_by Character vector of grouping columns
+#'
+#' @return Data.table with consolidated employment status classifications
+#' @keywords internal
+.classify_with_consolidated_overlaps <- function(segments, rules, group_by) {
+  
+  # First apply standard classification
+  segments <- classify_employment_status(segments, rules, group_by, 
+                                       use_over_id = TRUE, consolidate_overlaps = FALSE)
+  
+  # Create consolidated classifications for over_id > 0
+  if (length(group_by) > 0) {
+    # Group by person and over_id to create consolidated periods
+    consolidated <- segments[over_id > 0, {
+      list(
+        inizio = min(inizio),
+        fine = max(fine), 
+        durata = as.numeric(max(fine) - min(inizio) + 1),
+        arco = max(arco),
+        prior_min = min(prior, na.rm = TRUE),
+        prior_max = max(prior, na.rm = TRUE),
+        n_segments = .N,
+        n_contracts = length(unique(prior[prior > 0])),  # Count distinct contract types
+        original_states = list(unique(stato))
+      )
+    }, by = c(group_by, "over_id")]
+    
+    # Apply consolidated classification rules
+    consolidated[, stato := fcase(
+      # Consolidated full-time employment
+      prior_max == 1 & prior_min == 1, 
+        ifelse(n_segments > 1, "consolidated_ft", "occ_ft"),
+      
+      # Consolidated part-time employment  
+      prior_max == 0 & prior_min == 0,
+        ifelse(n_segments > 1, "consolidated_pt", "occ_pt"),
+      
+      # Mixed employment types
+      prior_min != prior_max,
+        ifelse(n_segments > 1, "consolidated_mixed", "over_mixed"),
+      
+      # Default
+      default = "consolidated_employment"
+    )]
+    
+    # Combine with unemployment periods (over_id = 0)
+    unemployment <- segments[over_id == 0]
+    
+    # Select relevant columns for combination
+    consolidated_cols <- intersect(names(unemployment), names(consolidated))
+    result <- rbind(
+      unemployment[, ..consolidated_cols],
+      consolidated[, ..consolidated_cols],
+      fill = TRUE
+    )
+    
+  } else {
+    # Simplified version without person grouping
+    result <- segments
+    result[over_id > 0, stato := paste0("consolidated_", gsub("^(occ_|over_)", "", stato))]
+  }
+  
+  # Ensure proper ordering
+  if (length(group_by) > 0) {
+    setorderv(result, c(group_by, "inizio"))
+  } else {
+    setorder(result, inizio)
+  }
+  
+  return(result)
+}

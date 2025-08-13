@@ -98,15 +98,20 @@ standardize_columns <- function(dt, column_map, validate = TRUE) {
 #' @description
 #' Performs comprehensive validation of employment data types, formats,
 #' and basic logical consistency. Throws errors for critical issues
-#' and warnings for potential problems.
+#' and warnings for potential problems. Includes validation for over_id
+#' and duration calculation consistency.
 #'
 #' @param dt Data.table with standardized employment columns
 #' @param strict Logical. If TRUE, throws errors for warnings
+#' @param validate_over_id Logical. If TRUE, validates over_id column consistency
+#' @param validate_duration Logical. If TRUE, validates duration calculation invariant
 #'
 #' @return Invisible validation results list
 #'
 #' @export
-validate_employment_data_types <- function(dt, strict = FALSE) {
+validate_employment_data_types <- function(dt, strict = FALSE, 
+                                          validate_over_id = TRUE, 
+                                          validate_duration = TRUE) {
   
   validation_results <- list()
   
@@ -194,6 +199,48 @@ validate_employment_data_types <- function(dt, strict = FALSE) {
     }
   }
   
+  # Validate over_id column if present
+  if (validate_over_id && "over_id" %in% names(dt)) {
+    over_id_issues <- validate_over_id_consistency(dt)
+    validation_results$over_id_issues <- over_id_issues
+    
+    if (over_id_issues$invalid_unemployment_over_id > 0) {
+      msg <- paste("Found", over_id_issues$invalid_unemployment_over_id, 
+                   "unemployment periods with over_id != 0")
+      if (strict) {
+        stop(msg)
+      } else {
+        warning(msg)
+      }
+    }
+    
+    if (over_id_issues$invalid_employment_over_id > 0) {
+      msg <- paste("Found", over_id_issues$invalid_employment_over_id, 
+                   "employment periods with over_id = 0")
+      if (strict) {
+        stop(msg)
+      } else {
+        warning(msg)
+      }
+    }
+  }
+  
+  # Validate duration calculation invariant if durata column is present
+  if (validate_duration && "durata" %in% names(dt) && "cf" %in% names(dt)) {
+    duration_issues <- validate_duration_invariant(dt)
+    validation_results$duration_issues <- duration_issues
+    
+    if (duration_issues$persons_with_mismatch > 0) {
+      msg <- paste("Found", duration_issues$persons_with_mismatch, 
+                   "persons where sum(durata) != elapsed time")
+      if (strict) {
+        stop(msg)
+      } else {
+        warning(msg)
+      }
+    }
+  }
+  
   validation_results$is_valid <- length(validation_results) == 0 ||
                                  all(sapply(validation_results, function(x) is.numeric(x) && x == 0))
   
@@ -205,12 +252,15 @@ validate_employment_data_types <- function(dt, strict = FALSE) {
 #' @description
 #' Performs exhaustive data quality analysis including missing values,
 #' duplicates, outliers, temporal patterns, and logical inconsistencies.
-#' Generates detailed quality report with recommendations.
+#' Generates detailed quality report with recommendations. Includes
+#' validation for over_id consistency and duration calculation invariant.
 #'
 #' @param dt Data.table with employment records (standardized columns)
 #' @param person_col Name of person identifier column
 #' @param include_distributions Logical. Include distribution analysis
 #' @param include_temporal Logical. Include temporal pattern analysis
+#' @param validate_over_id Logical. Include over_id consistency checks
+#' @param validate_duration Logical. Include duration invariant validation
 #'
 #' @return List with comprehensive quality assessment results
 #'
@@ -219,7 +269,9 @@ validate_employment_data_types <- function(dt, strict = FALSE) {
 assess_data_quality <- function(dt, 
                                person_col = "cf",
                                include_distributions = TRUE,
-                               include_temporal = TRUE) {
+                               include_temporal = TRUE,
+                               validate_over_id = TRUE,
+                               validate_duration = TRUE) {
   
   quality_report <- list()
   
@@ -252,25 +304,86 @@ assess_data_quality <- function(dt,
     missing_person_ids = sum(is.na(dt[[person_col]]) | dt[[person_col]] == "")
   )
   
-  # Person-level analysis
-  person_stats <- dt[, {
-    list(
-      n_contracts = .N,
-      total_days = sum(FINE - INIZIO + 1, na.rm = TRUE),
-      date_span_days = as.integer(max(FINE) - min(INIZIO) + 1),
-      has_overlaps = if (.N > 1) {
-        setorder(.SD, INIZIO)
-        any(INIZIO[2:.N] <= FINE[1:(.N-1)])
-      } else FALSE
-    )
-  }, by = c(person_col)]
+  # over_id consistency checks (if column exists)
+  if (validate_over_id && "over_id" %in% names(dt)) {
+    over_id_validation <- validate_over_id_consistency(dt)
+    quality_report$over_id_consistency <- over_id_validation
+  }
   
-  quality_report$person_level <- list(
+  # Duration calculation validation (if durata column exists)
+  if (validate_duration && "durata" %in% names(dt)) {
+    duration_validation <- validate_duration_invariant(dt)
+    quality_report$duration_consistency <- duration_validation
+  }
+  
+  # Person-level analysis
+  person_stats_cols <- c("n_contracts", "total_days", "date_span_days", "has_overlaps")
+  
+  if ("durata" %in% names(dt)) {
+    person_stats <- dt[, {
+      total_elapsed <- as.integer(max(FINE) - min(INIZIO) + 1)
+      total_duration <- sum(durata, na.rm = TRUE)
+      
+      list(
+        n_contracts = .N,
+        total_days = sum(FINE - INIZIO + 1, na.rm = TRUE),
+        date_span_days = total_elapsed,
+        has_overlaps = if (.N > 1) {
+          setorder(.SD, INIZIO)
+          any(INIZIO[2:.N] <= FINE[1:(.N-1)])
+        } else FALSE,
+        duration_sum = total_duration,
+        duration_matches_elapsed = (total_duration == total_elapsed)
+      )
+    }, by = c(person_col)]
+    person_stats_cols <- c(person_stats_cols, "duration_sum", "duration_matches_elapsed")
+  } else {
+    person_stats <- dt[, {
+      list(
+        n_contracts = .N,
+        total_days = sum(FINE - INIZIO + 1, na.rm = TRUE),
+        date_span_days = as.integer(max(FINE) - min(INIZIO) + 1),
+        has_overlaps = if (.N > 1) {
+          setorder(.SD, INIZIO)
+          any(INIZIO[2:.N] <= FINE[1:(.N-1)])
+        } else FALSE
+      )
+    }, by = c(person_col)]
+  }
+  
+  # Build person_level report
+  person_level_report <- list(
     contracts_per_person = summary(person_stats$n_contracts),
     persons_with_overlaps = sum(person_stats$has_overlaps),
     employment_days_distribution = summary(person_stats$total_days),
     coverage_rate_distribution = summary(person_stats$total_days / person_stats$date_span_days)
   )
+  
+  # Add duration-specific statistics if available
+  if ("duration_matches_elapsed" %in% names(person_stats)) {
+    person_level_report$duration_consistency_rate <- mean(person_stats$duration_matches_elapsed, na.rm = TRUE)
+    person_level_report$persons_with_duration_mismatch <- sum(!person_stats$duration_matches_elapsed, na.rm = TRUE)
+  }
+  
+  # Add over_id statistics if available
+  if ("over_id" %in% names(dt)) {
+    overlap_stats <- dt[over_id > 0, .(
+      avg_overlapping_periods = uniqueN(over_id),
+      max_concurrent_employment = max(table(over_id))
+    ), by = c(person_col)]
+    
+    if (nrow(overlap_stats) > 0) {
+      person_level_report$avg_overlapping_periods_per_person <- mean(overlap_stats$avg_overlapping_periods, na.rm = TRUE)
+      person_level_report$max_concurrent_employment <- max(overlap_stats$max_concurrent_employment, na.rm = TRUE)
+      person_level_report$persons_with_overlapping_employment <- nrow(overlap_stats)
+    } else {
+      person_level_report$avg_overlapping_periods_per_person <- 0
+      person_level_report$max_concurrent_employment <- 1
+      person_level_report$persons_with_overlapping_employment <- 0
+    }
+  }
+  
+  quality_report$person_level <- person_level_report
   
   # Distribution analysis
   if (include_distributions) {
@@ -366,6 +479,128 @@ analyze_temporal_clustering <- function(dt, person_col = "cf") {
     suggests_batch_processing = first_days_pct > 20,  # More than 20% start on 1st
     suggests_data_issues = (weekend_starts / length(start_dates)) > 0.15  # >15% weekend starts
   ))
+}
+
+#' Validate over_id Column Consistency
+#'
+#' @description
+#' Validates that over_id values are consistent with employment/unemployment status
+#' and that overlapping periods share the same over_id.
+#'
+#' @param dt Data.table with over_id and arco columns
+#'
+#' @return List with over_id validation results
+#'
+#' @keywords internal
+validate_over_id_consistency <- function(dt) {
+  
+  validation_results <- list(
+    has_over_id = "over_id" %in% names(dt),
+    has_arco = "arco" %in% names(dt)
+  )
+  
+  if (!validation_results$has_over_id) {
+    validation_results$status <- "over_id column not present"
+    return(validation_results)
+  }
+  
+  # Check unemployment periods have over_id = 0
+  if (validation_results$has_arco) {
+    unemployment_periods <- dt[arco == 0]
+    invalid_unemployment <- unemployment_periods[over_id != 0]
+    validation_results$invalid_unemployment_over_id <- nrow(invalid_unemployment)
+    
+    # Check employment periods have over_id > 0  
+    employment_periods <- dt[arco > 0]
+    invalid_employment <- employment_periods[over_id == 0]
+    validation_results$invalid_employment_over_id <- nrow(invalid_employment)
+  } else {
+    # If no arco column, we can't validate employment vs unemployment
+    validation_results$invalid_unemployment_over_id <- 0
+    validation_results$invalid_employment_over_id <- 0
+  }
+  
+  # Check for reasonable over_id numbering within persons
+  if ("cf" %in% names(dt)) {
+    person_over_id_stats <- dt[over_id > 0, .(
+      min_over_id = min(over_id),
+      max_over_id = max(over_id),
+      unique_over_ids = uniqueN(over_id)
+    ), by = cf]
+    
+    # Check for gaps in over_id numbering (potential issue)
+    person_over_id_stats[, over_id_gap := max_over_id - unique_over_ids > 0]
+    validation_results$persons_with_over_id_gaps <- sum(person_over_id_stats$over_id_gap, na.rm = TRUE)
+    
+    # Check for reasonable maximum over_id values
+    validation_results$max_over_id_value <- max(dt$over_id, na.rm = TRUE)
+    validation_results$avg_unique_over_ids_per_person <- mean(person_over_id_stats$unique_over_ids, na.rm = TRUE)
+  }
+  
+  validation_results$total_over_id_issues <- sum(
+    validation_results$invalid_unemployment_over_id,
+    validation_results$invalid_employment_over_id,
+    validation_results$persons_with_over_id_gaps
+  )
+  
+  return(validation_results)
+}
+
+#' Validate Duration Calculation Invariant
+#'
+#' @description
+#' Validates that the mathematical invariant holds: for each person,
+#' sum(durata) should equal (max(FINE) - min(INIZIO) + 1).
+#' This ensures duration calculations are consistent.
+#'
+#' @param dt Data.table with cf, INIZIO, FINE, and durata columns
+#'
+#' @return List with duration validation results
+#'
+#' @keywords internal
+validate_duration_invariant <- function(dt) {
+  
+  validation_results <- list(
+    has_durata = "durata" %in% names(dt),
+    has_required_columns = all(c("cf", "INIZIO", "FINE", "durata") %in% names(dt))
+  )
+  
+  if (!validation_results$has_required_columns) {
+    validation_results$status <- "Required columns missing for duration validation"
+    return(validation_results)
+  }
+  
+  # Calculate per-person duration consistency
+  person_duration_check <- dt[, .(
+    elapsed_time = as.integer(max(FINE, na.rm = TRUE) - min(INIZIO, na.rm = TRUE) + 1),
+    total_duration = sum(durata, na.rm = TRUE),
+    n_periods = .N
+  ), by = cf]
+  
+  # Add consistency flag
+  person_duration_check[, duration_matches := (elapsed_time == total_duration)]
+  
+  # Calculate validation statistics
+  validation_results$total_persons <- nrow(person_duration_check)
+  validation_results$persons_with_mismatch <- sum(!person_duration_check$duration_matches, na.rm = TRUE)
+  validation_results$consistency_rate <- mean(person_duration_check$duration_matches, na.rm = TRUE)
+  
+  # Calculate magnitude of discrepancies
+  mismatched_persons <- person_duration_check[!duration_matches]
+  if (nrow(mismatched_persons) > 0) {
+    mismatched_persons[, discrepancy := abs(elapsed_time - total_duration)]
+    validation_results$avg_discrepancy_days <- mean(mismatched_persons$discrepancy, na.rm = TRUE)
+    validation_results$max_discrepancy_days <- max(mismatched_persons$discrepancy, na.rm = TRUE)
+    validation_results$discrepancy_distribution <- summary(mismatched_persons$discrepancy)
+  } else {
+    validation_results$avg_discrepancy_days <- 0
+    validation_results$max_discrepancy_days <- 0
+  }
+  
+  # Store detailed results for further analysis
+  validation_results$person_level_results <- person_duration_check
+  
+  return(validation_results)
 }
 
 #' Clean Employment Data
@@ -511,6 +746,30 @@ print.employment_quality_report <- function(x, ...) {
   cat(sprintf("  Zero Duration Contracts: %d\n", x$logical_consistency$zero_duration_contracts))
   cat(sprintf("  Missing Person IDs: %d\n", x$logical_consistency$missing_person_ids))
   
+  # over_id consistency reporting
+  if (!is.null(x$over_id_consistency)) {
+    cat("\nover_id Consistency:\n")
+    cat(sprintf("  Invalid unemployment over_id: %d\n", x$over_id_consistency$invalid_unemployment_over_id))
+    cat(sprintf("  Invalid employment over_id: %d\n", x$over_id_consistency$invalid_employment_over_id))
+    cat(sprintf("  Persons with over_id gaps: %d\n", x$over_id_consistency$persons_with_over_id_gaps))
+    if (x$over_id_consistency$total_over_id_issues == 0) {
+      cat("  ✓ over_id values are consistent\n")
+    }
+  }
+  
+  # Duration consistency reporting  
+  if (!is.null(x$duration_consistency)) {
+    cat("\nDuration Consistency:\n")
+    cat(sprintf("  Persons with duration mismatch: %d\n", x$duration_consistency$persons_with_mismatch))
+    cat(sprintf("  Duration consistency rate: %.1f%%\n", x$duration_consistency$consistency_rate * 100))
+    if (x$duration_consistency$persons_with_mismatch > 0) {
+      cat(sprintf("  Average discrepancy: %.1f days\n", x$duration_consistency$avg_discrepancy_days))
+      cat(sprintf("  Maximum discrepancy: %d days\n", x$duration_consistency$max_discrepancy_days))
+    } else {
+      cat("  ✓ All duration calculations are consistent\n")
+    }
+  }
+  
   # Person-level patterns
   cat("\nPerson-Level Patterns:\n")
   cat("---------------------\n")
@@ -522,6 +781,22 @@ print.employment_quality_report <- function(x, ...) {
               x$person_level$contracts_per_person["Min."],
               x$person_level$contracts_per_person["Median"],
               x$person_level$contracts_per_person["Max."]))
+  
+  # over_id specific statistics
+  if (!is.null(x$person_level$persons_with_overlapping_employment)) {
+    cat(sprintf("Persons with Overlapping Employment (over_id > 0): %d\n",
+                x$person_level$persons_with_overlapping_employment))
+    cat(sprintf("Average Overlapping Periods per Person: %.1f\n",
+                x$person_level$avg_overlapping_periods_per_person))
+    cat(sprintf("Maximum Concurrent Employment: %d\n",
+                x$person_level$max_concurrent_employment))
+  }
+  
+  # Duration consistency statistics
+  if (!is.null(x$person_level$duration_consistency_rate)) {
+    cat(sprintf("Duration Consistency Rate: %.1f%%\n",
+                x$person_level$duration_consistency_rate * 100))
+  }
   
   # Recommendations
   cat("\nRecommendations:\n")
@@ -537,6 +812,21 @@ print.employment_quality_report <- function(x, ...) {
   }
   if (x$person_level$persons_with_overlaps > x$dimensions$n_persons * 0.5) {
     cat("• High overlap rate detected - verify this matches expected employment patterns\n")
+  }
+  
+  # over_id specific recommendations
+  if (!is.null(x$over_id_consistency) && x$over_id_consistency$total_over_id_issues > 0) {
+    cat("• Fix over_id consistency issues - unemployment periods should have over_id = 0\n")
+    cat("• Employment periods should have over_id > 0\n")
+  }
+  
+  # Duration consistency recommendations
+  if (!is.null(x$duration_consistency) && x$duration_consistency$persons_with_mismatch > 0) {
+    cat("• Fix duration calculation inconsistencies\n")
+    cat("• Verify that sum(durata) equals elapsed time for each person\n")
+    if (x$duration_consistency$avg_discrepancy_days > 7) {
+      cat("• Large duration discrepancies detected - check data processing logic\n")
+    }
   }
   
   invisible(x)

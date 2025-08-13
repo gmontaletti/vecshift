@@ -2,17 +2,18 @@
 #'
 #' @description
 #' An optimized helper function that chains together vecshift(), merge_original_columns(),
-#' and merge_consecutive_employment_fast() operations for efficient memory usage and
+#' and merge_consecutive_employment() operations for efficient memory usage and
 #' performance. This function provides a complete pipeline from raw employment contracts
-#' to processed temporal segments with merged original data and collapsed consecutive periods.
+#' to processed temporal segments with merged original data and period consolidation using over_id.
 #'
 #' @details
 #' The function performs the following operations in sequence:
 #' \enumerate{
-#'   \item \strong{vecshift()}: Transforms employment records into temporal segments
+#'   \item \strong{vecshift()}: Transforms employment records into temporal segments with over_id
+#'   \item \strong{Validation}: Validates over_id consistency and duration invariant
 #'   \item \strong{merge_original_columns()}: Merges additional columns from original data (optional)
 #'   \item \strong{merge_overlapping_values()}: Handles overlapping employment values (optional)
-#'   \item \strong{merge_consecutive_employment_fast()}: Collapses consecutive employment periods (optional)
+#'   \item \strong{merge_consecutive_employment()}: Consolidates periods using over_id (optional)
 #' }
 #'
 #' The function is optimized for memory efficiency by:
@@ -38,10 +39,16 @@
 #' @param handle_overlaps Logical. If TRUE (default when merge_columns is specified),
 #'   processes overlapping employment values. Only applies when merge_columns is not NULL.
 #' @param collapse_consecutive Logical. If TRUE (default), collapses consecutive
-#'   employment periods using the fast implementation.
+#'   employment periods using the over_id-based implementation.
+#' @param consolidate_periods Logical. If TRUE (default), enables period consolidation
+#'   when collapse_consecutive is TRUE. Passed to merge_consecutive_employment().
+#' @param consolidation_type Character. Consolidation strategy when consolidate_periods is TRUE:
+#'   "both" (default), "overlapping", "consecutive", or "none".
 #' @param classify_status Logical. If TRUE (default), applies employment status
 #'   classification during vecshift step.
 #' @param status_rules Optional custom status rules for vecshift. If NULL, uses defaults.
+#' @param validate_over_id Logical. If TRUE (default), validates over_id consistency
+#'   and duration invariant after vecshift transformation.
 #' @param validate_functions Logical. If TRUE (default), checks for function availability
 #'   before execution and provides informative error messages.
 #' @param show_progress Logical. If TRUE (default), displays a progress bar showing
@@ -52,16 +59,26 @@
 #' @return A data.table containing the processed employment segments. The exact structure
 #'   depends on which pipeline steps were applied:
 #'   \itemize{
-#'     \item \strong{Base vecshift output}: cf, inizio, fine, arco, prior, id, durata, stato
+#'     \item \strong{Base vecshift output}: cf, inizio, fine, arco, prior, id, durata, stato, over_id
 #'     \item \strong{With merged columns}: Additional columns from original_data
-#'     \item \strong{With collapsed consecutive}: collapsed, n_periods, and aggregated values
+#'     \item \strong{With period consolidation}: collapsed, n_periods, and aggregated values
+#'   }
+#'   
+#'   The result also includes attributes:
+#'   \itemize{
+#'     \item \strong{pipeline_steps}: Logical vector of applied steps
+#'     \item \strong{validation_results}: over_id and duration validation results
+#'     \item \strong{consolidation_stats}: Statistics on period consolidation (if applied)
 #'   }
 #'
 #' @note
 #' This function automatically detects which processing functions are available and
 #' gracefully handles missing dependencies. If merge_original_columns() or
-#' merge_consecutive_employment_fast() are not available, the corresponding steps
+#' merge_consecutive_employment() are not available, the corresponding steps
 #' are skipped with a warning message.
+#' 
+#' The over_id functionality requires vecshift() output with over_id column.
+#' If over_id is not available, consolidation falls back to traditional consecutive merging.
 #'
 #' @export
 #' @importFrom data.table data.table copy setDT
@@ -88,9 +105,12 @@
 #'   merge_columns = c("company", "salary", "department"),
 #'   handle_overlaps = TRUE,
 #'   collapse_consecutive = TRUE,
+#'   consolidate_periods = TRUE,
+#'   consolidation_type = "both",
 #'   show_progress = TRUE
 #' )
 #' print(result_full)
+#' print(attr(result_full, "validation_results"))
 #' 
 #' # Only vecshift transformation without progress bar
 #' result_basic <- process_employment_pipeline(
@@ -104,7 +124,8 @@
 #' result_merged <- process_employment_pipeline(
 #'   original_data = employment_data,
 #'   merge_columns = c("company", "salary"),
-#'   collapse_consecutive = FALSE
+#'   collapse_consecutive = FALSE,
+#'   validate_over_id = TRUE
 #' )
 #' 
 #' # Process already-transformed vecshift output
@@ -113,7 +134,8 @@
 #'   original_data = employment_data,
 #'   apply_vecshift = FALSE,
 #'   merge_columns = c("company"),
-#'   collapse_consecutive = TRUE
+#'   collapse_consecutive = TRUE,
+#'   consolidation_type = "overlapping"
 #' )
 #' }
 process_employment_pipeline <- function(original_data,
@@ -121,8 +143,11 @@ process_employment_pipeline <- function(original_data,
                                        merge_columns = NULL,
                                        handle_overlaps = !is.null(merge_columns),
                                        collapse_consecutive = TRUE,
+                                       consolidate_periods = TRUE,
+                                       consolidation_type = "both",
                                        classify_status = TRUE,
                                        status_rules = NULL,
+                                       validate_over_id = TRUE,
                                        validate_functions = TRUE,
                                        show_progress = TRUE) {
   
@@ -143,6 +168,11 @@ process_employment_pipeline <- function(original_data,
     if (apply_vecshift) {
       progress_steps[["vecshift"]] <- TRUE
       progress_names <- c(progress_names, "Applying vecshift transformation")
+      
+      if (validate_over_id) {
+        progress_steps[["validate_over_id"]] <- TRUE
+        progress_names <- c(progress_names, "Validating over_id consistency")
+      }
     }
     
     if (!is.null(merge_columns)) {
@@ -157,7 +187,11 @@ process_employment_pipeline <- function(original_data,
     
     if (collapse_consecutive) {
       progress_steps[["collapse"]] <- TRUE
-      progress_names <- c(progress_names, "Collapsing consecutive periods")
+      if (consolidate_periods) {
+        progress_names <- c(progress_names, "Consolidating employment periods")
+      } else {
+        progress_names <- c(progress_names, "Merging consecutive periods")
+      }
     }
     
     progress_steps[["cleanup"]] <- TRUE
@@ -219,8 +253,17 @@ process_employment_pipeline <- function(original_data,
       stop("Function 'merge_overlapping_values' not found. Please ensure the merge_columns.R file is loaded.")
     }
     
-    if (collapse_consecutive && !exists("merge_consecutive_employment_fast", mode = "function")) {
-      stop("Function 'merge_consecutive_employment_fast' not found. Please ensure the merge_consecutive_employment.R file is loaded.")
+    if (collapse_consecutive) {
+      if (consolidate_periods && !exists("merge_consecutive_employment", mode = "function")) {
+        stop("Function 'merge_consecutive_employment' not found. Please ensure the merge_consecutive_employment.R file is loaded.")
+      } else if (!consolidate_periods && !exists("merge_consecutive_employment_fast", mode = "function")) {
+        stop("Function 'merge_consecutive_employment_fast' not found. Please ensure the merge_consecutive_employment.R file is loaded.")
+      }
+    }
+    
+    if (validate_over_id && !exists("validate_over_id_consistency", mode = "function")) {
+      warning("Function 'validate_over_id_consistency' not found. over_id validation will be skipped.")
+      validate_over_id <- FALSE
     }
   }
   
@@ -246,6 +289,9 @@ process_employment_pipeline <- function(original_data,
     }
   }
   
+  # Initialize validation results storage
+  validation_results <- list()
+  
   # Step 1: Apply vecshift transformation if requested
   if (apply_vecshift) {
     if (show_progress) {
@@ -261,6 +307,35 @@ process_employment_pipeline <- function(original_data,
     # Provide memory usage information if in verbose mode
     if (getOption("vecshift.verbose", FALSE)) {
       cat("Step 1 (vecshift) completed. Rows:", nrow(result), "\n")
+    }
+    
+    # Step 1b: Validate over_id consistency if requested
+    if (validate_over_id) {
+      if (show_progress) {
+        update_progress("Validating over_id consistency")
+      }
+      
+      if (exists("validate_over_id_consistency", mode = "function")) {
+        validation_results$over_id <- validate_over_id_consistency(result)
+        
+        if (getOption("vecshift.verbose", FALSE)) {
+          cat("over_id validation completed.\n")
+          if (!validation_results$over_id$all_tests_passed) {
+            cat("Warning: over_id validation found inconsistencies.\n")
+          }
+        }
+      }
+      
+      if (exists("validate_duration_invariant", mode = "function")) {
+        validation_results$duration <- validate_duration_invariant(result)
+        
+        if (getOption("vecshift.verbose", FALSE)) {
+          cat("Duration invariant validation completed.\n")
+          if (!validation_results$duration$all_tests_passed) {
+            cat("Warning: Duration invariant validation found inconsistencies.\n")
+          }
+        }
+      }
     }
   } else {
     # Use original_data as starting point (assume it's already processed)
@@ -309,21 +384,55 @@ process_employment_pipeline <- function(original_data,
     }
   }
   
-  # Step 3: Collapse consecutive employment periods if requested
+  # Step 3: Consolidate employment periods if requested
   if (collapse_consecutive) {
     if (show_progress) {
-      update_progress("Collapsing consecutive periods")
+      if (consolidate_periods) {
+        update_progress("Consolidating employment periods")
+      } else {
+        update_progress("Merging consecutive periods")
+      }
     }
     
-    if (exists("merge_consecutive_employment_fast", mode = "function")) {
+    pre_consolidation_rows <- nrow(result)
+    consolidation_stats <- list()
+    
+    if (consolidate_periods && exists("merge_consecutive_employment", mode = "function")) {
+      # Use new consolidation approach with over_id
+      result <- merge_consecutive_employment(result, consolidation_type = consolidation_type)
+      
+      # Calculate consolidation statistics
+      if ("collapsed" %in% names(result)) {
+        consolidation_stats$periods_consolidated <- sum(result$collapsed, na.rm = TRUE)
+        consolidation_stats$total_periods_after <- nrow(result)
+        consolidation_stats$consolidation_type <- consolidation_type
+        consolidation_stats$reduction_ratio <- 1 - (nrow(result) / pre_consolidation_rows)
+      }
+      
+      if (getOption("vecshift.verbose", FALSE)) {
+        cat(sprintf("Step 3 (merge_consecutive_employment) completed. %s consolidation: %d -> %d rows.\n", 
+                    consolidation_type, pre_consolidation_rows, nrow(result)))
+      }
+      
+    } else if (!consolidate_periods && exists("merge_consecutive_employment_fast", mode = "function")) {
+      # Fallback to fast implementation without over_id
       result <- merge_consecutive_employment_fast(result)
+      
+      consolidation_stats$periods_consolidated <- sum(result$collapsed, na.rm = TRUE)
+      consolidation_stats$total_periods_after <- nrow(result)
+      consolidation_stats$consolidation_type <- "consecutive_only"
+      consolidation_stats$reduction_ratio <- 1 - (nrow(result) / pre_consolidation_rows)
       
       if (getOption("vecshift.verbose", FALSE)) {
         cat("Step 3 (merge_consecutive_employment_fast) completed. Final rows:", nrow(result), "\n")
       }
+      
     } else {
-      warning("merge_consecutive_employment_fast function not available. Skipping consecutive period collapsing.")
+      warning("Neither merge_consecutive_employment nor merge_consecutive_employment_fast function available. Skipping period consolidation.")
+      consolidation_stats$error <- "Functions not available"
     }
+    
+    validation_results$consolidation <- consolidation_stats
   }
   
   # Final validation and cleanup
@@ -341,16 +450,25 @@ process_employment_pipeline <- function(original_data,
   }
   
   # Add pipeline metadata as attributes for debugging/tracking
-  setattr(result, "pipeline_steps", list(
+  pipeline_steps <- list(
     vecshift_applied = apply_vecshift,
     columns_merged = !is.null(merge_columns),
     overlaps_handled = handle_overlaps && !is.null(merge_columns),
     consecutive_collapsed = collapse_consecutive,
-    status_classified = classify_status
-  ))
+    status_classified = classify_status,
+    periods_consolidated = consolidate_periods && collapse_consecutive,
+    over_id_validated = validate_over_id && apply_vecshift
+  )
+  
+  setattr(result, "pipeline_steps", pipeline_steps)
+  setattr(result, "validation_results", validation_results)
   
   if (!is.null(merge_columns)) {
     setattr(result, "merged_columns", merge_columns)
+  }
+  
+  if (consolidate_periods && collapse_consecutive) {
+    setattr(result, "consolidation_type", consolidation_type)
   }
   
   # Clean up progress bar and show completion message
@@ -368,8 +486,30 @@ process_employment_pipeline <- function(original_data,
     end_time <- Sys.time()
     elapsed_time <- difftime(end_time, start_time, units = "secs")
     
-    cat(sprintf("Pipeline completed in %.2f seconds. Processed %d rows -> %d rows.\n", 
-                as.numeric(elapsed_time), nrow(original_data), nrow(result)))
+    # Enhanced summary with validation and consolidation info
+    summary_msg <- sprintf("Pipeline completed in %.2f seconds. Processed %d rows -> %d rows.", 
+                          as.numeric(elapsed_time), nrow(original_data), nrow(result))
+    
+    if (length(validation_results) > 0) {
+      if (!is.null(validation_results$over_id)) {
+        has_over_id <- validation_results$over_id$has_over_id
+        valid_over_id <- validation_results$over_id$all_tests_passed
+        summary_msg <- paste(summary_msg, 
+                             sprintf("\nover_id: %s (valid: %s)", 
+                                     ifelse(has_over_id, "present", "missing"),
+                                     ifelse(valid_over_id, "yes", "no")))
+      }
+      
+      if (!is.null(validation_results$consolidation) && !is.null(validation_results$consolidation$periods_consolidated)) {
+        n_consolidated <- validation_results$consolidation$periods_consolidated
+        reduction <- validation_results$consolidation$reduction_ratio
+        summary_msg <- paste(summary_msg,
+                             sprintf("\nConsolidation: %d periods consolidated (%.1f%% reduction)", 
+                                     n_consolidated, reduction * 100))
+      }
+    }
+    
+    cat(summary_msg, "\n")
   }
   
   return(result)
@@ -387,7 +527,10 @@ process_employment_pipeline <- function(original_data,
 #'     \item{\code{vecshift}}: Core transformation function
 #'     \item{\code{merge_original_columns}}: Column merging function
 #'     \item{\code{merge_overlapping_values}}: Overlap handling function
-#'     \item{\code{merge_consecutive_employment_fast}}: Consecutive period collapsing
+#'     \item{\code{merge_consecutive_employment}}: Period consolidation with over_id
+#'     \item{\code{merge_consecutive_employment_fast}}: Traditional consecutive merging
+#'     \item{\code{validate_over_id_consistency}}: over_id validation
+#'     \item{\code{validate_duration_invariant}}: Duration consistency validation
 #'   }
 #'
 #' @export
@@ -408,7 +551,10 @@ check_pipeline_functions <- function() {
     "vecshift",
     "merge_original_columns", 
     "merge_overlapping_values",
-    "merge_consecutive_employment_fast"
+    "merge_consecutive_employment",
+    "merge_consecutive_employment_fast",
+    "validate_over_id_consistency",
+    "validate_duration_invariant"
   )
   
   availability <- sapply(functions_to_check, function(fn) {
@@ -490,7 +636,9 @@ get_pipeline_recommendations <- function(data, target_operation = "analysis") {
     apply_vecshift = TRUE,
     handle_overlaps = TRUE,
     collapse_consecutive = TRUE,
-    classify_status = TRUE
+    consolidate_periods = TRUE,
+    classify_status = TRUE,
+    validate_over_id = TRUE
   )
   
   reasoning <- character()
@@ -518,25 +666,29 @@ get_pipeline_recommendations <- function(data, target_operation = "analysis") {
   
   # Adjust recommendations based on target operation
   if (target_operation == "analysis") {
-    # For analysis, typically want full processing
+    # For analysis, typically want full processing with over_id consolidation
     recommendations$collapse_consecutive <- TRUE
-    reasoning <- c(reasoning, "Analysis target: enabling consecutive period collapsing for cleaner temporal segments")
+    recommendations$consolidate_periods <- TRUE
+    reasoning <- c(reasoning, "Analysis target: enabling period consolidation with over_id for comprehensive temporal segments")
     
   } else if (target_operation == "reporting") {
-    # For reporting, might want to preserve individual periods
+    # For reporting, might want to preserve individual periods but use over_id
     recommendations$collapse_consecutive <- FALSE
+    recommendations$consolidate_periods <- FALSE
     reasoning <- c(reasoning, "Reporting target: preserving individual periods for detailed reports")
     
   } else if (target_operation == "visualization") {
-    # For visualization, collapsed periods are usually better
+    # For visualization, consolidated periods are usually better
     recommendations$collapse_consecutive <- TRUE
-    reasoning <- c(reasoning, "Visualization target: collapsing consecutive periods for cleaner plots")
+    recommendations$consolidate_periods <- TRUE
+    reasoning <- c(reasoning, "Visualization target: consolidating periods using over_id for cleaner plots")
     
   } else if (target_operation == "export") {
-    # For export, provide comprehensive data
+    # For export, provide comprehensive data with over_id
     recommendations$handle_overlaps <- !is.null(merge_columns)
     recommendations$collapse_consecutive <- TRUE
-    reasoning <- c(reasoning, "Export target: comprehensive processing for external use")
+    recommendations$consolidate_periods <- TRUE
+    reasoning <- c(reasoning, "Export target: comprehensive processing with over_id consolidation for external use")
   }
   
   # Check data size and performance implications
@@ -560,14 +712,26 @@ get_pipeline_recommendations <- function(data, target_operation = "analysis") {
     recommendations$handle_overlaps <- FALSE
   }
   
-  if (!availability["merge_consecutive_employment_fast"]) {
-    warnings <- c(warnings, "merge_consecutive_employment_fast not available. Consecutive collapsing will be skipped.")
-    recommendations$collapse_consecutive <- FALSE
+  if (!availability["merge_consecutive_employment"]) {
+    if (!availability["merge_consecutive_employment_fast"]) {
+      warnings <- c(warnings, "Neither merge_consecutive_employment nor merge_consecutive_employment_fast available. Period consolidation will be skipped.")
+      recommendations$collapse_consecutive <- FALSE
+      recommendations$consolidate_periods <- FALSE
+    } else {
+      warnings <- c(warnings, "merge_consecutive_employment not available. Falling back to merge_consecutive_employment_fast (no over_id support).")
+      recommendations$consolidate_periods <- FALSE
+    }
+  }
+  
+  if (!availability["validate_over_id_consistency"]) {
+    warnings <- c(warnings, "validate_over_id_consistency not available. over_id validation will be skipped.")
+    recommendations$validate_over_id <- FALSE
   }
   
   return(list(
     recommendations = recommendations,
     merge_columns = merge_columns,
+    consolidation_type = "both",  # Default recommendation for consolidation
     reasoning = reasoning,
     warnings = warnings,
     data_summary = list(

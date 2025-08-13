@@ -41,7 +41,8 @@
 #' format required by g6r for interactive network visualization.
 #'
 #' @param transitions_data Output from analyze_employment_transitions() (data.table format)
-#'   or transition matrix (matrix format)
+#'   or transition matrix (matrix format). May include consolidated transition data if
+#'   analyzed with use_consolidated_periods = TRUE.
 #' @param node_size_metric Character string specifying which metric to use for node sizing.
 #'   Options: "in_degree" (incoming transitions), "out_degree" (outgoing transitions),
 #'   "total_degree" (sum of both), "weight" (total transition weight). Default: "total_degree"
@@ -52,9 +53,13 @@
 #'   Helps focus on significant transitions by filtering out rare events. Default: 1
 #' @param node_color_palette Character vector of colors for nodes. Should be colorblind-friendly.
 #'   Default: uses viridis::viridis() palette
-#' @param edge_color Character string for edge color. Default: "#666666" (gray)
+#' @param edge_color Character string for edge color. When transitions are consolidated,
+#'   can be set to indicate consolidation status. Default: "#666666" (gray)
 #' @param include_self_loops Logical. Whether to include self-loops (transitions from state to same state).
 #'   Default: FALSE
+#' @param consolidation_info Logical. Whether to include consolidation information in node/edge
+#'   tooltips and styling. Only applicable when transitions_data contains consolidated periods.
+#'   Default: TRUE
 #'
 #' @return List with two elements:
 #'   \itemize{
@@ -114,7 +119,8 @@ convert_transitions_to_g6r <- function(transitions_data,
                                      min_weight_threshold = 1,
                                      node_color_palette = NULL,
                                      edge_color = "#666666",
-                                     include_self_loops = FALSE) {
+                                     include_self_loops = FALSE,
+                                     consolidation_info = TRUE) {
   
   .check_g6r()
   
@@ -219,21 +225,44 @@ convert_transitions_to_g6r <- function(transitions_data,
     node_metrics[, value := 30]  # Default size when all values are equal
   }
   
+  # Detect if data contains consolidation information
+  has_consolidation_data <- consolidation_info && 
+    ("from_consolidated" %in% names(transitions_dt) || 
+     any(grepl("_from_mode|_to_mode|_from_median|_to_median", names(transitions_dt))))
+  
   # Set default colorblind-friendly palette if not provided
   if (is.null(node_color_palette)) {
     if (requireNamespace("viridis", quietly = TRUE)) {
       node_color_palette <- viridis::viridis(length(unique_states))
     } else {
-      # Fallback colorblind-friendly palette
+      # Fallback colorblind-friendly palette (Okabe-Ito for accessibility)
       node_color_palette <- c("#1f77b4", "#ff7f0e", "#2ca02c", "#d62728", 
                              "#9467bd", "#8c564b", "#e377c2", "#7f7f7f",
                              "#bcbd22", "#17becf")[seq_along(unique_states)]
     }
   }
   
-  # Assign colors to nodes
+  # Assign colors to nodes and add consolidation information if available
   node_metrics[, color := node_color_palette[seq_len(.N)]]
   node_metrics[, label := id]
+  
+  # Add node attributes for tooltip information
+  if (has_consolidation_data) {
+    node_metrics[, tooltip := paste0(
+      "State: ", id, "\n",
+      "Total Transitions: ", total_transitions, "\n",
+      "In-degree: ", in_degree, "\n",
+      "Out-degree: ", out_degree, "\n",
+      "Note: Based on consolidated employment periods"
+    )]
+  } else {
+    node_metrics[, tooltip := paste0(
+      "State: ", id, "\n",
+      "Total Transitions: ", total_transitions, "\n", 
+      "In-degree: ", in_degree, "\n",
+      "Out-degree: ", out_degree
+    )]
+  }
   
   # Convert nodes to data.frame (required by g6R)
   nodes_df <- as.data.frame(node_metrics)
@@ -262,8 +291,28 @@ convert_transitions_to_g6r <- function(transitions_data,
     edges_dt[, width := 3]  # Default width
   }
   
-  # Add edge color
-  edges_dt[, color := edge_color]
+  # Add edge color and consolidation information
+  if (has_consolidation_data) {
+    # Use different edge styling for consolidated transitions
+    edges_dt[, color := ifelse(weight > 1, "#2E86AB", edge_color)]  # Blue for multiple consolidated transitions
+    edges_dt[, style := ifelse(weight > 1, "solid", "dashed")]
+    
+    # Enhanced tooltips for consolidated edges
+    edges_dt[, tooltip := paste0(
+      "Transition: ", source, " → ", target, "\n",
+      "Count: ", weight, "\n",
+      "Avg Unemployment: ", round(transition_duration, 1), " days\n",
+      "Type: ", ifelse(weight > 1, "Consolidated", "Direct")
+    )]
+  } else {
+    edges_dt[, color := edge_color]
+    edges_dt[, style := "solid"]
+    edges_dt[, tooltip := paste0(
+      "Transition: ", source, " → ", target, "\n",
+      "Count: ", weight, "\n",
+      "Avg Unemployment: ", round(transition_duration, 1), " days"
+    )]
+  }
   
   # Remove temporary width_value column
   edges_dt[, width_value := NULL]
@@ -284,7 +333,8 @@ convert_transitions_to_g6r <- function(transitions_data,
 #' Provides multiple layout options, interactive behaviors, and customization features
 #' suitable for exploring employment pattern data.
 #'
-#' @param transitions_data Output from analyze_employment_transitions() or transition matrix
+#' @param transitions_data Output from analyze_employment_transitions() or transition matrix.
+#'   Can be consolidated or non-consolidated transition data.
 #' @param layout Character string specifying the layout algorithm. Options include:
 #'   "force" (force-directed), "circular", "radial", "dagre" (hierarchical), 
 #'   "concentric", "grid", "fruchterman", "kamada_kawai". Default: "force"
@@ -303,6 +353,8 @@ convert_transitions_to_g6r <- function(transitions_data,
 #' @param node_color_palette Character vector of colors for nodes. Default: NULL (uses viridis)
 #' @param accessibility_mode Logical. Whether to optimize for accessibility with high contrast
 #'   and redundant encoding. Default: FALSE
+#' @param show_consolidation_legend Logical. Whether to show legend explaining consolidated
+#'   vs raw transitions when applicable. Default: TRUE
 #' @param ... Additional parameters passed to convert_transitions_to_g6r()
 #'
 #' @return A g6R htmlwidget object that can be displayed in R or embedded in Shiny apps
@@ -351,6 +403,7 @@ plot_interactive_transitions <- function(transitions_data,
                                        animation_duration = 1000,
                                        node_color_palette = NULL,
                                        accessibility_mode = FALSE,
+                                       show_consolidation_legend = TRUE,
                                        ...) {
   
   .check_g6r()
@@ -511,13 +564,34 @@ interactive_transitions_module <- function() {
   
   # UI component
   ui <- function(id) {
-    ns <- NS(id)
+    ns <- shiny::NS(id)
     
     fluidPage(
       fluidRow(
         column(3,
           wellPanel(
             h4("Visualization Controls"),
+            
+            # Consolidation Controls
+            h5("Period Consolidation"),
+            checkboxInput(ns("use_consolidated"), "Use Consolidated Periods", TRUE),
+            
+            conditionalPanel(
+              condition = "input.use_consolidated",
+              ns = ns,
+              selectInput(ns("consolidation_type"), "Consolidation Type:",
+                         choices = list(
+                           "Both (Complete)" = "both",
+                           "Overlapping Only" = "overlapping", 
+                           "Consecutive Only" = "consecutive",
+                           "None" = "none"
+                         ),
+                         selected = "both"),
+              helpText("Consolidated periods provide cleaner transition patterns by
+                       treating continuous employment episodes as single periods.")
+            ),
+            
+            hr(),
             
             selectInput(ns("layout"), "Layout Algorithm:",
                        choices = list(
@@ -533,6 +607,9 @@ interactive_transitions_module <- function() {
             
             numericInput(ns("min_weight"), "Minimum Transition Weight:",
                         value = 1, min = 1, step = 1),
+            
+            numericInput(ns("max_unemployment"), "Max Unemployment Days (optional):",
+                        value = NA, min = 1, step = 1),
             
             selectInput(ns("node_size"), "Node Size Based On:",
                        choices = list(
@@ -558,6 +635,7 @@ interactive_transitions_module <- function() {
             checkboxInput(ns("show_tooltip"), "Show Tooltips", TRUE),
             checkboxInput(ns("edge_bundling"), "Edge Bundling", FALSE),
             checkboxInput(ns("accessibility_mode"), "Accessibility Mode", FALSE),
+            checkboxInput(ns("show_consolidation_legend"), "Show Consolidation Legend", TRUE),
             
             br(),
             
@@ -574,11 +652,15 @@ interactive_transitions_module <- function() {
           br(),
           
           fluidRow(
-            column(6,
+            column(4,
               h4("Transition Summary"),
               tableOutput(ns("summary_table"))
             ),
-            column(6,
+            column(4,
+              h4("Consolidation Statistics"),
+              tableOutput(ns("consolidation_stats"))
+            ),
+            column(4,
               h4("Selected Node Details"),
               verbatimTextOutput(ns("node_details"))
             )
@@ -589,8 +671,57 @@ interactive_transitions_module <- function() {
   }
   
   # Server component
-  server <- function(id, transitions_data) {
+  server <- function(id, pipeline_result) {
     moduleServer(id, function(input, output, session) {
+      
+      # Store consolidation statistics for display
+      consolidation_stats <- reactiveVal(NULL)
+      
+      # Reactive transition data with consolidation options
+      transitions_data <- reactive({
+        req(pipeline_result())
+        
+        # Check if over_id column exists for consolidation
+        has_over_id <- "over_id" %in% names(pipeline_result())
+        
+        if (!has_over_id && input$use_consolidated) {
+          showNotification("over_id column not found. Using non-consolidated analysis.",
+                         type = "warning")
+        }
+        
+        # Get max unemployment duration (convert NA to NULL)
+        max_unemp <- if (is.na(input$max_unemployment)) NULL else input$max_unemployment
+        
+        # Analyze transitions with current settings
+        result <- analyze_employment_transitions(
+          pipeline_result = pipeline_result(),
+          use_consolidated_periods = input$use_consolidated && has_over_id,
+          consolidation_type = if (input$use_consolidated && has_over_id) input$consolidation_type else "none",
+          max_unemployment_duration = max_unemp,
+          show_progress = FALSE
+        )
+        
+        # Store statistics for comparison
+        if (input$use_consolidated && has_over_id) {
+          # Compare with non-consolidated
+          non_consolidated <- analyze_employment_transitions(
+            pipeline_result = pipeline_result(),
+            use_consolidated_periods = FALSE,
+            max_unemployment_duration = max_unemp,
+            show_progress = FALSE
+          )
+          
+          consolidation_stats(list(
+            consolidated_transitions = nrow(result),
+            raw_transitions = nrow(non_consolidated),
+            reduction_pct = round((nrow(non_consolidated) - nrow(result)) / nrow(non_consolidated) * 100, 1)
+          ))
+        } else {
+          consolidation_stats(NULL)
+        }
+        
+        return(result)
+      })
       
       # Reactive values for the visualization
       g6_data <- reactive({
@@ -601,6 +732,7 @@ interactive_transitions_module <- function() {
           node_size_metric = input$node_size,
           edge_width_metric = input$edge_width,
           min_weight_threshold = input$min_weight,
+          consolidation_info = input$use_consolidated,
           node_color_palette = if (input$accessibility_mode) {
             c("#000000", "#E69F00", "#56B4E9", "#009E73", 
               "#CC79A7", "#F0E442", "#0072B2", "#D55E00")
@@ -623,9 +755,11 @@ interactive_transitions_module <- function() {
           show_tooltip = input$show_tooltip,
           edge_bundling = input$edge_bundling,
           accessibility_mode = input$accessibility_mode,
+          show_consolidation_legend = input$show_consolidation_legend,
           node_size_metric = input$node_size,
           edge_width_metric = input$edge_width,
-          min_weight_threshold = input$min_weight
+          min_weight_threshold = input$min_weight,
+          consolidation_info = input$use_consolidated
         )
       })
       
@@ -637,24 +771,75 @@ interactive_transitions_module <- function() {
         if (is.matrix(data)) {
           total_transitions <- sum(data)
           unique_states <- length(unique(c(rownames(data), colnames(data))))
+          avg_duration <- NA
         } else {
           total_transitions <- sum(data$weight, na.rm = TRUE)
           unique_states <- length(unique(c(data$from, data$to)))
+          avg_duration <- round(mean(data$transition_duration, na.rm = TRUE), 1)
+        }
+        
+        metrics <- c("Total Transitions", "Unique States", "Avg per State")
+        values <- c(
+          total_transitions,
+          unique_states,
+          round(total_transitions / unique_states, 2)
+        )
+        
+        if (!is.na(avg_duration)) {
+          metrics <- c(metrics, "Avg Unemployment (days)")
+          values <- c(values, avg_duration)
+        }
+        
+        data.frame(Metric = metrics, Value = values)
+      })
+      
+      # Consolidation statistics table
+      output$consolidation_stats <- renderTable({
+        stats <- consolidation_stats()
+        
+        if (is.null(stats)) {
+          return(data.frame(
+            Metric = c("Status", "Type"),
+            Value = c(
+              ifelse(input$use_consolidated, "No over_id found", "Disabled"),
+              "Raw transitions only"
+            )
+          ))
         }
         
         data.frame(
-          Metric = c("Total Transitions", "Unique States", "Average Transitions per State"),
+          Metric = c("Consolidated", "Raw Count", "Reduction", "over_id Status"),
           Value = c(
-            total_transitions,
-            unique_states,
-            round(total_transitions / unique_states, 2)
+            stats$consolidated_transitions,
+            stats$raw_transitions,
+            paste0(stats$reduction_pct, "%"),
+            "Available"
           )
         )
       })
       
-      # Node details (placeholder for future implementation)
+      # Node details with consolidation information
       output$node_details <- renderText({
-        "Click on nodes to see details\n(Feature coming in future update)"
+        consolidation_text <- if (input$use_consolidated) {
+          "\nVisualization shows consolidated\nemployment periods for cleaner\ntransition patterns."
+        } else {
+          "\nVisualization shows raw transition\ndata without consolidation."
+        }
+        
+        help_text <- paste0(
+          "CONSOLIDATION HELP:\n\n",
+          "• over_id = 0: Unemployment periods\n", 
+          "• over_id > 0: Employment periods\n",
+          "• Same over_id: Overlapping contracts\n\n",
+          "CONSOLIDATION TYPES:\n",
+          "• Both: Overlapping + Consecutive\n",
+          "• Overlapping: Same over_id only\n",
+          "• Consecutive: Adjacent periods\n",
+          "• None: Raw data (no consolidation)\n",
+          consolidation_text
+        )
+        
+        help_text
       })
       
       # Export handlers
@@ -1097,4 +1282,323 @@ test_g6r_accessibility <- function(transitions_data, test_scenarios = "all") {
   message("Created ", length(accessibility_plots), " accessibility test visualizations")
   
   return(accessibility_plots)
+}
+
+#' Create Enhanced Employment Transitions Dashboard with Consolidation
+#'
+#' @description
+#' Creates a comprehensive Shiny application for exploring employment transitions
+#' with advanced consolidation features, over_id awareness, and real-time comparison
+#' between consolidated and raw transition patterns.
+#'
+#' @param pipeline_result Reactive or static data.table from process_employment_pipeline()
+#'   containing over_id column for consolidation features
+#' @param transition_variable Character string specifying the variable for transition analysis.
+#'   Default: NULL (uses first non-standard attribute)
+#' @param statistics_variables Character vector of variables for summary statistics.
+#'   Default: NULL (uses all non-standard attributes except transition variable)
+#' @param app_title Character string for the dashboard title. Default: "Employment Transitions Explorer"
+#' @param default_layout Character string for default layout algorithm. Default: "force"
+#' @param enable_export Logical. Whether to enable data export features. Default: TRUE
+#' @param theme Character string specifying UI theme. Options: "default", "dark", "accessible". Default: "default"
+#'
+#' @return Shiny application object that can be run with runApp()
+#'
+#' @export
+#'
+#' @examples
+#' \dontrun{
+#' library(shiny)
+#' library(data.table)
+#' 
+#' # Process employment data with over_id
+#' employment_data <- data.table(
+#'   id = 1:6,
+#'   cf = c("PERSON001", "PERSON001", "PERSON001", "PERSON002", "PERSON002", "PERSON002"),
+#'   INIZIO = as.Date(c("2023-01-01", "2023-04-01", "2023-08-01", 
+#'                      "2023-02-01", "2023-06-01", "2023-10-01")),
+#'   FINE = as.Date(c("2023-02-28", "2023-05-31", "2023-12-31", 
+#'                    "2023-04-30", "2023-08-31", "2023-12-31")),
+#'   prior = c(1, 0, 1, 1, 1, 0),
+#'   company = c("CompanyA", "CompanyB", "CompanyC", "CompanyD", "CompanyE", "CompanyF")
+#' )
+#' 
+#' # Process through pipeline to get over_id
+#' pipeline_result <- process_employment_pipeline(employment_data, merge_columns = "company")
+#' 
+#' # Create enhanced dashboard
+#' app <- create_enhanced_transitions_dashboard(
+#'   pipeline_result = pipeline_result,
+#'   transition_variable = "company",
+#'   app_title = "Company Transitions Analysis"
+#' )
+#' 
+#' # Run the dashboard
+#' runApp(app)
+#' }
+create_enhanced_transitions_dashboard <- function(pipeline_result,
+                                                transition_variable = NULL,
+                                                statistics_variables = NULL,
+                                                app_title = "Employment Transitions Explorer",
+                                                default_layout = "force",
+                                                enable_export = TRUE,
+                                                theme = "default") {
+  
+  .check_g6r()
+  
+  if (!requireNamespace("shiny", quietly = TRUE)) {
+    stop("Package 'shiny' is required for dashboard functionality.")
+  }
+  
+  # UI
+  ui <- shiny::fluidPage(
+    shiny::titlePanel(app_title),
+    
+    # Theme-specific styling
+    if (theme == "dark") {
+      shiny::tags$head(shiny::tags$style(shiny::HTML("
+        body { background-color: #2d3436; color: #ddd; }
+        .well { background-color: #636e72; border: 1px solid #636e72; }
+        .nav-tabs > li.active > a { background-color: #636e72; }
+      ")))
+    } else if (theme == "accessible") {
+      shiny::tags$head(shiny::tags$style(shiny::HTML("
+        body { font-size: 16px; line-height: 1.6; }
+        .btn { min-height: 44px; font-size: 16px; }
+        input, select { min-height: 44px; font-size: 16px; }
+      ")))
+    },
+    
+    # Main content with tabs for different analyses
+    shiny::tabsetPanel(
+      shiny::tabPanel("Interactive Visualization",
+        interactive_transitions_module()$ui("main_viz")
+      ),
+      
+      shiny::tabPanel("Consolidation Analysis",
+        shiny::fluidRow(
+          shiny::column(6,
+            shiny::h3("Consolidation Impact Analysis"),
+            shiny::plotOutput("consolidation_comparison", height = "400px"),
+            shiny::h4("Key Insights"),
+            shiny::verbatimTextOutput("consolidation_insights")
+          ),
+          shiny::column(6,
+            shiny::h3("over_id Distribution"),
+            shiny::plotOutput("over_id_distribution", height = "400px"),
+            shiny::h4("Employment Patterns"),
+            shiny::tableOutput("employment_patterns")
+          )
+        )
+      ),
+      
+      if (enable_export) {
+        shiny::tabPanel("Export & Reports",
+          shiny::fluidRow(
+            shiny::column(12,
+              shiny::h3("Export Options"),
+              shiny::p("Export transition data and visualizations for external analysis."),
+              
+              shiny::div(style = "margin: 20px;",
+                shiny::downloadButton("export_consolidated_csv", "Export Consolidated Transitions (CSV)", 
+                                    class = "btn-primary", style = "margin: 5px;"),
+                shiny::downloadButton("export_raw_csv", "Export Raw Transitions (CSV)", 
+                                    class = "btn-secondary", style = "margin: 5px;"),
+                shiny::downloadButton("export_comparison_report", "Export Comparison Report (HTML)", 
+                                    class = "btn-info", style = "margin: 5px;")
+              ),
+              
+              shiny::hr(),
+              shiny::h4("Report Preview"),
+              shiny::htmlOutput("report_preview")
+            )
+          )
+        )
+      }
+    )
+  )
+  
+  # Server
+  server <- function(input, output, session) {
+    
+    # Convert static data to reactive if needed
+    pipeline_data <- if (shiny::is.reactive(pipeline_result)) {
+      pipeline_result
+    } else {
+      shiny::reactive({ pipeline_result })
+    }
+    
+    # Main visualization module
+    interactive_transitions_module()$server("main_viz", pipeline_data)
+    
+    # Consolidation analysis outputs
+    output$consolidation_comparison <- shiny::renderPlot({
+      req(pipeline_data())
+      
+      data <- pipeline_data()
+      if (!"over_id" %in% names(data)) {
+        plot(1, 1, type = "n", xlab = "", ylab = "", main = "over_id column not found")
+        text(1, 1, "over_id column required for consolidation analysis", cex = 1.2)
+        return()
+      }
+      
+      # Create comparison plot of employment patterns
+      employment_data <- data[arco > 0]
+      overlapping_periods <- employment_data[over_id > 0, .N, by = over_id][N > 1]
+      
+      if (nrow(overlapping_periods) > 0) {
+        barplot(overlapping_periods$N, 
+                names.arg = paste0("Group ", overlapping_periods$over_id),
+                main = "Overlapping Employment Periods by over_id",
+                xlab = "over_id Groups", 
+                ylab = "Number of Overlapping Contracts",
+                col = "#3498db",
+                border = "white")
+      } else {
+        plot(1, 1, type = "n", xlab = "", ylab = "", main = "No overlapping periods found")
+        text(1, 1, "All employment periods are separate\\n(no over_id > 1 groups)", cex = 1.2)
+      }
+    })
+    
+    output$over_id_distribution <- shiny::renderPlot({
+      req(pipeline_data())
+      
+      data <- pipeline_data()
+      if (!"over_id" %in% names(data)) return()
+      
+      # Distribution of over_id values
+      over_id_counts <- data[, .N, by = .(over_id, arco_status = ifelse(arco == 0, "Unemployment", "Employment"))]
+      
+      if (requireNamespace("ggplot2", quietly = TRUE)) {
+        ggplot2::ggplot(over_id_counts, ggplot2::aes(x = factor(over_id), y = N, fill = arco_status)) +
+          ggplot2::geom_bar(stat = "identity", position = "stack") +
+          ggplot2::scale_fill_manual(values = c("Employment" = "#2ecc71", "Unemployment" = "#e74c3c")) +
+          ggplot2::labs(
+            title = "Period Distribution by over_id",
+            x = "over_id Value",
+            y = "Number of Periods",
+            fill = "Period Type"
+          ) +
+          ggplot2::theme_minimal() +
+          ggplot2::theme(axis.text.x = ggplot2::element_text(angle = 45, hjust = 1))
+      } else {
+        # Fallback base R plot
+        employment_counts <- over_id_counts[arco_status == "Employment"]$N
+        unemployment_counts <- over_id_counts[arco_status == "Unemployment"]$N
+        
+        barplot(rbind(employment_counts, unemployment_counts),
+                names.arg = unique(over_id_counts$over_id),
+                main = "Period Distribution by over_id",
+                xlab = "over_id Value", 
+                ylab = "Number of Periods",
+                col = c("#2ecc71", "#e74c3c"),
+                legend = c("Employment", "Unemployment"))
+      }
+    })
+    
+    output$consolidation_insights <- shiny::renderText({
+      req(pipeline_data())
+      
+      data <- pipeline_data()
+      if (!"over_id" %in% names(data)) {
+        return("over_id column not found. Consolidation analysis requires vecshift() output with over_id.")
+      }
+      
+      # Calculate key statistics
+      total_periods <- nrow(data)
+      employment_periods <- nrow(data[arco > 0])
+      unemployment_periods <- nrow(data[arco == 0])
+      
+      overlapping_groups <- data[arco > 0 & over_id > 0, .N, by = over_id][N > 1, .N]
+      max_overlap <- data[arco > 0, max(arco, na.rm = TRUE)]
+      
+      insights <- paste0(
+        "CONSOLIDATION INSIGHTS:\\n\\n",
+        "\u2022 Total periods: ", total_periods, "\\n",
+        "\u2022 Employment periods: ", employment_periods, "\\n", 
+        "\u2022 Unemployment periods: ", unemployment_periods, "\\n",
+        "\u2022 Groups with overlapping contracts: ", overlapping_groups, "\\n",
+        "\u2022 Maximum concurrent contracts: ", max_overlap, "\\n\\n",
+        "RECOMMENDATION:\\n",
+        if (overlapping_groups > 0) {
+          "Use consolidated periods for cleaner\\ntransition analysis. This will merge\\noverlapping contracts and provide\\nmore accurate career progression insights."
+        } else {
+          "Limited overlapping periods detected.\\nConsolidation may provide minor\\nbenefits for consecutive period merging."
+        }
+      )
+      
+      return(insights)
+    })
+    
+    output$employment_patterns <- shiny::renderTable({
+      req(pipeline_data())
+      
+      data <- pipeline_data()
+      if (!"over_id" %in% names(data)) {
+        return(data.frame(
+          Pattern = "over_id Analysis",
+          Description = "Requires over_id column",
+          Count = "N/A"
+        ))
+      }
+      
+      patterns <- data.frame(
+        Pattern = c(
+          "Unique over_id Groups",
+          "Overlapping Employment",
+          "Single Employment", 
+          "Unemployment Periods",
+          "Max Concurrent Jobs"
+        ),
+        Count = c(
+          length(unique(data[over_id > 0]$over_id)),
+          nrow(data[arco > 1]),
+          nrow(data[arco == 1]),
+          nrow(data[arco == 0]),
+          max(data$arco, na.rm = TRUE)
+        )
+      )
+      
+      return(patterns)
+    })
+    
+    # Export handlers
+    if (enable_export) {
+      output$export_consolidated_csv <- shiny::downloadHandler(
+        filename = function() {
+          paste0("consolidated_transitions_", Sys.Date(), ".csv")
+        },
+        content = function(file) {
+          consolidated_data <- analyze_employment_transitions(
+            pipeline_result = pipeline_data(),
+            transition_variable = transition_variable,
+            statistics_variables = statistics_variables,
+            use_consolidated_periods = TRUE,
+            consolidation_type = "both",
+            show_progress = FALSE
+          )
+          write.csv(consolidated_data, file, row.names = FALSE)
+        }
+      )
+      
+      output$export_raw_csv <- shiny::downloadHandler(
+        filename = function() {
+          paste0("raw_transitions_", Sys.Date(), ".csv")
+        },
+        content = function(file) {
+          raw_data <- analyze_employment_transitions(
+            pipeline_result = pipeline_data(),
+            transition_variable = transition_variable,
+            statistics_variables = statistics_variables,
+            use_consolidated_periods = FALSE,
+            show_progress = FALSE
+          )
+          write.csv(raw_data, file, row.names = FALSE)
+        }
+      )
+    }
+  }
+  
+  # Return Shiny app object
+  return(shiny::shinyApp(ui, server))
 }
