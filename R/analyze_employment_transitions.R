@@ -419,23 +419,37 @@ analyze_employment_transitions <- function(pipeline_result,
   
   # Apply period consolidation if requested
   if (use_consolidated_periods && consolidation_type != "none") {
-    if (show_progress) {
-      message(sprintf("Consolidating employment periods using '%s' strategy...", consolidation_type))
-    }
-    
-    # Load merge_consecutive_employment function if needed
-    if (!exists("merge_consecutive_employment", mode = "function")) {
-      stop("Function 'merge_consecutive_employment' not found. Ensure the vecshift package is properly loaded.")
-    }
-    
-    dt <- merge_consecutive_employment(pipeline_result, consolidation_type = consolidation_type)
-    
-    if (show_progress) {
-      n_original <- nrow(pipeline_result)
-      n_consolidated <- nrow(dt)
-      reduction_pct <- round((1 - n_consolidated/n_original) * 100, 1)
-      message(sprintf("Consolidated %d periods to %d (%.1f%% reduction)", 
-                     n_original, n_consolidated, reduction_pct))
+    # Check if consolidation has already been done
+    if ("collapsed" %in% names(pipeline_result)) {
+      if (show_progress) {
+        message("Data already contains 'collapsed' column - skipping consolidation step")
+      }
+      dt <- copy(pipeline_result)
+    } else {
+      if (show_progress) {
+        message(sprintf("Consolidating employment periods using '%s' strategy...", consolidation_type))
+      }
+      
+      # Use fast consolidation function with type support
+      if (exists("merge_consecutive_employment_fast_with_type", mode = "function")) {
+        dt <- merge_consecutive_employment_fast_with_type(pipeline_result, consolidation_type = consolidation_type)
+      } else if (exists("merge_consecutive_employment", mode = "function")) {
+        # Fall back to slow function if fast version not available
+        if (show_progress) {
+          message("Using standard (slower) consolidation method - consider updating vecshift package")
+        }
+        dt <- merge_consecutive_employment(pipeline_result, consolidation_type = consolidation_type)
+      } else {
+        stop("No consolidation function found. Ensure the vecshift package is properly loaded.")
+      }
+      
+      if (show_progress) {
+        n_original <- nrow(pipeline_result)
+        n_consolidated <- nrow(dt)
+        reduction_pct <- round((1 - n_consolidated/n_original) * 100, 1)
+        message(sprintf("Consolidated %d periods to %d (%.1f%% reduction)", 
+                       n_original, n_consolidated, reduction_pct))
+      }
     }
   } else {
     # Work with a copy to avoid modifying original data
