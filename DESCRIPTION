@@ -1,7 +1,7 @@
 Package: vecshift
 Type: Package
 Title: Temporal Analysis of Employment Data with Event-Based Processing
-Version: 0.7.1
+Version: 0.8.0
 Authors@R: c(
     person(
       "Jane", "Doe",
@@ -35,7 +35,17 @@ Suggests:
     shiny,
     shinydashboard,
     DT,
-    plotly
+    plotly,
+    MatchIt (>= 4.0.0),
+    fixest (>= 0.10.0),
+    did (>= 2.1.0),
+    augsynth (>= 0.1.0),
+    cobalt (>= 4.3.0),
+    cem (>= 1.1.0),
+    rdrobust (>= 0.99.0),
+    gt (>= 0.8.0),
+    flextable (>= 0.8.0),
+    officer (>= 0.4.0)
 VignetteBuilder: knitr
 Config/testthat/edition: 3
 RoxygenNote: 7.3.2

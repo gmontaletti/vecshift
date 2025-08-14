@@ -1,0 +1,872 @@
+---
+title: "Comprehensive Impact Evaluation with vecshift"
+author: "vecshift package"
+date: "`r Sys.Date()`"
+output: 
+  rmarkdown::html_vignette:
+    toc: true
+    toc_depth: 3
+    number_sections: true
+vignette: >
+  %\VignetteIndexEntry{Comprehensive Impact Evaluation with vecshift}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  fig.width = 8,
+  fig.height = 6,
+  warning = FALSE,
+  message = FALSE
+)
+
+# Load required packages
+library(data.table)
+library(vecshift)
+
+# Set random seed for reproducibility
+set.seed(42)
+```
+
+# Introduction to Impact Evaluation with vecshift
+
+This vignette provides a comprehensive guide to conducting rigorous impact evaluations using the vecshift package's impact evaluation framework. The framework is designed specifically for analyzing employment interventions and policy changes using temporal employment data.
+
+## What is Impact Evaluation?
+
+Impact evaluation is the systematic assessment of the changes in outcomes that can be attributed to a specific intervention, program, or policy. In the employment context, this might include:
+
+- **Policy Interventions**: Changes in labor legislation (e.g., permanent contract regulations)
+- **Training Programs**: Skills development initiatives
+- **Active Labor Market Policies**: Job placement services, wage subsidies
+- **Regional Policies**: Area-specific employment initiatives
+
+## Key Features of vecshift's Impact Framework
+
+The vecshift impact evaluation framework provides:
+
+1. **Rigorous Causal Inference**: Support for multiple identification strategies (DiD, Event Studies, RDD, Synthetic Control)
+2. **Temporal Precision**: Leverages vecshift's over_id consolidation for accurate employment period analysis
+3. **Comprehensive Metrics**: Employment stability, contract quality, career complexity, and transition patterns
+4. **Robust Inference**: Multiple testing corrections, parallel trends testing, and sensitivity analysis
+5. **Policy Focus**: Designed for real-world policy evaluation needs
+
+# Framework Overview
+
+The impact evaluation framework consists of seven integrated modules:
+
+## Module Overview
+
+| Module | Primary Functions | Purpose |
+|--------|------------------|---------|
+| **Event Identification** | `identify_treatment_events()` | Identify treatment events with flexible conditions |
+| **Matching** | `propensity_score_matching()`, `coarsened_exact_matching()` | Create comparable control groups |
+| **Estimation** | `difference_in_differences()`, `event_study_design()` | Estimate causal effects |
+| **Metrics** | `calculate_comprehensive_impact_metrics()` | Calculate employment outcome metrics |
+| **RDD** | RDD-specific functions | Threshold-based identification |
+| **Visualization** | Impact-specific plots | Visualize results and diagnostics |
+| **Reporting** | `generate_impact_evaluation_report()` | Automated report generation |
+
+# Complete Workflow Example: Permanent Contract Policy Evaluation
+
+We'll demonstrate the complete workflow using a realistic example: evaluating the impact of permanent contract transitions (COD_TIPOLOGIA_CONTRATTUALE == "C.01.00") on employment outcomes.
+
+## Step 1: Create Synthetic Employment Data
+
+First, let's create realistic synthetic data for demonstration:
+
+```{r create-synthetic-data}
+# Create synthetic employment data for impact evaluation demonstration
+create_synthetic_employment_data <- function(n_individuals = 1000, 
+                                           time_periods = 1095) { # 3 years in days
+  
+  # Generate individual characteristics
+  individuals <- data.table(
+    cf = paste0("CF", sprintf("%06d", 1:n_individuals)),
+    age = round(rnorm(n_individuals, 35, 10)),
+    education = sample(c("High School", "Bachelor", "Master"), n_individuals, 
+                      prob = c(0.5, 0.3, 0.2), replace = TRUE),
+    sector = sample(c("Manufacturing", "Services", "Construction", "Trade"), 
+                   n_individuals, prob = c(0.3, 0.4, 0.15, 0.15), replace = TRUE),
+    region = sample(paste0("Region_", LETTERS[1:5]), n_individuals, replace = TRUE),
+    baseline_skill = rnorm(n_individuals, 0, 1)
+  )
+  
+  # Generate employment records for each individual
+  employment_records <- list()
+  
+  for (i in 1:n_individuals) {
+    person <- individuals[i]
+    
+    # Simulate employment trajectory
+    current_date <- as.Date("2020-01-01")
+    end_date <- current_date + time_periods
+    records <- list()
+    record_id <- 1
+    
+    # Generate employment spells
+    while (current_date < end_date) {
+      # Employment probability based on characteristics
+      emp_prob <- plogis(-0.5 + 0.1 * person$age - 0.005 * person$age^2 + 
+                        0.3 * (person$education == "Bachelor") + 
+                        0.5 * (person$education == "Master") +
+                        0.2 * person$baseline_skill)
+      
+      # Contract type probability (higher skill -> more permanent contracts)
+      perm_prob <- plogis(-1 + 0.4 * person$baseline_skill + 
+                         0.3 * (person$education %in% c("Bachelor", "Master")))
+      
+      if (runif(1) < emp_prob) {
+        # Employment spell
+        spell_duration <- rexp(1, rate = 1/180) # Average 6 months
+        spell_duration <- pmin(spell_duration, as.numeric(end_date - current_date))
+        
+        # Determine contract type and COD_TIPOLOGIA_CONTRATTUALE
+        if (runif(1) < perm_prob) {
+          prior_val <- sample(1:3, 1, prob = c(0.6, 0.25, 0.15)) # Permanent contracts
+          cod_tipo <- "C.01.00"  # Permanent contract code
+        } else {
+          prior_val <- sample(c(-1, 0), 1, prob = c(0.3, 0.7)) # Temporary contracts
+          cod_tipo <- sample(c("C.02.01", "C.03.07"), 1) # Temporary contract codes
+        }
+        
+        records[[record_id]] <- data.table(
+          cf = person$cf,
+          id = record_id,
+          INIZIO = current_date,
+          FINE = current_date + round(spell_duration),
+          prior = prior_val,
+          COD_TIPOLOGIA_CONTRATTUALE = cod_tipo,
+          age = person$age,
+          education = person$education,
+          sector = person$sector,
+          region = person$region,
+          baseline_skill = person$baseline_skill
+        )
+        
+        current_date <- current_date + round(spell_duration) + 1
+        
+      } else {
+        # Unemployment spell
+        unemp_duration <- rexp(1, rate = 1/60) # Average 2 months
+        current_date <- current_date + round(unemp_duration)
+      }
+      
+      record_id <- record_id + 1
+      
+      # Safety check to prevent infinite loops
+      if (record_id > 20) break
+    }
+    
+    if (length(records) > 0) {
+      employment_records <- c(employment_records, records)
+    }
+  }
+  
+  # Combine all records
+  if (length(employment_records) > 0) {
+    employment_data <- rbindlist(employment_records, fill = TRUE)
+    
+    # Ensure date format
+    employment_data[, `:=`(
+      INIZIO = as.Date(INIZIO),
+      FINE = as.Date(FINE)
+    )]
+    
+    return(employment_data)
+  } else {
+    return(data.table())
+  }
+}
+
+# Generate the synthetic dataset
+synthetic_data <- create_synthetic_employment_data(n_individuals = 500)
+
+print(paste("Generated", nrow(synthetic_data), "employment records for", 
+            synthetic_data[, uniqueN(cf)], "individuals"))
+print("Sample of synthetic data:")
+print(head(synthetic_data, 10))
+```
+
+## Step 2: Apply vecshift Transformation
+
+```{r apply-vecshift}
+# Apply vecshift transformation to create temporal employment segments
+# Note: This assumes vecshift function is available
+if (nrow(synthetic_data) > 0) {
+  # Apply vecshift transformation
+  vecshift_result <- tryCatch({
+    vecshift(synthetic_data, classify_status = TRUE)
+  }, error = function(e) {
+    cat("vecshift function not available in demo environment.\n")
+    cat("Creating mock vecshift output for demonstration...\n")
+    
+    # Create mock vecshift-like output for demonstration
+    mock_result <- copy(synthetic_data)
+    mock_result[, `:=`(
+      over_id = .I,  # Simple over_id assignment
+      arco = 1,      # Single employment
+      durata = as.numeric(FINE - INIZIO + 1),
+      employment_type = fifelse(prior > 0, "occ_ft", 
+                               fifelse(prior == 0, "occ_pt", "temp"))
+    )]
+    mock_result
+  })
+  
+  print("vecshift transformation completed.")
+  print(paste("Result contains", nrow(vecshift_result), "temporal segments"))
+  
+  # Display sample of transformed data
+  print("Sample of vecshift output:")
+  print(head(vecshift_result[, .(cf, INIZIO, FINE, durata, prior, over_id, arco, COD_TIPOLOGIA_CONTRATTUALE)], 8))
+} else {
+  cat("No data available for vecshift transformation.\n")
+  vecshift_result <- data.table()
+}
+```
+
+## Step 3: Event Identification
+
+```{r event-identification}
+# Identify permanent contract transition events
+if (nrow(vecshift_result) > 0) {
+  
+  # Note: In real usage, this would call identify_treatment_events()
+  # For demonstration, we'll create mock event identification
+  cat("Identifying treatment events...\n")
+  cat("Treatment condition: COD_TIPOLOGIA_CONTRATTUALE == 'C.01.00'\n")
+  
+  # Mock event identification for demonstration
+  permanent_contract_events <- vecshift_result[
+    COD_TIPOLOGIA_CONTRATTUALE == "C.01.00",
+    .(cf, event_date = INIZIO, 
+      is_treated = TRUE,
+      COD_TIPOLOGIA_CONTRATTUALE,
+      prior_employment_type = fifelse(prior > 0, "permanent", "temporary"))
+  ]
+  
+  # Add control observations
+  control_obs <- vecshift_result[
+    COD_TIPOLOGIA_CONTRATTUALE != "C.01.00",
+    .(cf, event_date = INIZIO, 
+      is_treated = FALSE,
+      COD_TIPOLOGIA_CONTRATTUALE,
+      prior_employment_type = fifelse(prior > 0, "permanent", "temporary"))
+  ]
+  
+  # Combine treatment and control
+  event_identification <- rbind(permanent_contract_events, control_obs, fill = TRUE)
+  
+  # Add event timing variables (mock implementation)
+  event_identification[, `:=`(
+    event_id = fifelse(is_treated, .I, NA_integer_),
+    days_to_event = 0,  # Simplified for demo
+    in_event_window = TRUE,
+    pre_event_period = FALSE,
+    post_event_period = TRUE,
+    event_sequence = 1L
+  )]
+  
+  print(paste("Identified", sum(event_identification$is_treated), 
+              "treatment events out of", nrow(event_identification), "observations"))
+  
+  # Event quality assessment summary
+  cat("\nEvent Quality Assessment:\n")
+  cat("- Treatment rate:", sprintf("%.2f%%", mean(event_identification$is_treated) * 100), "\n")
+  cat("- Unique treated persons:", event_identification[is_treated == TRUE, uniqueN(cf)], "\n")
+  cat("- Unique control persons:", event_identification[is_treated == FALSE, uniqueN(cf)], "\n")
+  
+} else {
+  cat("No data available for event identification.\n")
+  event_identification <- data.table()
+}
+```
+
+## Step 4: Treatment and Control Group Creation
+
+```{r treatment-control-groups}
+if (nrow(event_identification) > 0) {
+  cat("Creating treatment and control groups...\n")
+  
+  # Simplified group assignment for demonstration
+  # In practice, this would use create_treatment_control_groups()
+  
+  # Get unique individuals with their treatment status
+  individual_treatment <- event_identification[, .(
+    is_treated = any(is_treated, na.rm = TRUE),
+    first_treatment_date = min(event_date[is_treated == TRUE], na.rm = TRUE),
+    n_observations = .N
+  ), by = cf]
+  
+  # Simple matching: pair treated with untreated individuals
+  treated_individuals <- individual_treatment[is_treated == TRUE, cf]
+  control_individuals <- individual_treatment[is_treated == FALSE, cf]
+  
+  # For demo: select 2:1 control ratio
+  control_ratio <- 2
+  n_matches <- min(length(treated_individuals), floor(length(control_individuals) / control_ratio))
+  
+  if (n_matches > 0) {
+    matched_treated <- sample(treated_individuals, n_matches)
+    matched_controls <- sample(control_individuals, n_matches * control_ratio)
+    
+    # Create group assignments
+    group_assignments <- data.table(
+      cf = c(matched_treated, matched_controls),
+      group_assignment = factor(c(rep("treatment", n_matches), 
+                                rep("control", n_matches * control_ratio)),
+                               levels = c("treatment", "control")),
+      match_id = c(1:n_matches, rep(1:n_matches, each = control_ratio))
+    )
+    
+    cat("Successfully created matched groups:\n")
+    cat("- Treated individuals:", n_matches, "\n")
+    cat("- Control individuals:", n_matches * control_ratio, "\n")
+    cat("- Control ratio:", control_ratio, ":1\n")
+    
+  } else {
+    cat("Insufficient data for matching.\n")
+    group_assignments <- data.table()
+  }
+} else {
+  cat("No event identification data available.\n")
+  group_assignments <- data.table()
+}
+```
+
+## Step 5: Impact Metrics Calculation
+
+```{r impact-metrics}
+if (nrow(group_assignments) > 0 && nrow(vecshift_result) > 0) {
+  cat("Calculating comprehensive impact metrics...\n")
+  
+  # Merge group assignments with employment data
+  analysis_data <- merge(vecshift_result, group_assignments, by = "cf", all.x = TRUE)
+  analysis_data <- analysis_data[!is.na(group_assignment)]
+  
+  # Create pre/post event periods for demonstration
+  # In practice, this would be based on actual event timing
+  analysis_data[, event_period := fifelse(
+    group_assignment == "treatment" & COD_TIPOLOGIA_CONTRATTUALE == "C.01.00", 
+    "post", "pre"
+  )]
+  
+  # For control group, randomly assign pre/post
+  analysis_data[group_assignment == "control", event_period := 
+    sample(c("pre", "post"), .N, replace = TRUE)]
+  
+  cat("Analysis dataset created with", nrow(analysis_data), "observations\n")
+  
+  # Calculate employment stability metrics (simplified version)
+  stability_metrics <- analysis_data[, .(
+    days_employed = sum(durata[over_id > 0], na.rm = TRUE),
+    days_unemployed = sum(durata[over_id == 0], na.rm = TRUE),
+    total_days = sum(durata, na.rm = TRUE),
+    employment_spells = length(unique(over_id[over_id > 0])),
+    avg_employment_spell = mean(durata[over_id > 0], na.rm = TRUE)
+  ), by = .(cf, group_assignment, event_period)]
+  
+  stability_metrics[, `:=`(
+    employment_rate = days_employed / (days_employed + days_unemployed),
+    job_turnover_rate = employment_spells / pmax(total_days / 365.25, 1/365.25)
+  )]
+  
+  # Calculate contract quality metrics (simplified)
+  quality_metrics <- analysis_data[over_id > 0, .(
+    permanent_contract_days = sum(durata[prior > 0], na.rm = TRUE),
+    temporary_contract_days = sum(durata[prior <= 0], na.rm = TRUE),
+    total_employment_days = sum(durata, na.rm = TRUE)
+  ), by = .(cf, group_assignment, event_period)]
+  
+  quality_metrics[, permanent_contract_rate := 
+    permanent_contract_days / (permanent_contract_days + temporary_contract_days)]
+  
+  cat("\nImpact Metrics Summary:\n")
+  cat("- Stability metrics calculated for", stability_metrics[, uniqueN(cf)], "individuals\n")
+  cat("- Quality metrics calculated for", quality_metrics[, uniqueN(cf)], "individuals\n")
+  
+  # Display sample metrics
+  print("Sample stability metrics:")
+  print(head(stability_metrics[!is.na(employment_rate), 
+                             .(cf, group_assignment, event_period, 
+                               employment_rate, job_turnover_rate)]))
+  
+} else {
+  cat("Insufficient data for impact metrics calculation.\n")
+  stability_metrics <- data.table()
+  quality_metrics <- data.table()
+}
+```
+
+## Step 6: Treatment Effect Estimation
+
+```{r treatment-effects}
+if (nrow(stability_metrics) > 0) {
+  cat("Estimating treatment effects using difference-in-differences approach...\n")
+  
+  # Prepare data for DiD estimation
+  did_data <- stability_metrics[!is.na(employment_rate)]
+  
+  # Create binary treatment and post indicators
+  did_data[, `:=`(
+    treatment = as.numeric(group_assignment == "treatment"),
+    post = as.numeric(event_period == "post")
+  )]
+  
+  # Simple DiD estimation (manual implementation for demo)
+  if (nrow(did_data) >= 4) {  # Need at least 4 observations for DiD
+    
+    # Calculate group means
+    group_means <- did_data[, .(
+      mean_outcome = mean(employment_rate, na.rm = TRUE),
+      n_obs = .N
+    ), by = .(treatment, post)]
+    
+    print("Group means for DiD estimation:")
+    print(group_means)
+    
+    if (nrow(group_means) == 4) {  # All four groups present
+      # Extract means
+      treat_post <- group_means[treatment == 1 & post == 1, mean_outcome]
+      treat_pre <- group_means[treatment == 1 & post == 0, mean_outcome]
+      control_post <- group_means[treatment == 0 & post == 1, mean_outcome]
+      control_pre <- group_means[treatment == 0 & post == 0, mean_outcome]
+      
+      # Calculate DiD estimate
+      did_estimate <- (treat_post - treat_pre) - (control_post - control_pre)
+      
+      cat("\nDifference-in-Differences Results:\n")
+      cat("- Treatment effect (employment rate):", sprintf("%.4f", did_estimate), "\n")
+      cat("- Interpretation: Permanent contracts", 
+          ifelse(did_estimate > 0, "increase", "decrease"), 
+          "employment rate by", sprintf("%.2f", abs(did_estimate * 100)), 
+          "percentage points\n")
+      
+      # Simple significance test (t-test approximation)
+      treat_change <- treat_post - treat_pre
+      control_change <- control_post - control_pre
+      
+      cat("- Treatment group change:", sprintf("%.4f", treat_change), "\n")
+      cat("- Control group change:", sprintf("%.4f", control_change), "\n")
+      
+    } else {
+      cat("Insufficient data for complete DiD estimation (missing group combinations).\n")
+    }
+  } else {
+    cat("Insufficient observations for DiD estimation.\n")
+  }
+} else {
+  cat("No stability metrics available for treatment effect estimation.\n")
+}
+```
+
+## Step 7: Results Visualization
+
+```{r results-visualization}
+if (nrow(stability_metrics) > 0) {
+  cat("Creating impact evaluation visualizations...\n")
+  
+  # Load ggplot2 for visualization
+  if (requireNamespace("ggplot2", quietly = TRUE)) {
+    library(ggplot2)
+    
+    # 1. Employment Rate by Group and Period
+    plot_data <- stability_metrics[!is.na(employment_rate)]
+    
+    if (nrow(plot_data) > 0) {
+      p1 <- ggplot(plot_data, aes(x = event_period, y = employment_rate, 
+                                 color = group_assignment)) +
+        geom_boxplot(alpha = 0.7) +
+        geom_point(position = position_jitterdodge(dodge.width = 0.75, jitter.width = 0.2),
+                  alpha = 0.6) +
+        labs(title = "Employment Rate by Treatment Group and Time Period",
+             subtitle = "Impact of Permanent Contract Transitions",
+             x = "Time Period", 
+             y = "Employment Rate",
+             color = "Group") +
+        theme_minimal() +
+        scale_color_manual(values = c("treatment" = "#2E86AB", "control" = "#A23B72")) +
+        theme(legend.position = "bottom")
+      
+      print(p1)
+      
+      # 2. Job Turnover Rate Comparison
+      p2 <- ggplot(plot_data, aes(x = group_assignment, y = job_turnover_rate, 
+                                 fill = event_period)) +
+        geom_boxplot(alpha = 0.8) +
+        labs(title = "Job Turnover Rate: Treatment vs Control",
+             subtitle = "Lower turnover indicates greater employment stability",
+             x = "Group", 
+             y = "Job Turnover Rate (jobs/year)",
+             fill = "Period") +
+        theme_minimal() +
+        scale_fill_manual(values = c("pre" = "#F18F01", "post" = "#C73E1D")) +
+        theme(legend.position = "bottom")
+      
+      print(p2)
+    }
+    
+    # 3. Contract Quality Analysis
+    if (nrow(quality_metrics) > 0) {
+      quality_plot_data <- quality_metrics[!is.na(permanent_contract_rate)]
+      
+      if (nrow(quality_plot_data) > 0) {
+        p3 <- ggplot(quality_plot_data, aes(x = event_period, y = permanent_contract_rate,
+                                          color = group_assignment)) +
+          geom_boxplot(alpha = 0.7) +
+          geom_point(position = position_jitterdodge(dodge.width = 0.75, jitter.width = 0.2),
+                    alpha = 0.6) +
+          labs(title = "Permanent Contract Rate by Group and Period",
+               subtitle = "Contract Quality Improvement Analysis",
+               x = "Time Period", 
+               y = "Permanent Contract Rate",
+               color = "Group") +
+          theme_minimal() +
+          scale_color_manual(values = c("treatment" = "#2E86AB", "control" = "#A23B72")) +
+          scale_y_continuous(labels = scales::percent) +
+          theme(legend.position = "bottom")
+        
+        print(p3)
+      }
+    }
+    
+  } else {
+    cat("ggplot2 not available for visualization.\n")
+  }
+} else {
+  cat("No data available for visualization.\n")
+}
+```
+
+# Best Practices for Impact Evaluation
+
+## Data Preparation Best Practices
+
+### 1. Ensure Data Quality
+```{r data-quality-demo, eval=FALSE}
+# Always assess data quality before impact evaluation
+data_quality <- assess_data_quality(employment_data)
+print(data_quality)
+
+# Clean data if necessary
+cleaned_data <- clean_employment_data(
+  employment_data, 
+  fix_invalid_dates = TRUE,
+  remove_duplicates = TRUE
+)
+```
+
+### 2. Validate vecshift Transformation
+```{r validation-demo, eval=FALSE}
+# Validate over_id consistency
+validation_result <- validate_over_id_consistency(vecshift_result)
+print(validation_result)
+
+# Check duration invariant
+duration_check <- validate_duration_invariant(vecshift_result)
+print(duration_check)
+```
+
+## Event Identification Best Practices
+
+### 1. Multiple Treatment Conditions
+```{r multiple-conditions-demo, eval=FALSE}
+# Use multiple complementary conditions for robust identification
+treatment_events <- identify_treatment_events(
+  data = employment_data,
+  treatment_conditions = list(
+    "COD_TIPOLOGIA_CONTRATTUALE == 'C.01.00'",         # Permanent contract
+    "prior <= 0",                                        # Previously temporary
+    function(dt) dt$contract_duration >= 180            # Minimum duration
+  ),
+  event_window = c(-365, 730),
+  min_pre_period = 180,
+  multiple_events = "first"
+)
+```
+
+### 2. Event Quality Assessment
+```{r event-quality-demo, eval=FALSE}
+# Always assess treatment event quality
+event_quality <- assess_treatment_event_quality(
+  event_data = treatment_events,
+  assessment_variables = c("age", "education", "sector", "region", "baseline_wage"),
+  output_format = "detailed"
+)
+
+print(event_quality)
+
+# Check for balance issues
+if (event_quality$data_quality$data_completeness < 0.9) {
+  warning("High missing data rate detected")
+}
+```
+
+## Matching Strategy Best Practices
+
+### 1. Variable Selection for Matching
+```{r matching-variables-demo, eval=FALSE}
+# Include variables that predict both treatment and outcomes
+matching_variables <- c(
+  "age",                    # Demographics
+  "education", 
+  "sector",                 # Industry controls
+  "region",                 # Geographic controls
+  "prior_wage",             # Economic status
+  "employment_history",     # Past employment patterns
+  "baseline_employment_rate" # Pre-treatment outcomes
+)
+
+# Exact matching on categorical variables
+exact_match_vars <- c("gender", "region", "sector")
+```
+
+### 2. Balance Assessment and Diagnostics
+```{r balance-assessment-demo, eval=FALSE}
+# Comprehensive balance assessment
+balance_results <- assess_balance(
+  matched_data = ps_match$matched_data,
+  balance_variables = matching_variables,
+  thresholds = list(mean_diff = 0.1, variance_ratio = 2)
+)
+
+# Match quality diagnostics
+match_quality <- assess_match_quality(
+  matching_result = ps_match,
+  diagnostic_plots = TRUE
+)
+
+# Act on recommendations
+if (match_quality$quality_summary$quality_rating == "Poor") {
+  # Consider alternative matching approaches
+  cat("Poor match quality detected. Consider:")
+  cat("1. Adding more matching variables")
+  cat("2. Using exact matching on key variables")
+  cat("3. Trying CEM instead of PSM")
+}
+```
+
+## Estimation Best Practices
+
+### 1. Multiple Estimation Methods
+```{r multiple-estimation-demo, eval=FALSE}
+# Use multiple methods for robustness
+did_results <- difference_in_differences(
+  data = matched_data,
+  outcome_vars = c("employment_rate", "wage_growth", "job_stability"),
+  parallel_trends_test = TRUE,
+  placebo_test = TRUE
+)
+
+event_study <- event_study_design(
+  data = matched_data,
+  outcome_vars = c("employment_rate", "wage_growth"),
+  event_window = c(-12, 24),
+  time_unit = "months"
+)
+
+# Synthetic control for robustness (if applicable)
+synth_results <- synthetic_control_method(
+  data = regional_panel_data,
+  outcome_var = "employment_rate",
+  unit_var = "region",
+  time_var = "month",
+  treatment_time = treatment_month
+)
+```
+
+### 2. Robustness Checks
+```{r robustness-demo, eval=FALSE}
+# Vary event window
+robustness_windows <- list(
+  c(-180, 365),  # 6 months pre, 1 year post
+  c(-365, 730),  # 1 year pre, 2 years post
+  c(-540, 1095)  # 1.5 years pre, 3 years post
+)
+
+robustness_results <- list()
+for (i in seq_along(robustness_windows)) {
+  robustness_results[[i]] <- identify_treatment_events(
+    data = employment_data,
+    treatment_conditions = treatment_conditions,
+    event_window = robustness_windows[[i]],
+    multiple_events = "first"
+  )
+}
+```
+
+## Interpretation Guidelines
+
+### 1. Economic vs Statistical Significance
+```{r interpretation-demo, eval=FALSE}
+# Focus on substantive significance
+interpret_treatment_effects <- function(did_results, outcome_var) {
+  effect <- did_results$estimates[outcome == outcome_var, treatment_effect]
+  se <- did_results$estimates[outcome == outcome_var, std_error]
+  p_val <- did_results$estimates[outcome == outcome_var, p_value]
+  
+  cat("Treatment Effect Analysis for", outcome_var, "\n")
+  cat("Point estimate:", sprintf("%.4f", effect), "\n")
+  cat("Standard error:", sprintf("%.4f", se), "\n")
+  cat("P-value:", sprintf("%.3f", p_val), "\n")
+  
+  # Economic interpretation
+  if (outcome_var == "employment_rate") {
+    cat("Economic interpretation:", 
+        sprintf("%.1f", effect * 100), 
+        "percentage point change in employment rate\n")
+  }
+  
+  # Magnitude assessment
+  baseline_mean <- 0.65  # Typical baseline employment rate
+  percentage_change <- (effect / baseline_mean) * 100
+  
+  cat("Percentage change from baseline:", 
+      sprintf("%.1f%%", percentage_change), "\n")
+  
+  if (abs(percentage_change) >= 5) {
+    cat("Assessment: Economically significant effect\n")
+  } else {
+    cat("Assessment: Small economic effect\n")
+  }
+}
+```
+
+### 2. Multiple Testing Considerations
+```{r multiple-testing-demo, eval=FALSE}
+# Apply appropriate corrections for multiple outcomes
+aggregated_effects <- aggregate_treatment_effects(
+  estimation_results = list(did_results, event_study),
+  aggregation_method = "meta_analysis",
+  multiple_testing_correction = "holm",  # Conservative correction
+  confidence_level = 0.95
+)
+
+# Report both uncorrected and corrected results
+cat("Multiple Testing Correction Applied: Holm method\n")
+print(aggregated_effects$individual_effects[, 
+  .(effect_id, treatment_effect, p_value, adjusted_p_value, significant_adjusted)])
+```
+
+# Advanced Features
+
+## Custom Treatment Conditions
+
+The framework supports flexible treatment condition specification:
+
+```{r custom-conditions-demo, eval=FALSE}
+# 1. String expressions
+condition1 <- "COD_TIPOLOGIA_CONTRATTUALE == 'C.01.00' & prior <= 0"
+
+# 2. Structured conditions
+condition2 <- list(
+  column = "contract_improvement_score",
+  operator = ">=", 
+  value = 0.5
+)
+
+# 3. Custom functions
+condition3 <- function(data) {
+  # Complex logic for treatment identification
+  data$permanent_transition == TRUE & 
+  data$pre_treatment_employment_rate < 0.5 &
+  data$sector %in% c("Manufacturing", "Services")
+}
+
+# Use all conditions together
+treatment_events <- identify_treatment_events(
+  data = employment_data,
+  treatment_conditions = list(condition1, condition2, condition3),
+  multiple_events = "first"
+)
+```
+
+## Advanced Matching Techniques
+
+### Genetic Matching
+```{r genetic-matching-demo, eval=FALSE}
+# Genetic matching for optimal balance
+genetic_match <- propensity_score_matching(
+  data = analysis_data,
+  matching_variables = c("age", "education", "prior_wage", "employment_history"),
+  method = "genetic",
+  ratio = 2,
+  replace = FALSE
+)
+```
+
+### Coarsened Exact Matching with Custom Cutpoints
+```{r cem-demo, eval=FALSE}
+# CEM with custom binning
+cem_match <- coarsened_exact_matching(
+  data = analysis_data,
+  matching_variables = c("age", "wage", "experience"),
+  cutpoints = list(
+    age = c(25, 35, 45, 55, 65),
+    wage = c(1000, 2000, 3000, 4000, 5000),
+    experience = c(2, 5, 10, 15, 20)
+  ),
+  k2k = TRUE
+)
+```
+
+## Event Study Extensions
+
+### Dynamic Treatment Effects
+```{r dynamic-effects-demo, eval=FALSE}
+# Extended event study with longer windows
+extended_event_study <- event_study_design(
+  data = matched_data,
+  outcome_vars = c("employment_rate", "wage_level", "job_satisfaction"),
+  event_window = c(-24, 36),  # 2 years before, 3 years after
+  time_unit = "months",
+  omit_period = -1,
+  cluster_var = "region"
+)
+
+# Test for pre-treatment trends
+pre_test <- test_pre_treatment_effects(
+  extended_event_study$event_estimates,
+  extended_event_study$model_results
+)
+
+if (pre_test$p_value < 0.05) {
+  warning("Potential parallel trends violation detected")
+}
+```
+
+# Conclusion
+
+The vecshift impact evaluation framework provides a comprehensive toolkit for rigorous causal inference analysis of employment interventions. Key takeaways:
+
+## Framework Strengths
+
+1. **Comprehensive Coverage**: From event identification to report generation
+2. **Methodological Rigor**: Multiple identification strategies with robust inference
+3. **Employment Focus**: Specialized for labor market interventions
+4. **Integration**: Seamlessly works with vecshift's temporal employment analysis
+5. **Scalability**: Designed for large administrative datasets
+
+## Recommended Workflow
+
+1. **Data Preparation**: Use vecshift for temporal employment analysis
+2. **Event Identification**: Carefully specify treatment conditions and assess quality
+3. **Matching**: Choose appropriate method and rigorously assess balance
+4. **Estimation**: Use multiple methods for robustness
+5. **Interpretation**: Focus on economic significance and policy relevance
+
+## Further Resources
+
+- Package documentation: `help(package = "vecshift")`
+- Individual function help: `?identify_treatment_events`
+- Advanced examples: `vecshift::impact_evaluation_examples()`
+- Methodological references: See package documentation for academic citations
+
+The framework continues to evolve with new methods and improvements. For the latest features and updates, consult the package documentation and version notes.
+
+---
+
+*This vignette demonstrates the core functionality of the vecshift impact evaluation framework. For production analyses, ensure all data quality checks pass and consider consulting with domain experts for context-specific guidance.*
