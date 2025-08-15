@@ -104,17 +104,6 @@ This separation ensures:
 2. Processing: Event-based transformation to detect overlaps and gaps
 3. Output: Continuous temporal segments with employment status classification
 
-## Testing Approach
-
-Currently, testing is done through the test.R script which:
-1. Loads sample data from an FST file
-2. Applies the vecshift transformation
-3. Performs aggregations to verify results
-
-To run tests:
-```r
-source("test.R")
-```
 
 ## Implementation Architecture
 
@@ -130,12 +119,6 @@ The package now provides a unified architecture that combines performance with m
   - Support for custom status rules via `status_rules` parameter
   - Clean separation between temporal logic and business rules
 
-### Supporting Implementations
-
-1. **`vecshift_integrated()`**: Full pipeline with all modules
-   - Location: R/vecshift_integrated.R
-   - Use case: When data quality assessment and cleaning are needed
-   - Features: Quality reports, automatic cleaning, validation
 
 ### Future Development Guidelines
 
@@ -149,8 +132,7 @@ The core event generation logic in `vecshift()` is highly optimized. The event-b
 - **Performance Testing**: Always benchmark against the current baseline (1.46M records/second)
 
 **Extension Points:**
-- Input validation and data quality checks (via `vecshift_integrated()`)
-- Employment classification rules and custom states (via `status_labeling.R`)
+
 - Output formatting and export functions
 - Integration with other temporal analysis packages
 - Visualization and reporting components
@@ -159,7 +141,7 @@ The core event generation logic in `vecshift()` is highly optimized. The event-b
 
 ### Overview of over_id Functionality
 
-The `over_id` column is a key innovation in vecshift that provides a unique identifier for continuous employment periods, enabling powerful consolidation and analysis capabilities.
+The `over_id` column provides a unique identifier for continuous employment periods, enabling powerful consolidation and analysis capabilities.
 
 #### Core Concept
 **over_id** assigns the same identifier to all employment contracts that belong to the same continuous overlapping time period:
@@ -372,10 +354,6 @@ The package implements functionality through specialized modules:
 - Maps overlapping periods to appropriate labels (occ_ft, occ_pt, over_*)
 - Provides customizable classification rules
 
-#### R/vecshift_integrated.R
-- Full pipeline with data quality assessment
-- Automatic data cleaning options
-- Comprehensive processing with all modules
 
 ### Data Quality Considerations
 
@@ -395,8 +373,7 @@ The package implements functionality through specialized modules:
 ### Performance
 
 The vecshift function provides:
-- **Optimized Core**: High-performance event generation (~1.46M records/second)
-- **Optional Validation**: Use `vecshift_integrated()` for full data quality checks
+- **Optimized Core**: High-performance event generation
 - **Flexible Classification**: Customizable status rules without performance impact
 
 ## Visualization with ggraph and Network Analysis
@@ -776,123 +753,7 @@ sampled_data <- transitions[sample(.N, min(.N, 1000))]
 - **Interactive Sharing**: Shareable dashboard URLs
 - **Embedded Widgets**: Integration with external websites
 
-## Enhanced Function Parameters with over_id Support
 
-### merge_consecutive_employment() - New Consolidation Parameter
-
-```r
-merged_data <- merge_consecutive_employment(
-  data = vecshift_output,
-  consolidation_type = "both"  # NEW parameter
-)
-```
-
-**Consolidation Types:**
-- `"overlapping"`: Merge only overlapping employment periods (same over_id, arco > 1)
-- `"consecutive"`: Merge only consecutive periods with no unemployment gap
-- `"both"`: Merge both overlapping and consecutive periods (recommended)
-- `"none"`: No consolidation (preserves original segments)
-
-### Pipeline Functions with Consolidation Support
-
-All major pipeline functions now support consolidation parameters:
-
-```r
-# Full pipeline with consolidation
-result <- process_employment_pipeline(
-  data = raw_data,
-  consolidation_type = "both",
-  min_employment_duration = 1,
-  min_unemployment_duration = 7,
-  quality_assessment = TRUE
-)
-
-# Integrated processing
-integrated_result <- vecshift_integrated(
-  data = raw_data,
-  consolidation_type = "both",
-  classify_status = TRUE,
-  data_quality_assessment = TRUE
-)
-```
-
-### Status Classification with over_id
-
-The status labeling system has been enhanced to work with over_id:
-
-```r
-# Classify employment status considering consolidation
-classified <- classify_employment_status(
-  data = vecshift_output,
-  status_rules = get_default_status_rules(),
-  use_over_id = TRUE  # Consider consolidation in classification
-)
-
-# Custom rules for consolidated periods
-custom_rules <- create_custom_status_rules(
-  overlapping_employment = "over_consolidated",
-  consecutive_employment = "continuous_career",
-  use_consolidation = TRUE
-)
-```
-
-## Migration Notes and Benefits
-
-### What Changed in the Latest Version
-
-1. **over_id Column**: All vecshift() output now includes over_id for consolidation
-2. **Duration Correction**: Automatic correction ensures elapsed_time = sum(durata) invariant
-3. **Enhanced Functions**: Major analysis functions support consolidation parameters
-4. **New Analysis Tools**: Three new functions for consolidated period analysis
-5. **Improved Accuracy**: Consolidation eliminates artificial transitions and double-counting
-
-### Benefits of over_id Consolidation
-
-#### For Researchers
-- **Cleaner Analysis**: Focus on meaningful employment transitions rather than contract technicalities
-- **Accurate Duration**: No more double-counting of overlapping employment time
-- **Career Insights**: Better understanding of continuous vs. fragmented employment patterns
-- **Visualization**: Clearer network graphs with fewer artificial edges
-
-#### For Policymakers
-- **True Transitions**: Identify genuine employment-to-unemployment transitions
-- **Employment Stability**: Measure continuous employment periods accurately
-- **Multiple Job Analysis**: Understand patterns of concurrent employment
-- **Duration Analysis**: Accurate measurement of employment and unemployment spells
-
-#### For Data Analysts
-- **Performance**: Faster aggregations using pre-computed consolidation groups
-- **Flexibility**: Choose appropriate consolidation level for different analyses
-- **Validation**: Built-in checks ensure data consistency and quality
-- **Integration**: Seamless compatibility with existing visualization and analysis tools
-
-### Example: Before and After Consolidation
-
-```r
-# Before: Multiple artificial segments for overlapping contracts
-# Person has two overlapping contracts Jan-June and Mar-Sept
-original_segments <- data.table(
-  cf = rep("ABC123", 3),
-  inizio = as.Date(c("2023-01-01", "2023-03-01", "2023-07-01")),
-  fine = as.Date(c("2023-02-28", "2023-06-30", "2023-09-30")),
-  arco = c(1, 2, 1),
-  employment_type = c("Contract A", "A+B Overlap", "Contract B")
-)
-# Result: 3 segments, complex transition analysis
-
-# After: Consolidated view using over_id
-consolidated_view <- data.table(
-  cf = "ABC123",
-  over_id = 1,
-  start_date = as.Date("2023-01-01"),
-  end_date = as.Date("2023-09-30"),
-  total_duration = 273,  # Total days
-  contract_count = 2,    # Original contracts
-  max_overlap = 2,       # Peak concurrent contracts
-  employment_type = "Continuous Employment"
-)
-# Result: 1 consolidated period, cleaner analysis
-```
 
 ## Impact Evaluation Framework
 
@@ -1160,3 +1021,4 @@ The framework automatically scales computational approaches based on data size a
 - **Consolidation Types**: Choose appropriate level ("overlapping", "consecutive", "both", "none") for your analysis needs
 - **Visualization**: ggraph and tidygraph provide comprehensive network visualization capabilities for transition analysis, enhanced by consolidation
 - **Impact Evaluation**: Comprehensive framework for causal inference with employment data, supporting multiple identification strategies and robust inference methods
+- use "../reference/vecshift" directory to store artefacts like: todo lists, .md documents test R scripts not needed to compile the package. When using agent-r-project-maintainer istruct it to move these file there insteadd of deleting

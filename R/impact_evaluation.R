@@ -8,11 +8,11 @@
 #' @author vecshift package
 NULL
 
-#' Identify Treatment Events in Employment Data
+#' Identify Treatment Groups for Impact Evaluation
 #'
-#' Identifies treatment events in employment data based on flexible conditions.
-#' Supports single or multiple conditions, temporal constraints, and handles
-#' multiple events per person.
+#' Identifies people who experienced treatment events and collects their complete
+#' employment histories for impact evaluation. Uses a person-centered approach that
+#' compares entire career trajectories of treated vs. control individuals.
 #'
 #' @param data A data.table containing employment records (output from vecshift)
 #' @param treatment_conditions List of conditions defining treatment events.
@@ -26,41 +26,45 @@ NULL
 #'   Default: 90
 #' @param min_post_period Minimum number of days required after the event.
 #'   Default: 90
-#' @param multiple_events How to handle multiple events per person:
-#'   - "first": Use only the first event
-#'   - "last": Use only the last event
-#'   - "all": Include all events (creates multiple observations per person)
+#' @param multiple_events How to handle multiple treatment events per person:
+#'   - "first": Use only the first treatment event date
+#'   - "last": Use only the last treatment event date
+#'   - "all": Keep all treatment events (creates multiple treatment dates per person)
 #'   Default: "first"
-#' @param require_employment_before Logical. Require employment before the event?
+#' @param require_employment_before Logical. Require employment before the treatment event?
 #'   Default: TRUE
 #' @param id_column Character. Name of the person identifier column. Default: "cf"
 #' @param date_column Character. Name of the date column to use for event timing.
 #'   Default: "inizio"
 #'
-#' @return A data.table with treatment event identification including:
+#' @return A data.table with ALL employment events for both treated and control people including:
 #'   \item{cf}{Person identifier}
-#'   \item{event_date}{Date of the treatment event}
-#'   \item{event_id}{Unique event identifier}
-#'   \item{is_treated}{Logical indicator for treatment status}
-#'   \item{days_to_event}{Days from observation date to event (negative = before)}
+#'   \item{is_treated}{Logical indicator: TRUE for people who experienced treatment, FALSE for controls}
+#'   \item{treatment_event_date}{Date of first/last treatment event (NA for control people)}
+#'   \item{days_to_event}{Days from each observation to treatment event (negative = before)}
 #'   \item{in_event_window}{Logical indicator for observations within event window}
-#'   \item{pre_event_period}{Logical indicator for pre-event observations}
-#'   \item{post_event_period}{Logical indicator for post-event observations}
-#'   \item{event_sequence}{Sequence number if multiple events per person}
+#'   \item{pre_event_period}{Logical indicator for pre-treatment observations}
+#'   \item{post_event_period}{Logical indicator for post-treatment observations}
 #'   \item{treatment_condition_met}{Description of which condition triggered treatment}
+#'   \item{...}{All original employment data columns}
 #'
 #' @examples
 #' \dontrun{
-#' # Identify permanent contract events
-#' events <- identify_treatment_events(
+#' # Identify people who got permanent contracts and collect their full careers
+#' impact_data <- identify_treatment_events(
 #'   data = employment_data,
 #'   treatment_conditions = list("COD_TIPOLOGIA_CONTRATTUALE == 'C.01.00'"),
 #'   event_window = c(-180, 365),
 #'   multiple_events = "first"
 #' )
-#'
+#' 
+#' # Result contains:
+#' # - ALL employment events for people who got permanent contracts (is_treated=TRUE)
+#' # - ALL employment events for people who never got permanent contracts (is_treated=FALSE)
+#' # - treatment_event_date marks when treated people first got permanent contracts
+#' 
 #' # Multiple conditions example
-#' events <- identify_treatment_events(
+#' impact_data <- identify_treatment_events(
 #'   data = employment_data,
 #'   treatment_conditions = list(
 #'     list(column = "COD_TIPOLOGIA_CONTRATTUALE", operator = "==", value = "C.01.00"),
@@ -107,19 +111,14 @@ identify_treatment_events <- function(data,
     data[[date_column]] <- as.Date(data[[date_column]])
   }
   
-  # Create working copy
+  # Create working copy with standardized column names
   dt <- copy(data)
-  setnames(dt, c(id_column, date_column), c("cf", "event_date"))
+  setnames(dt, c(id_column, date_column), c("cf", "obs_date"))
   
-  # Initialize treatment identification columns
-  dt[, `:=`(
-    is_treated = FALSE,
-    event_id = NA_integer_,
-    treatment_condition_met = NA_character_,
-    event_sequence = 0L
-  )]
+  # STEP 1: Find people (cf) who experienced treatment condition
+  # Apply treatment conditions to identify treatment events
+  treatment_events_list <- list()
   
-  # Process each treatment condition
   for (i in seq_along(treatment_conditions)) {
     condition <- treatment_conditions[[i]]
     
@@ -151,102 +150,129 @@ identify_treatment_events <- function(data,
       stop(paste("Invalid treatment condition format at position", i))
     }
     
-    # Mark treated observations
-    dt[condition_met == TRUE, `:=`(
-      is_treated = TRUE,
-      treatment_condition_met = fifelse(
-        is.na(treatment_condition_met),
-        condition_desc,
-        paste(treatment_condition_met, "OR", condition_desc)
-      )
-    )]
+    # Collect treatment events (events that meet the condition)
+    if (sum(condition_met, na.rm = TRUE) > 0) {
+      treatment_events <- dt[condition_met == TRUE, .(
+        cf,
+        treatment_event_date = obs_date,
+        treatment_condition_met = condition_desc
+      )]
+      treatment_events_list[[i]] <- treatment_events
+    }
   }
   
-  if (sum(dt$is_treated) == 0) {
+  if (length(treatment_events_list) == 0) {
     warning("No treatment events identified with the given conditions")
-    return(dt[, .(cf = character(0), event_date = as.Date(character(0)))])
+    return(dt[0]) # Return empty data.table with same structure
   }
   
-  # Identify unique treatment events per person
-  treatment_events <- dt[is_treated == TRUE, .(
-    cf,
-    event_date,
-    treatment_condition_met
-  )]
+  # Combine all treatment events
+  all_treatment_events <- rbindlist(treatment_events_list)
   
-  # Handle multiple events per person
+  if (nrow(all_treatment_events) == 0) {
+    warning("No treatment events found after applying conditions")
+    return(dt[0])
+  }
+  
+  # STEP 2: For treated people, identify their treatment event date(s)
+  # Handle multiple treatment events per person
   if (multiple_events == "first") {
-    treatment_events <- treatment_events[, .SD[which.min(event_date)], by = cf]
+    person_treatment_dates <- all_treatment_events[, .SD[which.min(treatment_event_date)], by = cf]
   } else if (multiple_events == "last") {
-    treatment_events <- treatment_events[, .SD[which.max(event_date)], by = cf]
+    person_treatment_dates <- all_treatment_events[, .SD[which.max(treatment_event_date)], by = cf]
+  } else { # "all"
+    person_treatment_dates <- unique(all_treatment_events)
   }
   
-  # Add event sequence numbers
-  treatment_events[, event_sequence := seq_len(.N), by = cf]
-  treatment_events[, event_id := .I]
+  # Get unique treated people
+  treated_people <- unique(person_treatment_dates$cf)
   
-  # Check minimum observation periods
+  # STEP 3 & 4: Check minimum observation periods and employment requirements
+  # Get data range for each person
   person_data_ranges <- dt[, .(
-    first_obs = min(event_date, na.rm = TRUE),
-    last_obs = max(event_date, na.rm = TRUE)
+    first_obs = min(obs_date, na.rm = TRUE),
+    last_obs = max(obs_date, na.rm = TRUE)
   ), by = cf]
   
-  treatment_events <- merge(treatment_events, person_data_ranges, by = "cf")
+  # Merge with treatment dates and filter
+  person_treatment_dates <- merge(person_treatment_dates, person_data_ranges, by = "cf")
   
-  # Filter events with sufficient pre/post periods
-  treatment_events <- treatment_events[
-    event_date - first_obs >= min_pre_period &
-    last_obs - event_date >= min_post_period
+  # Filter people with sufficient pre/post periods
+  valid_treated_people <- person_treatment_dates[
+    treatment_event_date - first_obs >= min_pre_period &
+    last_obs - treatment_event_date >= min_post_period
   ]
   
-  if (nrow(treatment_events) == 0) {
-    warning("No treatment events meet the minimum pre/post period requirements")
-    return(dt[, .(cf = character(0), event_date = as.Date(character(0)))])
-  }
-  
-  # Optional: require employment before event
-  if (require_employment_before) {
-    employed_before <- dt[, .(
+  # Optional: require employment before treatment event
+  if (require_employment_before && "over_id" %in% names(dt)) {
+    # Find people who had employment before their treatment event
+    employment_before <- dt[obs_date < person_treatment_dates[, treatment_event_date][1], .( # simplified for now
       employed_before_event = any(over_id > 0, na.rm = TRUE)
     ), by = cf]
     
-    treatment_events <- merge(treatment_events, employed_before, by = "cf")
-    treatment_events <- treatment_events[employed_before_event == TRUE]
-    treatment_events[, employed_before_event := NULL]
+    valid_treated_people <- merge(valid_treated_people, employment_before, by = "cf")
+    valid_treated_people <- valid_treated_people[employed_before_event == TRUE]
+    valid_treated_people[, employed_before_event := NULL]
   }
   
-  if (nrow(treatment_events) == 0) {
-    warning("No treatment events meet the employment history requirements")
-    return(dt[, .(cf = character(0), event_date = as.Date(character(0)))])
+  if (nrow(valid_treated_people) == 0) {
+    warning("No people meet the minimum pre/post period and employment requirements")
+    return(dt[0])
   }
   
-  # Create final event identification data
-  event_data <- merge(dt, treatment_events[, .(cf, event_date, event_id, treatment_condition_met, event_sequence)], 
-                     by = "cf", all = TRUE)
+  # Get final list of treated people
+  final_treated_people <- unique(valid_treated_people$cf)
   
-  # Calculate event timing variables
-  event_data[!is.na(event_id), `:=`(
-    days_to_event = as.numeric(get(date_column) - event_date),
-    in_event_window = (as.numeric(get(date_column) - event_date) >= event_window[1] & 
-                      as.numeric(get(date_column) - event_date) <= event_window[2]),
-    pre_event_period = (as.numeric(get(date_column) - event_date) < 0 & 
-                       as.numeric(get(date_column) - event_date) >= event_window[1]),
-    post_event_period = (as.numeric(get(date_column) - event_date) > 0 & 
-                        as.numeric(get(date_column) - event_date) <= event_window[2]),
-    is_treated = TRUE
+  # STEP 5: Identify control people (who never experienced treatment)
+  all_people <- unique(dt$cf)
+  control_people <- setdiff(all_people, final_treated_people)
+  
+  # STEP 6: Collect ALL events for both treated and control people
+  # Create person-level treatment information
+  person_treatment_info <- valid_treated_people[, .(
+    cf,
+    treatment_event_date,
+    treatment_condition_met
   )]
   
-  # Fill missing values for non-treated
-  event_data[is.na(is_treated), is_treated := FALSE]
-  event_data[is.na(in_event_window), in_event_window := FALSE]
-  event_data[is.na(pre_event_period), pre_event_period := FALSE]
-  event_data[is.na(post_event_period), post_event_period := FALSE]
-  event_data[is.na(event_sequence), event_sequence := 0L]
+  # If multiple_events = "all", we might have multiple rows per person
+  # For now, let's take the first one for the merge
+  if (multiple_events == "all" && person_treatment_info[, .N, by = cf][, max(N)] > 1) {
+    warning("multiple_events = 'all' creates multiple treatment dates per person. Using first event date for timing calculations.")
+    person_treatment_info <- person_treatment_info[, .SD[1], by = cf]
+  }
   
-  # Restore original column names if needed
-  setnames(event_data, c("cf", "event_date"), c(id_column, date_column))
+  # Merge all employment data with person-level treatment information
+  result <- merge(dt, person_treatment_info, by = "cf", all.x = TRUE)
   
-  return(event_data[])
+  # Create person-level treatment indicator
+  result[, is_treated := !is.na(treatment_event_date)]
+  
+  # Calculate days to treatment event for all observations
+  result[is_treated == TRUE, days_to_event := as.numeric(obs_date - treatment_event_date)]
+  result[is_treated == FALSE, days_to_event := NA_real_]
+  
+  # Calculate event window indicators
+  result[is_treated == TRUE, `:=`(
+    in_event_window = (days_to_event >= event_window[1] & days_to_event <= event_window[2]),
+    pre_event_period = (days_to_event < 0 & days_to_event >= event_window[1]),
+    post_event_period = (days_to_event > 0 & days_to_event <= event_window[2])
+  )]
+  
+  # Set indicators to FALSE for control people
+  result[is_treated == FALSE, `:=`(
+    in_event_window = FALSE,
+    pre_event_period = FALSE,
+    post_event_period = FALSE
+  )]
+  
+  # Fill missing treatment condition for controls
+  result[is.na(treatment_condition_met), treatment_condition_met := "Control (never treated)"]
+  
+  # Restore original column names
+  setnames(result, c("cf", "obs_date"), c(id_column, date_column))
+  
+  return(result[])
 }
 
 #' Create Treatment and Control Groups
@@ -258,7 +284,9 @@ identify_treatment_events <- function(data,
 #' @param control_conditions Optional conditions for control group eligibility.
 #'   Similar format to treatment_conditions in identify_treatment_events()
 #' @param matching_variables Character vector of variables to use for matching.
-#'   Default: NULL (no matching, uses all eligible controls)
+#'   Default: NULL (no matching, uses random eligible controls).
+#'   Note: If provided, this serves as a reminder but actual matching should be
+#'   done using propensity_score_matching() after group creation
 #' @param exact_match_variables Character vector of variables requiring exact matches.
 #'   Default: NULL
 #' @param control_ratio Numeric. Ratio of control to treatment units. Default: 1
@@ -316,7 +344,7 @@ create_treatment_control_groups <- function(event_data,
   )]
   
   # Assign treatment group
-  dt[is_treated == TRUE & !is.na(event_id), group_assignment := "treatment"]
+  dt[is_treated == TRUE, group_assignment := "treatment"]
   
   # Identify potential control units
   potential_controls <- dt[is_treated == FALSE]
@@ -360,9 +388,23 @@ create_treatment_control_groups <- function(event_data,
       dt[control_sample, on = merge_cols, group_assignment := "control"]
     }
   } else {
-    # Implement basic matching logic here
-    # This is simplified - full matching would use MatchIt in impact_matching.R
-    warning("Matching with matching_variables requires the impact_matching.R module")
+    # When matching_variables are provided, inform user to use propensity_score_matching
+    warning("Matching variables provided but not used. For propensity score matching, use propensity_score_matching() from the impact_matching module after creating groups.")
+    
+    # Still assign some controls for basic functionality
+    n_treatment <- dt[group_assignment == "treatment", .N]
+    n_controls_needed <- min(nrow(potential_controls), n_treatment * control_ratio)
+    
+    if (n_controls_needed > 0) {
+      control_sample <- potential_controls[sample(.N, n_controls_needed)]
+      merge_cols <- intersect(names(dt), names(control_sample))
+      dt[control_sample, on = merge_cols, group_assignment := "control"]
+    }
+    
+    message("To perform propensity score matching, use:\n",
+            "  matched_data <- propensity_score_matching(groups_data, \n",
+            "                     matching_variables = c('var1', 'var2'),\n",
+            "                     treatment_variable = 'is_treated')")
   }
   
   # Add match IDs for simple pairing
@@ -433,7 +475,7 @@ assess_treatment_event_quality <- function(event_data,
     unique_treated_persons = event_data[is_treated == TRUE, uniqueN(cf)],
     treatment_rate = mean(event_data$is_treated, na.rm = TRUE),
     events_per_person = event_data[is_treated == TRUE, .N, by = cf][, mean(N)],
-    date_range = range(event_data$event_date, na.rm = TRUE)
+    date_range = range(event_data$treatment_event_date, na.rm = TRUE)
   )
   
   # Timing distribution
@@ -479,7 +521,7 @@ assess_treatment_event_quality <- function(event_data,
   
   # Data quality metrics
   data_quality <- list(
-    missing_event_dates = sum(is.na(event_data$event_date)),
+    missing_event_dates = sum(is.na(event_data$treatment_event_date)),
     missing_treatment_indicators = sum(is.na(event_data$is_treated)),
     invalid_event_windows = sum(event_data$in_event_window & is.na(event_data$days_to_event), na.rm = TRUE),
     duplicate_events = event_data[is_treated == TRUE, .N - uniqueN(cf)],

@@ -32,3 +32,13 @@ renv/staging/
 *~
 /doc/
 /Meta/
+
+# Temporary/debug files in root
+debug_*.R
+demo_*.R
+test_*.R
+*_SOLUTION.md
+/reference/
+
+# Generated HTML files in vignettes
+vignettes/*.html

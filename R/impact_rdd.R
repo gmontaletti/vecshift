@@ -30,16 +30,6 @@ NULL
 #' @param covariates Character vector of covariate names to include (optional)
 #' @param alpha Numeric value for confidence level (default: 0.05 for 95% CI)
 #'
-#' @return A list containing:
-#' \describe{
-#'   \item{estimates}{Data.table with treatment effect estimates}
-#'   \item{bandwidth}{Selected or specified bandwidth}
-#'   \item{sample_sizes}{Sample sizes within bandwidth}
-#'   \item{first_stage}{First stage results (fuzzy RDD only)}
-#'   \item{diagnostics}{Model diagnostics and fit statistics}
-#'   \item{method_details}{Details of estimation method and parameters}
-#' }
-#'
 #' @details
 #' The function implements local polynomial regression around the cutoff with optimal
 #' bandwidth selection following Calonico et al. (2014). For fuzzy RDD, it uses
@@ -53,12 +43,15 @@ NULL
 #' The function provides bias-corrected estimates using higher-order polynomials
 #' following Calonico et al. (2014) robust bias-correction procedure.
 #'
-#' @references
-#' Calonico, S., Cattaneo, M. D., & Titiunik, R. (2014). Robust nonparametric confidence
-#' intervals for regression-discontinuity designs. Econometrica, 82(6), 2295-2326.
-#'
-#' Imbens, G. W., & Lemieux, T. (2008). Regression discontinuity designs: A guide to practice.
-#' Journal of Econometrics, 142(2), 615-635.
+#' @return A list containing:
+#' \describe{
+#'   \item{estimates}{Data.table with treatment effect estimates}
+#'   \item{bandwidth}{Selected or specified bandwidth}
+#'   \item{sample_sizes}{Sample sizes within bandwidth}
+#'   \item{first_stage}{First stage results (fuzzy RDD only)}
+#'   \item{diagnostics}{Model diagnostics and fit statistics}
+#'   \item{method_details}{Details of estimation method and parameters}
+#' }
 #'
 #' @examples
 #' \dontrun{
@@ -82,6 +75,13 @@ NULL
 #'   covariates = c("age", "gender", "education")
 #' )
 #' }
+#'
+#' @references
+#' Calonico, S., Cattaneo, M. D., & Titiunik, R. (2014). Robust nonparametric confidence
+#' intervals for regression-discontinuity designs. Econometrica, 82(6), 2295-2326.
+#'
+#' Imbens, G. W., & Lemieux, T. (2008). Regression discontinuity designs: A guide to practice.
+#' Journal of Econometrics, 142(2), 615-635.
 #'
 #' @export
 regression_discontinuity <- function(data,
