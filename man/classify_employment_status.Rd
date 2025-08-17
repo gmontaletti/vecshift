@@ -23,6 +23,7 @@ Data.table with stato column containing employment status labels
 \description{
 Classifies employment segments using customizable rules. Supports both
 default vecshift classification and custom business logic implementations.
+Optimized for high-performance processing with minimal memory allocations.
 }
 \examples{
 \dontrun{

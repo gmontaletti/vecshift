@@ -9,7 +9,11 @@ calculate_comprehensive_impact_metrics(
   metrics = "all",
   id_column = "cf",
   period_column = "event_period",
-  output_format = "wide"
+  output_format = "wide",
+  contract_code_column = "COD_TIPOLOGIA_CONTRATTUALE",
+  permanent_codes = c("C.01.00"),
+  temporary_codes = c("A.03.00", "A.03.01", "A.09.00"),
+  internship_codes = c("A.07.00", "A.07.01")
 )
 }
 \arguments{
@@ -23,6 +27,14 @@ c("stability", "quality", "complexity", "transitions", "all"). Default: "all"}
 \item{period_column}{Character. Column indicating pre/post event period. Default: "event_period"}
 
 \item{output_format}{Character. Output format: "wide", "long", or "list". Default: "wide"}
+
+\item{contract_code_column}{Character. Column containing actual contract type codes (for quality metrics). Default: "COD_TIPOLOGIA_CONTRATTUALE"}
+
+\item{permanent_codes}{Character vector. Contract codes indicating permanent contracts (for quality metrics). Default: c("C.01.00")}
+
+\item{temporary_codes}{Character vector. Contract codes indicating temporary contracts (for quality metrics). Default: c("A.03.00", "A.03.01", "A.09.00")}
+
+\item{internship_codes}{Character vector. Contract codes indicating internship/apprenticeship contracts (for quality metrics). Default: c("A.07.00", "A.07.01")}
 }
 \value{
 Based on output_format:

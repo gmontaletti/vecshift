@@ -36,13 +36,11 @@ rdd_placebo_tests(
 \item{bin_size}{Numeric value for density test bin size (auto-selected if NULL)}
 }
 \value{
-A list containing:
-\describe{
-  \item{placebo_results}{Results from placebo cutoff tests}
-  \item{density_test}{Results from density discontinuity test}
-  \item{placebo_plot_data}{Data for plotting placebo test results}
-  \item{density_plot_data}{Data for plotting density around cutoff}
-}
+A list with the following components:
+* placebo_results: Results from placebo cutoff tests
+* density_test: Results from density discontinuity test
+* placebo_plot_data: Data for plotting placebo test results
+* density_plot_data: Data for plotting density around cutoff
 }
 \description{
 Performs placebo tests using alternative cutoffs and density tests to check

@@ -681,58 +681,95 @@ propensity_score_matching <- function(data,
   ))
 }
 
-#' Coarsened Exact Matching (CEM)
+#' Coarsened Exact Matching (CEM) with Person-Level Matching
 #'
 #' Performs coarsened exact matching to create balanced treatment and control groups
 #' by automatically binning continuous variables and exactly matching on specified factors.
+#' This function first aggregates event-level data to person-level characteristics, 
+#' performs matching on people, then returns all events for matched individuals.
+#' This implementation provides both native CEM (when available) and a fallback
+#' implementation that doesn't require X11/tcltk dependencies.
 #'
-#' @param data A data.table containing treatment and control observations
+#' @param data A data.table containing treatment and control observations (can be event-level)
 #' @param treatment_var Character. Name of treatment indicator variable. Default: "is_treated"
+#' @param person_id_var Character. Name of person identifier variable (e.g., "cf"). Default: "cf"
 #' @param matching_variables Character vector. Variables to include in matching
+#' @param person_aggregation Character. How to aggregate person characteristics: "first", "last", "mode", "mean". Default: "first"
 #' @param automatic_binning Logical. Automatically bin continuous variables? Default: TRUE
 #' @param cutpoints Named list. Custom cutpoints for continuous variables. Default: NULL
 #' @param k2k Logical. Perform k-to-k matching (1:1 ratio)? Default: FALSE
+#' @param control_ratio Numeric. Ratio of control to treatment units (e.g., 2 for 2:1). Default: 1
 #' @param keep_all Logical. Keep all matched observations? Default: TRUE
+#' @param use_native_cem Logical. Try to use native CEM package? Default: TRUE
+#' @param n_bins Integer. Number of bins for automatic binning. Default: 4
+#' @param verbose Logical. Print detailed information? Default: TRUE
 #'
 #' @return A list containing:
-#'   \item{matched_data}{Data.table with matched observations and weights}
+#'   \item{matched_data}{Data.table with ALL events for matched individuals (both treated and control)}
+#'   \item{matched_persons}{Data.table with person-level characteristics used for matching}
 #'   \item{match_summary}{Summary of CEM procedure}
 #'   \item{imbalance_measures}{L1 and other imbalance statistics}
 #'   \item{strata_info}{Information about matching strata}
+#'   \item{aggregation_report}{Report on person-level aggregation process}
+#'   \item{implementation_used}{Which implementation was used: "native_cem" or "fallback"}
 #'
 #' @examples
 #' \dontrun{
-#' # Basic CEM
+#' # Process employment data first
+#' employment_data <- vecshift(raw_employment_data)
+#' 
+#' # Add treatment indicator (e.g., policy intervention)
+#' employment_data[, is_treated := some_treatment_condition]
+#' 
+#' # Basic CEM with person-level matching
 #' cem_match <- coarsened_exact_matching(
-#'   data = analysis_data,
+#'   data = employment_data,
+#'   person_id_var = "cf",
 #'   matching_variables = c("age", "education", "sector"),
+#'   person_aggregation = "first",
 #'   automatic_binning = TRUE
 #' )
 #' 
-#' # CEM with custom cutpoints
-#' cem_match_custom <- coarsened_exact_matching(
-#'   data = analysis_data,
+#' # Result contains all events for matched persons
+#' matched_employment_data <- cem_match$matched_data
+#' person_characteristics <- cem_match$matched_persons
+#' 
+#' # CEM with 2:1 control-to-treatment ratio
+#' cem_match_2to1 <- coarsened_exact_matching(
+#'   data = employment_data,
+#'   person_id_var = "cf",
 #'   matching_variables = c("age", "wage", "experience"),
+#'   control_ratio = 2,  # 2 controls per treated unit
 #'   cutpoints = list(
 #'     age = c(25, 35, 45, 55),
 #'     wage = c(1000, 2000, 3000, 4000)
 #'   )
 #' )
+#' 
+#' # Force use of fallback implementation with custom ratio
+#' cem_match_fallback <- coarsened_exact_matching(
+#'   data = employment_data,
+#'   person_id_var = "cf",
+#'   matching_variables = c("age", "education", "sector"),
+#'   control_ratio = 2,
+#'   use_native_cem = FALSE
+#' )
 #' }
 #'
 #' @export
 coarsened_exact_matching <- function(data,
-                                   treatment_var = "is_treated", 
+                                   treatment_var = "is_treated",
+                                   person_id_var = "cf",
                                    matching_variables,
+                                   person_aggregation = "first",
                                    automatic_binning = TRUE,
                                    cutpoints = NULL,
                                    k2k = FALSE,
-                                   keep_all = TRUE) {
-  
-  # Check for required package
-  if (!"cem" %in% rownames(installed.packages())) {
-    stop("Package 'cem' not installed. Please install with: install.packages('cem')")
-  }
+                                   control_ratio = 1,
+                                   keep_all = TRUE,
+                                   use_native_cem = TRUE,
+                                   n_bins = 4,
+                                   verbose = TRUE) {
   
   if (!inherits(data, "data.table")) {
     stop("Input data must be a data.table")
@@ -742,10 +779,115 @@ coarsened_exact_matching <- function(data,
     stop(paste("Treatment variable", treatment_var, "not found in data"))
   }
   
+  if (!person_id_var %in% names(data)) {
+    stop(paste("Person ID variable", person_id_var, "not found in data"))
+  }
+  
   missing_vars <- setdiff(matching_variables, names(data))
   if (length(missing_vars) > 0) {
     stop(paste("Matching variables not found:", paste(missing_vars, collapse = ", ")))
   }
+  
+  # Validate parameters
+  valid_aggregation_methods <- c("first", "last", "mode", "mean")
+  if (!person_aggregation %in% valid_aggregation_methods) {
+    stop(paste("person_aggregation must be one of:", paste(valid_aggregation_methods, collapse = ", ")))
+  }
+  
+  if (control_ratio < 1) {
+    stop("control_ratio must be >= 1")
+  }
+  
+  # Step 1: Person-Level Aggregation
+  if (verbose) cat("\n=== COARSENED EXACT MATCHING: PERSON-LEVEL AGGREGATION ===\n")
+  
+  # Store original event-level data for later
+  original_data <- copy(data)
+  
+  # Aggregate event-level data to person-level characteristics
+  all_vars_for_aggregation <- c(treatment_var, matching_variables)
+  aggregation_result <- aggregate_to_person_level(
+    data = data,
+    person_id_var = person_id_var,
+    variables = all_vars_for_aggregation,
+    aggregation_method = person_aggregation,
+    verbose = verbose
+  )
+  
+  # Use person-level data for matching but keep original data for final results
+  working_data <- aggregation_result$person_data
+  aggregation_report <- aggregation_result$aggregation_report
+  
+  if (verbose) {
+    cat("\nPerson-level data prepared for matching:\n")
+    cat("  Original events:", nrow(original_data), "\n")
+    cat("  Unique persons:", nrow(working_data), "\n")
+    cat("  Treatment distribution (persons):", table(working_data[[treatment_var]]), "\n")
+  }
+  
+  # Try native CEM first if requested
+  native_cem_available <- FALSE
+  if (use_native_cem) {
+    tryCatch({
+      if ("cem" %in% rownames(installed.packages())) {
+        # Test if CEM package loads without errors
+        test_result <- tryCatch({
+          requireNamespace("cem", quietly = TRUE)
+          # Additional test: try to call cem with minimal data to check for tcltk issues
+          test_data <- data.frame(x = 1:10, y = rep(c(0,1), 5))
+          cem::cem(treatment = test_data$y, data = test_data[, "x", drop = FALSE])
+          TRUE
+        }, error = function(e) {
+          if (verbose) {
+            cat("Native CEM package failed to load:", e$message, "\n")
+            cat("Falling back to native implementation...\n")
+          }
+          FALSE
+        })
+        native_cem_available <- test_result
+      } else {
+        if (verbose) {
+          cat("CEM package not installed. Using native implementation...\n")
+        }
+      }
+    }, error = function(e) {
+      if (verbose) {
+        cat("Error checking CEM package:", e$message, "\n")
+        cat("Using native implementation...\n")
+      }
+    })
+  }
+  
+  if (native_cem_available) {
+    # Try native implementation, with fallback if it fails
+    tryCatch({
+      result <- cem_native_implementation(working_data, treatment_var, person_id_var, matching_variables, 
+                                     automatic_binning, cutpoints, k2k, control_ratio, keep_all, verbose,
+                                     original_data, aggregation_report)
+      return(result)
+    }, error = function(e) {
+      if (verbose) {
+        cat("Native CEM implementation failed:", e$message, "\n")
+        cat("Falling back to native implementation...\n")
+      }
+      result <- cem_fallback_implementation(working_data, treatment_var, person_id_var, matching_variables,
+                                       automatic_binning, cutpoints, k2k, control_ratio, keep_all, 
+                                       n_bins, verbose, original_data, aggregation_report)
+      return(result)
+    })
+  } else {
+    result <- cem_fallback_implementation(working_data, treatment_var, person_id_var, matching_variables,
+                                     automatic_binning, cutpoints, k2k, control_ratio, keep_all, 
+                                     n_bins, verbose, original_data, aggregation_report)
+    return(result)
+  }
+}
+
+#' Native CEM Implementation (using CEM package) with Person-Level Matching
+#' @keywords internal
+cem_native_implementation <- function(data, treatment_var, person_id_var, matching_variables,
+                                    automatic_binning, cutpoints, k2k, control_ratio, keep_all, 
+                                    verbose, original_data, aggregation_report) {
   
   # Convert to data.frame for CEM
   match_data <- as.data.frame(data)
@@ -772,14 +914,51 @@ coarsened_exact_matching <- function(data,
       keep.all = keep_all
     )
   }, error = function(e) {
-    stop(paste("CEM matching failed:", e$message))
+    stop(paste("Native CEM matching failed:", e$message))
   })
   
-  # Create matched dataset with weights
+  # Create matched person dataset with weights
   matched_indices <- which(cem_result$w > 0)
-  matched_data <- as.data.table(match_data[matched_indices, ])
-  matched_data[, cem_weight := cem_result$w[matched_indices]]
-  matched_data[, cem_strata := cem_result$strata[matched_indices]]
+  matched_persons <- as.data.table(match_data[matched_indices, ])
+  matched_persons[, cem_weight := cem_result$w[matched_indices]]
+  matched_persons[, cem_strata := cem_result$strata[matched_indices]]
+  
+  # Handle control_ratio if > 1 (CEM package doesn't directly support this)
+  if (control_ratio > 1 && !k2k) {
+    if (verbose) cat("\nAdjusting for control_ratio =", control_ratio, "\n")
+    # For each stratum, sample additional controls to achieve desired ratio
+    strata_adjustment <- matched_persons[, {
+      n_treated <- sum(get(treatment_var) == 1)
+      n_control <- sum(get(treatment_var) == 0)
+      
+      if (n_treated > 0 && n_control > 0) {
+        # Calculate how many controls we need
+        desired_control <- n_treated * control_ratio
+        
+        if (n_control < desired_control) {
+          # Not enough controls, use all available
+          .SD
+        } else {
+          # Sample controls to achieve ratio
+          treated_rows <- .SD[get(treatment_var) == 1]
+          control_rows <- .SD[get(treatment_var) == 0]
+          sampled_controls <- control_rows[sample(.N, min(.N, as.integer(desired_control)))]
+          rbind(treated_rows, sampled_controls)
+        }
+      } else {
+        .SD
+      }
+    }, by = cem_strata]
+    matched_persons <- strata_adjustment
+  }
+  
+  # Extract all events for matched persons
+  matched_person_ids <- matched_persons[[person_id_var]]
+  matched_data <- original_data[get(person_id_var) %in% matched_person_ids]
+  
+  # Add weights and strata info to matched data
+  person_info <- matched_persons[, c(person_id_var, "cem_weight", "cem_strata"), with = FALSE]
+  matched_data <- merge(matched_data, person_info, by = person_id_var)
   
   # Calculate imbalance measures
   imbalance_measures <- list(
@@ -804,6 +983,7 @@ coarsened_exact_matching <- function(data,
   # Match summary
   match_summary <- list(
     method = "CEM",
+    implementation = "native_cem",
     total_treated = sum(treatment),
     total_control = sum(!treatment),
     matched_treated = sum(treatment[matched_indices]),
@@ -814,13 +994,306 @@ coarsened_exact_matching <- function(data,
     cutpoints_used = cutpoints
   )
   
+  if (verbose) {
+    cat("\nMatching completed!\n")
+    cat("Matched persons:", nrow(matched_persons), "\n")
+    cat("Total events for matched persons:", nrow(matched_data), "\n")
+    cat("Events per matched person (avg):", round(nrow(matched_data) / nrow(matched_persons), 1), "\n")
+  }
+  
   return(list(
     matched_data = matched_data,
+    matched_persons = matched_persons,
     match_summary = match_summary,
     imbalance_measures = imbalance_measures,
     strata_info = strata_info,
-    cem_object = cem_result
+    aggregation_report = aggregation_report,
+    cem_object = cem_result,
+    implementation_used = "native_cem"
   ))
+}
+
+#' Fallback CEM Implementation (native R, no dependencies) with Person-Level Matching
+#' @keywords internal
+cem_fallback_implementation <- function(data, treatment_var, person_id_var, matching_variables,
+                                      automatic_binning, cutpoints, k2k, control_ratio, keep_all, 
+                                      n_bins, verbose, original_data, aggregation_report) {
+  
+  if (verbose) {
+    cat("\n=== COARSENED EXACT MATCHING (Fallback Implementation) ===\n")
+    cat("Original observations:", nrow(data), "\n")
+    cat("Treatment distribution:", table(data[[treatment_var]]), "\n")
+  }
+  
+  # Work with a copy
+  working_data <- copy(data)
+  
+  # Create binned/coarsened versions of matching variables
+  coarsened_vars <- character()
+  breaks_used <- list()
+  
+  for (var in matching_variables) {
+    values <- working_data[[var]]
+    coarsened_var_name <- paste0(var, "_coarsened")
+    
+    if (is.numeric(values)) {
+      # Handle numeric variables with binning
+      if (!is.null(cutpoints) && var %in% names(cutpoints)) {
+        # Use custom cutpoints
+        breaks <- cutpoints[[var]]
+        working_data[, (coarsened_var_name) := cut(get(var), breaks = breaks, include.lowest = TRUE)]
+        breaks_used[[var]] <- breaks
+        if (verbose) {
+          cat("Variable", var, ": using custom cutpoints", paste(breaks, collapse = ", "), "\n")
+        }
+      } else if (automatic_binning) {
+        # Automatic binning using quantiles
+        if (uniqueN(values, na.rm = TRUE) > n_bins) {
+          quantile_probs <- seq(0, 1, length.out = n_bins + 1)
+          breaks <- unique(quantile(values, probs = quantile_probs, na.rm = TRUE))
+          working_data[, (coarsened_var_name) := cut(get(var), breaks = breaks, include.lowest = TRUE)]
+          breaks_used[[var]] <- breaks
+          if (verbose) {
+            cat("Variable", var, ": automatic binning with", length(breaks) - 1, "bins\n")
+          }
+        } else {
+          # Few unique values, keep as is
+          working_data[, (coarsened_var_name) := as.factor(get(var))]
+          breaks_used[[var]] <- "no_binning_needed"
+          if (verbose) {
+            cat("Variable", var, ": keeping original values (few unique values)\n")
+          }
+        }
+      } else {
+        # No binning, convert to factor
+        working_data[, (coarsened_var_name) := as.factor(get(var))]
+        breaks_used[[var]] <- "no_binning"
+        if (verbose) {
+          cat("Variable", var, ": no binning applied\n")
+        }
+      }
+    } else {
+      # Categorical variables - use as is
+      working_data[, (coarsened_var_name) := as.factor(get(var))]
+      breaks_used[[var]] <- "categorical"
+      if (verbose) {
+        cat("Variable", var, ": categorical, using original levels\n")
+      }
+    }
+    
+    coarsened_vars <- c(coarsened_vars, coarsened_var_name)
+  }
+  
+  # Create strata based on unique combinations of coarsened variables
+  if (verbose) cat("\nCreating matching strata...\n")
+  
+  # Create a unique strata identifier
+  strata_cols <- coarsened_vars
+  working_data[, strata_id := do.call(paste, c(.SD, sep = "_|_")), .SDcols = strata_cols]
+  
+  # Identify strata with both treated and control units
+  strata_summary <- working_data[, .(
+    n_treated = sum(get(treatment_var)),
+    n_control = sum(1 - get(treatment_var)),
+    total_n = .N
+  ), by = strata_id]
+  
+  # Matched strata are those with both treated and control units
+  matched_strata <- strata_summary[n_treated > 0 & n_control > 0, strata_id]
+  
+  if (verbose) {
+    cat("Total strata created:", nrow(strata_summary), "\n")
+    cat("Strata with both treated and control:", length(matched_strata), "\n")
+  }
+  
+  # Apply k2k matching if requested OR control_ratio > 1
+  if (k2k || control_ratio > 1) {
+    if (k2k) {
+      if (verbose) cat("Applying k-to-k (1:1) matching within strata...\n")
+      actual_ratio <- 1
+    } else {
+      if (verbose) cat("Applying 1:", control_ratio, "matching within strata...\n")
+      actual_ratio <- control_ratio
+    }
+    
+    matched_persons_list <- list()
+    
+    for (stratum in matched_strata) {
+      stratum_data <- working_data[strata_id == stratum]
+      treated_in_stratum <- stratum_data[get(treatment_var) == 1]
+      control_in_stratum <- stratum_data[get(treatment_var) == 0]
+      
+      n_treated <- nrow(treated_in_stratum)
+      n_control <- nrow(control_in_stratum)
+      
+      if (n_treated > 0 && n_control > 0) {
+        # Calculate how many units to match based on ratio
+        if (n_control >= n_treated * actual_ratio) {
+          # Enough controls for desired ratio
+          n_matched_treated <- n_treated
+          n_matched_control <- min(n_control, as.integer(n_treated * actual_ratio))
+        } else {
+          # Not enough controls, adjust treated to maintain ratio
+          n_matched_control <- n_control
+          n_matched_treated <- min(n_treated, as.integer(n_control / actual_ratio))
+        }
+        
+        # Sample if necessary
+        if (nrow(treated_in_stratum) > n_matched_treated) {
+          treated_in_stratum <- treated_in_stratum[sample(.N, n_matched_treated)]
+        }
+        if (nrow(control_in_stratum) > n_matched_control) {
+          control_in_stratum <- control_in_stratum[sample(.N, n_matched_control)]
+        }
+        
+        stratum_matched <- rbind(treated_in_stratum, control_in_stratum)
+        stratum_matched[, cem_weight := 1.0]
+        matched_persons_list[[stratum]] <- stratum_matched
+      }
+    }
+    
+    matched_persons <- rbindlist(matched_persons_list, fill = TRUE)
+    
+  } else {
+    # Keep all matched observations
+    if (keep_all) {
+      matched_persons <- working_data[strata_id %in% matched_strata]
+      
+      # Calculate weights for each stratum to balance treated and control
+      weight_calc <- matched_persons[, .(
+        n_treated = sum(get(treatment_var)),
+        n_control = sum(1 - get(treatment_var))
+      ), by = strata_id]
+      
+      # Simple weighting: weight to achieve 1:1 balance within each stratum
+      weight_calc[, weight_treated := pmin(n_treated, n_control) / n_treated]
+      weight_calc[, weight_control := pmin(n_treated, n_control) / n_control]
+      
+      # Merge weights back
+      matched_persons <- merge(matched_persons, 
+                           weight_calc[, .(strata_id, weight_treated, weight_control)], 
+                           by = "strata_id")
+      
+      matched_persons[, cem_weight := ifelse(get(treatment_var) == 1, weight_treated, weight_control)]
+      matched_persons[, c("weight_treated", "weight_control") := NULL]
+      
+    } else {
+      # This would be a more complex implementation for keep_all = FALSE
+      matched_persons <- working_data[strata_id %in% matched_strata]
+      matched_persons[, cem_weight := 1.0]
+    }
+  }
+  
+  # Add strata numbering
+  strata_mapping <- data.table(
+    strata_id = matched_strata,
+    cem_strata = seq_along(matched_strata)
+  )
+  matched_persons <- merge(matched_persons, strata_mapping, by = "strata_id")
+  
+  # Extract all events for matched persons
+  matched_person_ids <- matched_persons[[person_id_var]]
+  matched_data <- original_data[get(person_id_var) %in% matched_person_ids]
+  
+  # Add weights and strata info to matched data
+  person_info <- matched_persons[, c(person_id_var, "cem_weight", "cem_strata"), with = FALSE]
+  matched_data <- merge(matched_data, person_info, by = person_id_var)
+  
+  # Calculate L1 imbalance measures (simplified) on person-level data
+  l1_before <- calculate_l1_imbalance(working_data, treatment_var, matching_variables)
+  l1_after <- calculate_l1_imbalance(matched_persons, treatment_var, matching_variables)
+  l1_reduction <- (l1_before - l1_after) / l1_before
+  
+  # Create final strata info
+  strata_info <- matched_persons[, .(
+    n_treated = sum(get(treatment_var) * cem_weight),
+    n_control = sum((1 - get(treatment_var)) * cem_weight)
+  ), by = cem_strata]
+  strata_info[, total_n := n_treated + n_control]
+  setnames(strata_info, "cem_strata", "strata")
+  
+  # Match summary
+  match_summary <- list(
+    method = "CEM",
+    implementation = "fallback",
+    total_treated = sum(working_data[[treatment_var]]),
+    total_control = sum(1 - working_data[[treatment_var]]),
+    matched_treated = sum(matched_persons[[treatment_var]] * matched_persons$cem_weight),
+    matched_control = sum((1 - matched_persons[[treatment_var]]) * matched_persons$cem_weight),
+    n_strata = length(matched_strata),
+    automatic_binning = automatic_binning,
+    k2k_matching = k2k,
+    control_ratio = control_ratio,
+    cutpoints_used = cutpoints,
+    n_bins_used = n_bins
+  )
+  
+  # Imbalance measures
+  imbalance_measures <- list(
+    l1_before = l1_before,
+    l1_after = l1_after,
+    l1_reduction = l1_reduction,
+    breaks_used = breaks_used
+  )
+  
+  # Remove helper columns from matched_persons dataset
+  matched_persons[, c(coarsened_vars, "strata_id") := NULL]
+  
+  if (verbose) {
+    cat("\nMatching completed!\n")
+    cat("Matched persons:", nrow(matched_persons), "\n")
+    cat("Total events for matched persons:", nrow(matched_data), "\n")
+    cat("Events per matched person (avg):", round(nrow(matched_data) / nrow(matched_persons), 1), "\n")
+    cat("Effective treated:", round(sum(matched_persons[[treatment_var]] * matched_persons$cem_weight)), "\n")
+    cat("Effective control:", round(sum((1 - matched_persons[[treatment_var]]) * matched_persons$cem_weight)), "\n")
+    cat("L1 imbalance reduction:", sprintf("%.1f%%", l1_reduction * 100), "\n")
+  }
+  
+  return(list(
+    matched_data = matched_data,
+    matched_persons = matched_persons,
+    match_summary = match_summary,
+    imbalance_measures = imbalance_measures,
+    strata_info = strata_info,
+    aggregation_report = aggregation_report,
+    cem_object = NULL,  # No native CEM object in fallback
+    implementation_used = "fallback"
+  ))
+}
+
+#' Calculate L1 Imbalance Measure
+#' @keywords internal
+calculate_l1_imbalance <- function(data, treatment_var, matching_variables) {
+  # Simplified L1 calculation
+  total_imbalance <- 0
+  
+  for (var in matching_variables) {
+    if (is.numeric(data[[var]])) {
+      # For numeric variables, use standardized mean difference
+      treated_mean <- mean(data[get(treatment_var) == 1, get(var)], na.rm = TRUE)
+      control_mean <- mean(data[get(treatment_var) == 0, get(var)], na.rm = TRUE)
+      pooled_sd <- sqrt((var(data[get(treatment_var) == 1, get(var)], na.rm = TRUE) + 
+                        var(data[get(treatment_var) == 0, get(var)], na.rm = TRUE)) / 2)
+      if (pooled_sd > 0) {
+        total_imbalance <- total_imbalance + abs(treated_mean - control_mean) / pooled_sd
+      }
+    } else {
+      # For categorical variables, use proportion differences
+      treated_props <- data[get(treatment_var) == 1, table(get(var))] / data[get(treatment_var) == 1, .N]
+      control_props <- data[get(treatment_var) == 0, table(get(var))] / data[get(treatment_var) == 0, .N]
+      
+      # Align factor levels
+      all_levels <- union(names(treated_props), names(control_props))
+      treated_aligned <- sapply(all_levels, function(level) 
+        ifelse(level %in% names(treated_props), treated_props[level], 0))
+      control_aligned <- sapply(all_levels, function(level) 
+        ifelse(level %in% names(control_props), control_props[level], 0))
+      
+      total_imbalance <- total_imbalance + sum(abs(treated_aligned - control_aligned))
+    }
+  }
+  
+  return(total_imbalance / length(matching_variables))
 }
 
 #' Balance Assessment for Matched Data

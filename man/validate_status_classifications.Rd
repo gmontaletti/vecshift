@@ -20,4 +20,5 @@ List with validation results and any detected issues
 \description{
 Validates the consistency and logical correctness of employment status
 classifications, checking for impossible combinations and missing labels.
+Optimized for large datasets with vectorized operations.
 }

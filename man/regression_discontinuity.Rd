@@ -51,18 +51,16 @@ regression_discontinuity(
 
 \item{covariates}{Character vector of covariate names to include (optional)}
 
-\item{alpha}{Numeric value for confidence level (default: 0.05 for 95% CI)}
+\item{alpha}{Numeric value for confidence level (default: 0.05 for 95\\% CI)}
 }
 \value{
-A list containing:
-\describe{
-  \item{estimates}{Data.table with treatment effect estimates}
-  \item{bandwidth}{Selected or specified bandwidth}
-  \item{sample_sizes}{Sample sizes within bandwidth}
-  \item{first_stage}{First stage results (fuzzy RDD only)}
-  \item{diagnostics}{Model diagnostics and fit statistics}
-  \item{method_details}{Details of estimation method and parameters}
-}
+A list with the following components:
+* estimates: Data.table with treatment effect estimates
+* bandwidth: Selected or specified bandwidth  
+* sample_sizes: Sample sizes within bandwidth
+* first_stage: First stage results (fuzzy RDD only)
+* diagnostics: Model diagnostics and fit statistics
+* method_details: Details of estimation method and parameters
 }
 \description{
 Performs regression discontinuity design estimation with automatic bandwidth selection

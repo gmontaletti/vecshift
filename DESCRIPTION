@@ -16,7 +16,7 @@ Description: Processes employment records with temporal data, transforming them 
 License: What license is it under?
 Encoding: UTF-8
 LazyData: true
-Imports: data.table, collapse
+Imports: data.table, collapse, survival
 Suggests: 
     testthat (>= 3.0.0),
     knitr,
@@ -36,6 +36,10 @@ Suggests:
     shinydashboard,
     DT,
     plotly,
+    survminer,
+    patchwork,
+    gganimate,
+    RColorBrewer,
     MatchIt (>= 4.0.0),
     fixest (>= 0.10.0),
     did (>= 2.1.0),

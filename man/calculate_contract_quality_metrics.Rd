@@ -8,9 +8,10 @@ calculate_contract_quality_metrics(
   data,
   id_column = "cf",
   period_column = "event_period",
-  contract_type_column = "prior",
-  permanent_values = c(1, 2, 3),
-  temporary_values = c(0, -1)
+  contract_code_column = "COD_TIPOLOGIA_CONTRATTUALE",
+  permanent_codes = c("C.01.00"),
+  temporary_codes = c("A.03.00", "A.03.01", "A.09.00"),
+  internship_codes = c("A.07.00", "A.07.01")
 )
 }
 \arguments{
@@ -20,11 +21,13 @@ calculate_contract_quality_metrics(
 
 \item{period_column}{Character. Column indicating pre/post event period. Default: "event_period"}
 
-\item{contract_type_column}{Character. Column indicating contract type. Default: "prior"}
+\item{contract_code_column}{Character. Column containing actual contract type codes. Default: "COD_TIPOLOGIA_CONTRATTUALE"}
 
-\item{permanent_values}{Numeric vector. Values indicating permanent contracts. Default: c(1, 2, 3)}
+\item{permanent_codes}{Character vector. Contract codes indicating permanent contracts. Default: c("C.01.00")}
 
-\item{temporary_values}{Numeric vector. Values indicating temporary contracts. Default: c(0, -1)}
+\item{temporary_codes}{Character vector. Contract codes indicating temporary contracts. Default: c("A.03.00", "A.03.01", "A.09.00")}
+
+\item{internship_codes}{Character vector. Contract codes indicating internship/apprenticeship contracts. Default: c("A.07.00", "A.07.01")}
 }
 \value{
 A data.table with contract quality metrics:
@@ -33,7 +36,11 @@ A data.table with contract quality metrics:
   \item{permanent_contract_days}{Days in permanent contracts}
   \item{temporary_contract_days}{Days in temporary contracts}
   \item{permanent_contract_rate}{Proportion of employment in permanent contracts}
+  \item{internship_contract_rate}{Proportion of employment in internship contracts (if internship_codes provided)}
+  \item{internship_contract_days}{Days in internship contracts (if internship_codes provided)}
   \item{temp_to_perm_transitions}{Number of temporary to permanent transitions}
+  \item{temp_to_internship_transitions}{Number of temporary to internship transitions (if internship_codes provided)}
+  \item{internship_to_perm_transitions}{Number of internship to permanent transitions (if internship_codes provided)}
   \item{perm_to_temp_transitions}{Number of permanent to temporary transitions}
   \item{contract_stability_trend}{Trend in contract stability over time}
   \item{average_contract_quality}{Average contract quality score}
@@ -45,10 +52,22 @@ contract type distributions, and quality improvements over time.
 }
 \examples{
 \dontrun{
+# Example with Italian employment contract codes
 quality_metrics <- calculate_contract_quality_metrics(
   data = event_data,
-  permanent_values = c(1, 2, 3),
-  temporary_values = c(0, -1)
+  contract_code_column = "COD_TIPOLOGIA_CONTRATTUALE",
+  permanent_codes = c("C.01.00"),  # Permanent contract codes
+  temporary_codes = c("A.03.00", "A.03.01", "A.09.00"),  # Fixed-term contract codes
+  internship_codes = c("A.07.00", "A.07.01")  # Apprenticeship/internship codes
+)
+
+# Example with custom contract column and codes
+quality_metrics <- calculate_contract_quality_metrics(
+  data = event_data,
+  contract_code_column = "contract_type",
+  permanent_codes = c("PERMANENT", "INDETERMINATE"),
+  temporary_codes = c("FIXED_TERM", "TEMPORARY"),
+  internship_codes = NULL  # Two-tier classification only
 )
 }
 

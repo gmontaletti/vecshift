@@ -30,15 +30,13 @@ rdd_robustness_checks(
 \item{placebo_cutoffs}{Numeric vector of placebo cutoffs relative to true cutoff (default: c(-0.5, 0.5) in bandwidth units)}
 }
 \value{
-A list containing:
-\describe{
-  \item{bandwidth_robustness}{Results varying bandwidth}
-  \item{polynomial_robustness}{Results varying polynomial order}
-  \item{kernel_robustness}{Results varying kernel}
-  \item{bias_correction_robustness}{Results with/without bias correction}
-  \item{placebo_tests}{Results for placebo cutoffs}
-  \item{summary_table}{Summary table of all robustness checks}
-}
+A list with the following components:
+* bandwidth_robustness: Results varying bandwidth
+* polynomial_robustness: Results varying polynomial order
+* kernel_robustness: Results varying kernel
+* bias_correction_robustness: Results with/without bias correction
+* placebo_tests: Results for placebo cutoffs
+* summary_table: Summary table of all robustness checks
 }
 \description{
 Performs robustness checks for regression discontinuity design by varying

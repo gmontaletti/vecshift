@@ -65,6 +65,7 @@ get_default_status_rules <- function() {
 #' @description
 #' Classifies employment segments using customizable rules. Supports both
 #' default vecshift classification and custom business logic implementations.
+#' Optimized for high-performance processing with minimal memory allocations.
 #'
 #' @param segments Data.table with temporal segments containing arco, prior, durata columns
 #' @param rules List of classification rules (default: get_default_status_rules())
@@ -102,6 +103,17 @@ classify_employment_status <- function(segments,
     rules <- get_default_status_rules()
   }
   
+  # Pre-extract rule labels for faster access (avoid repeated $ operations)
+  unemp_thresh <- rules$unemployment$duration_threshold
+  unemp_short <- rules$unemployment$short_label
+  unemp_long <- rules$unemployment$long_label
+  ft_label <- rules$single_employment$full_time$label
+  pt_label <- rules$single_employment$part_time$label
+  pt_to_ft_label <- rules$overlapping_employment$pt_to_ft$label
+  ft_to_pt_label <- rules$overlapping_employment$ft_to_pt$label
+  pt_to_pt_label <- rules$overlapping_employment$pt_to_pt$label
+  ft_to_ft_label <- rules$overlapping_employment$ft_to_ft$label
+  
   # Ensure proper ordering for shift operations
   if (length(group_by) > 0) {
     setorderv(segments, c(group_by, "inizio"))
@@ -109,44 +121,34 @@ classify_employment_status <- function(segments,
     setorder(segments, inizio)
   }
   
-  # Apply classification rules using fcase for optimal performance
+  # Pre-compute shift operations to avoid repeated calculations
   if (length(group_by) > 0) {
-    segments[, stato := fcase(
-      # Unemployment
-      arco == 0 & durata <= rules$unemployment$duration_threshold, rules$unemployment$short_label,
-      arco == 0 & durata > rules$unemployment$duration_threshold, rules$unemployment$long_label,
-      
-      # Single employment
-      arco == 1 & prior == 1, rules$single_employment$full_time$label,
-      arco == 1 & prior == 0, rules$single_employment$part_time$label,
-      
-      # Overlapping employment
-      arco > 1 & (prior > shift(prior, type = "lag")), rules$overlapping_employment$pt_to_ft$label,
-      arco > 1 & (prior < shift(prior, type = "lag")), rules$overlapping_employment$ft_to_pt$label,
-      arco > 1 & (prior == shift(prior, type = "lag")) & prior == 0, rules$overlapping_employment$pt_to_pt$label,
-      
-      # Default for remaining overlapping scenarios
-      default = rules$overlapping_employment$ft_to_ft$label
-    ), by = group_by]
+    segments[, prior_lag := shift(prior, type = "lag"), by = group_by]
   } else {
-    segments[, stato := fcase(
-      # Unemployment
-      arco == 0 & durata <= rules$unemployment$duration_threshold, rules$unemployment$short_label,
-      arco == 0 & durata > rules$unemployment$duration_threshold, rules$unemployment$long_label,
-      
-      # Single employment
-      arco == 1 & prior == 1, rules$single_employment$full_time$label,
-      arco == 1 & prior == 0, rules$single_employment$part_time$label,
-      
-      # Overlapping employment
-      arco > 1 & (prior > shift(prior, type = "lag")), rules$overlapping_employment$pt_to_ft$label,
-      arco > 1 & (prior < shift(prior, type = "lag")), rules$overlapping_employment$ft_to_pt$label,
-      arco > 1 & (prior == shift(prior, type = "lag")) & prior == 0, rules$overlapping_employment$pt_to_pt$label,
-      
-      # Default for remaining overlapping scenarios
-      default = rules$overlapping_employment$ft_to_ft$label
-    )]
+    segments[, prior_lag := shift(prior, type = "lag")]
   }
+  
+  # Apply optimized classification rules using fcase with pre-computed values
+  segments[, stato := fcase(
+    # Unemployment (fastest conditions first - most common case)
+    arco == 0L & durata <= unemp_thresh, unemp_short,
+    arco == 0L & durata > unemp_thresh, unemp_long,
+    
+    # Single employment (second most common)
+    arco == 1L & prior == 1L, ft_label,
+    arco == 1L & prior == 0L, pt_label,
+    
+    # Overlapping employment (least common, but most complex conditions)
+    arco > 1L & prior > prior_lag, pt_to_ft_label,
+    arco > 1L & prior < prior_lag, ft_to_pt_label,
+    arco > 1L & prior == prior_lag & prior == 0L, pt_to_pt_label,
+    
+    # Default for remaining overlapping scenarios
+    default = ft_to_ft_label
+  )]
+  
+  # Clean up temporary column
+  segments[, prior_lag := NULL]
   
   return(segments)
 }
@@ -295,16 +297,25 @@ analyze_status_patterns <- function(classified_data,
     )
   }, by = stato]
   
-  # Person-level patterns
+  # Person-level patterns (optimized aggregation)
   person_patterns <- classified_data[, {
     statuses <- unique(stato)
+    n_statuses <- length(statuses)
+    n_segments <- .N
+    total_duration <- sum(durata, na.rm = TRUE)
+    has_unemployment <- "disoccupato" %in% statuses
+    has_overlap <- any(grepl("^over_", statuses, perl = TRUE))
+    # Optimized employment rate calculation
+    employment_duration <- sum(durata[stato != "disoccupato"], na.rm = TRUE)
+    employment_rate <- if (total_duration > 0) employment_duration / total_duration else 0
+    
     list(
-      n_statuses = length(statuses),
-      n_segments = .N,
-      total_duration = sum(durata, na.rm = TRUE),
-      has_unemployment = "disoccupato" %in% statuses,
-      has_overlap = any(grepl("^over_", statuses)),
-      employment_rate = as.numeric(sum(durata[!grepl("disoccupato", stato)], na.rm = TRUE)) / as.numeric(sum(durata, na.rm = TRUE))
+      n_statuses = n_statuses,
+      n_segments = n_segments,
+      total_duration = total_duration,
+      has_unemployment = has_unemployment,
+      has_overlap = has_overlap,
+      employment_rate = employment_rate
     )
   }, by = c(person_col)]
   
@@ -320,28 +331,41 @@ analyze_status_patterns <- function(classified_data,
     status_diversity = table(person_patterns$n_statuses)
   )
   
-  # Transition analysis
+  # Transition analysis (optimized)
   if (include_transitions) {
     setorderv(classified_data, c(person_col, "inizio"))
     
-    transitions <- classified_data[, {
-      if (.N > 1) {
-        from_status <- stato[1:(.N-1)]
-        to_status <- stato[2:.N]
-        transition_pairs <- paste(from_status, "->", to_status)
-        data.table(transition = transition_pairs)
+    # More efficient transition calculation using shift
+    transitions_dt <- classified_data[, {
+      if (.N > 1L) {
+        from_status <- stato[1L:(.N-1L)]
+        to_status <- stato[2L:.N]
+        # Pre-allocate and use paste0 for better performance
+        transition_pairs <- paste0(from_status, "->", to_status)
+        list(transition = transition_pairs)
       } else {
-        data.table(transition = character(0))
+        list(transition = character(0))
       }
     }, by = c(person_col)]
     
-    if (nrow(transitions) > 0) {
+    if (nrow(transitions_dt) > 0L) {
+      transition_vec <- transitions_dt$transition
+      
+      # Pre-compile patterns for faster matching
+      patterns_trans <- list(
+        unemployment_entry = "-> disoccupato",
+        unemployment_exit = "disoccupato ->",
+        overlap_formation = "-> over_",
+        overlap_dissolution = "over_.*-> (?!over_)"
+      )
+      
+      # Vectorized pattern matching
       patterns$transitions <- list(
-        most_common = head(sort(table(transitions$transition), decreasing = TRUE), 10),
-        unemployment_entries = sum(grepl("-> disoccupato", transitions$transition)),
-        unemployment_exits = sum(grepl("disoccupato ->", transitions$transition)),
-        overlap_formations = sum(grepl("-> over_", transitions$transition)),
-        overlap_dissolutions = sum(grepl("over_ -> (?!over_)", transitions$transition, perl = TRUE))
+        most_common = head(sort(table(transition_vec), decreasing = TRUE), 10L),
+        unemployment_entries = sum(grepl(patterns_trans$unemployment_entry, transition_vec, fixed = TRUE)),
+        unemployment_exits = sum(grepl(patterns_trans$unemployment_exit, transition_vec, fixed = TRUE)),
+        overlap_formations = sum(grepl(patterns_trans$overlap_formation, transition_vec, fixed = TRUE)),
+        overlap_dissolutions = sum(grepl(patterns_trans$overlap_dissolution, transition_vec, perl = TRUE))
       )
     }
   }
@@ -367,6 +391,7 @@ analyze_status_patterns <- function(classified_data,
 #' @description  
 #' Validates the consistency and logical correctness of employment status
 #' classifications, checking for impossible combinations and missing labels.
+#' Optimized for large datasets with vectorized operations.
 #'
 #' @param classified_data Data.table with employment segments and status labels
 #' @param rules Classification rules used (for validation reference)
@@ -378,47 +403,45 @@ validate_status_classifications <- function(classified_data, rules = get_default
   
   validation <- list()
   
-  # Check for missing status labels
-  missing_status <- is.na(classified_data$stato) | classified_data$stato == ""
+  # Pre-extract stato and other columns to avoid repeated column access
+  stato_col <- classified_data$stato
+  arco_col <- classified_data$arco
+  prior_col <- classified_data$prior
+  n_rows <- nrow(classified_data)
+  
+  # Check for missing status labels (vectorized)
+  missing_status <- is.na(stato_col) | stato_col == ""
   validation$missing_labels <- sum(missing_status)
   
-  # Check for impossible combinations
-  impossible <- list()
-  
-  # Unemployment with arco > 0
-  impossible$unemployment_with_employment <- sum(
-    grepl("disoccupato", classified_data$stato) & classified_data$arco > 0,
-    na.rm = TRUE
+  # Pre-compile regex patterns for better performance
+  patterns <- list(
+    unemployment = "disoccupato",
+    single_employment = "^occ_",
+    overlap = "^over_",
+    fulltime = "_ft",
+    parttime = "_pt"
   )
   
-  # Single employment with arco != 1  
-  impossible$single_employment_wrong_arco <- sum(
-    grepl("^occ_", classified_data$stato) & classified_data$arco != 1,
-    na.rm = TRUE
-  )
+  # Pre-compute logical vectors for each pattern (vectorized operations)
+  is_unemployment <- grepl(patterns$unemployment, stato_col, fixed = TRUE)
+  is_single_emp <- grepl(patterns$single_employment, stato_col)
+  is_overlap <- grepl(patterns$overlap, stato_col)
+  is_fulltime <- grepl(patterns$fulltime, stato_col, fixed = TRUE)
+  is_parttime <- grepl(patterns$parttime, stato_col, fixed = TRUE)
   
-  # Overlap status with arco <= 1
-  impossible$overlap_without_overlap <- sum(
-    grepl("^over_", classified_data$stato) & classified_data$arco <= 1,
-    na.rm = TRUE
-  )
-  
-  # Full-time classification with prior = 0
-  impossible$fulltime_with_parttime_prior <- sum(
-    grepl("_ft", classified_data$stato) & classified_data$prior == 0,
-    na.rm = TRUE
-  )
-  
-  # Part-time classification with prior = 1  
-  impossible$parttime_with_fulltime_prior <- sum(
-    grepl("_pt", classified_data$stato) & classified_data$prior == 1,
-    na.rm = TRUE
+  # Check for impossible combinations using pre-computed logical vectors
+  impossible <- list(
+    unemployment_with_employment = sum(is_unemployment & arco_col > 0L, na.rm = TRUE),
+    single_employment_wrong_arco = sum(is_single_emp & arco_col != 1L, na.rm = TRUE),
+    overlap_without_overlap = sum(is_overlap & arco_col <= 1L, na.rm = TRUE),
+    fulltime_with_parttime_prior = sum(is_fulltime & prior_col == 0L, na.rm = TRUE),
+    parttime_with_fulltime_prior = sum(is_parttime & prior_col == 1L, na.rm = TRUE)
   )
   
   validation$impossible_combinations <- impossible
-  validation$total_impossible <- sum(unlist(impossible))
+  validation$total_impossible <- sum(unlist(impossible, use.names = FALSE))
   
-  # Check status coverage
+  # Check status coverage (use unique with na.rm for efficiency)
   expected_statuses <- c(
     rules$unemployment$short_label,
     rules$single_employment$full_time$label,
@@ -429,16 +452,22 @@ validate_status_classifications <- function(classified_data, rules = get_default
     rules$overlapping_employment$ft_to_ft$label
   )
   
-  observed_statuses <- unique(classified_data$stato[!is.na(classified_data$stato)])
+  # Optimized unique extraction
+  observed_statuses <- unique(stato_col[!missing_status])
   validation$unexpected_statuses <- setdiff(observed_statuses, expected_statuses)
   validation$missing_expected_statuses <- setdiff(expected_statuses, observed_statuses)
   
   # Overall validation status
-  validation$is_valid <- validation$missing_labels == 0 && 
-                        validation$total_impossible == 0 &&
-                        length(validation$unexpected_statuses) == 0
+  validation$is_valid <- validation$missing_labels == 0L && 
+                        validation$total_impossible == 0L &&
+                        length(validation$unexpected_statuses) == 0L
   
-  validation$validation_rate <- 1 - (validation$missing_labels + validation$total_impossible) / nrow(classified_data)
+  # Avoid division by zero
+  validation$validation_rate <- if (n_rows > 0L) {
+    1 - (validation$missing_labels + validation$total_impossible) / n_rows
+  } else {
+    1.0
+  }
   
   class(validation) <- c("employment_status_validation", "list")
   return(validation)
@@ -561,8 +590,7 @@ print.employment_status_validation <- function(x, ...) {
 .classify_with_consolidated_overlaps <- function(segments, rules, group_by) {
   
   # First apply standard classification
-  segments <- classify_employment_status(segments, rules, group_by, 
-                                       use_over_id = TRUE, consolidate_overlaps = FALSE)
+  segments <- classify_employment_status(segments, rules, group_by)
   
   # Create consolidated classifications for over_id > 0
   if (length(group_by) > 0) {

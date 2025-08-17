@@ -28,7 +28,7 @@ NULL
 #' @param robust_inference Logical indicating whether to use robust standard errors (default: TRUE)
 #' @param cluster_variable Character string specifying cluster variable for clustered standard errors
 #' @param covariates Character vector of covariate names to include (optional)
-#' @param alpha Numeric value for confidence level (default: 0.05 for 95% CI)
+#' @param alpha Numeric value for confidence level (default: 0.05 for 95\\% CI)
 #'
 #' @details
 #' The function implements local polynomial regression around the cutoff with optimal
@@ -43,15 +43,13 @@ NULL
 #' The function provides bias-corrected estimates using higher-order polynomials
 #' following Calonico et al. (2014) robust bias-correction procedure.
 #'
-#' @return A list containing:
-#' \describe{
-#'   \item{estimates}{Data.table with treatment effect estimates}
-#'   \item{bandwidth}{Selected or specified bandwidth}
-#'   \item{sample_sizes}{Sample sizes within bandwidth}
-#'   \item{first_stage}{First stage results (fuzzy RDD only)}
-#'   \item{diagnostics}{Model diagnostics and fit statistics}
-#'   \item{method_details}{Details of estimation method and parameters}
-#' }
+#' @return A list with the following components:
+#' * estimates: Data.table with treatment effect estimates
+#' * bandwidth: Selected or specified bandwidth  
+#' * sample_sizes: Sample sizes within bandwidth
+#' * first_stage: First stage results (fuzzy RDD only)
+#' * diagnostics: Model diagnostics and fit statistics
+#' * method_details: Details of estimation method and parameters
 #'
 #' @examples
 #' \dontrun{
@@ -263,15 +261,13 @@ regression_discontinuity <- function(data,
 #' @param include_bias_correction Logical indicating whether to test with/without bias correction (default: TRUE)
 #' @param placebo_cutoffs Numeric vector of placebo cutoffs relative to true cutoff (default: c(-0.5, 0.5) in bandwidth units)
 #'
-#' @return A list containing:
-#' \describe{
-#'   \item{bandwidth_robustness}{Results varying bandwidth}
-#'   \item{polynomial_robustness}{Results varying polynomial order}
-#'   \item{kernel_robustness}{Results varying kernel}
-#'   \item{bias_correction_robustness}{Results with/without bias correction}
-#'   \item{placebo_tests}{Results for placebo cutoffs}
-#'   \item{summary_table}{Summary table of all robustness checks}
-#' }
+#' @return A list with the following components:
+#' * bandwidth_robustness: Results varying bandwidth
+#' * polynomial_robustness: Results varying polynomial order
+#' * kernel_robustness: Results varying kernel
+#' * bias_correction_robustness: Results with/without bias correction
+#' * placebo_tests: Results for placebo cutoffs
+#' * summary_table: Summary table of all robustness checks
 #'
 #' @details
 #' This function systematically varies key RDD specification choices to assess
@@ -642,13 +638,11 @@ rdd_robustness_checks <- function(rdd_results,
 #' @param density_test_method Character string: "mccrary" for McCrary (2008) test or "cattaneo" for Cattaneo et al. (2018)
 #' @param bin_size Numeric value for density test bin size (auto-selected if NULL)
 #'
-#' @return A list containing:
-#' \describe{
-#'   \item{placebo_results}{Results from placebo cutoff tests}
-#'   \item{density_test}{Results from density discontinuity test}
-#'   \item{placebo_plot_data}{Data for plotting placebo test results}
-#'   \item{density_plot_data}{Data for plotting density around cutoff}
-#' }
+#' @return A list with the following components:
+#' * placebo_results: Results from placebo cutoff tests
+#' * density_test: Results from density discontinuity test
+#' * placebo_plot_data: Data for plotting placebo test results
+#' * density_plot_data: Data for plotting density around cutoff
 #'
 #' @details
 #' This function performs two key validity tests for RDD:
