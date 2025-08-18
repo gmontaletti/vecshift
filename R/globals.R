@@ -19,5 +19,9 @@ globalVariables(c(
   # Merge functions variables
   "status_change", "group_id", "prev_fine", "has_gap", "subgroup_id",
   "is_consecutive", "is_employment", "employment_group", "final_group",
-  "employment_status"
+  "employment_status",
+  
+  # add_external_events specific variables
+  "event_name", "event_start", "event_end", "row_id", "overlap_days",
+  "temp_distance"
 ))

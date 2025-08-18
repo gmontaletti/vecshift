@@ -30,6 +30,14 @@ NULL
 #' @param covariates Character vector of covariate names to include (optional)
 #' @param alpha Numeric value for confidence level (default: 0.05 for 95\\% CI)
 #'
+#' @return A list with the following components:
+#' * estimates: Data.table with treatment effect estimates
+#' * bandwidth: Selected or specified bandwidth  
+#' * sample_sizes: Sample sizes within bandwidth
+#' * first_stage: First stage results (fuzzy RDD only)
+#' * diagnostics: Model diagnostics and fit statistics
+#' * method_details: Details of estimation method and parameters
+#'
 #' @details
 #' The function implements local polynomial regression around the cutoff with optimal
 #' bandwidth selection following Calonico et al. (2014). For fuzzy RDD, it uses
@@ -42,14 +50,6 @@ NULL
 #'
 #' The function provides bias-corrected estimates using higher-order polynomials
 #' following Calonico et al. (2014) robust bias-correction procedure.
-#'
-#' @return A list with the following components:
-#' * estimates: Data.table with treatment effect estimates
-#' * bandwidth: Selected or specified bandwidth  
-#' * sample_sizes: Sample sizes within bandwidth
-#' * first_stage: First stage results (fuzzy RDD only)
-#' * diagnostics: Model diagnostics and fit statistics
-#' * method_details: Details of estimation method and parameters
 #'
 #' @examples
 #' \dontrun{
