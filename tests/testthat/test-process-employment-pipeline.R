@@ -246,7 +246,8 @@ test_that("check_pipeline_functions returns availability status", {
   # Assert
   expect_type(availability, "logical")
   expected_functions <- c("vecshift", "merge_original_columns", 
-                         "merge_overlapping_values", "merge_consecutive_employment_fast")
+                         "merge_overlapping_values", "merge_consecutive_employment",
+                         "merge_consecutive_employment_fast")
   expect_equal(names(availability), expected_functions)
   
   # All functions should be available in our test environment

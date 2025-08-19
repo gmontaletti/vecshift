@@ -307,7 +307,7 @@ analyze_status_patterns <- function(classified_data,
     has_overlap <- any(grepl("^over_", statuses, perl = TRUE))
     # Optimized employment rate calculation
     employment_duration <- sum(durata[stato != "disoccupato"], na.rm = TRUE)
-    employment_rate <- if (total_duration > 0) employment_duration / total_duration else 0
+    employment_rate <- if (total_duration > 0) as.numeric(employment_duration) / as.numeric(total_duration) else 0
     
     list(
       n_statuses = n_statuses,

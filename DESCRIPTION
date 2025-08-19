@@ -16,40 +16,13 @@ Description: Processes employment records with temporal data, transforming them 
 License: What license is it under?
 Encoding: UTF-8
 LazyData: true
-Imports: data.table, collapse, survival
+Imports: data.table
 Suggests: 
     testthat (>= 3.0.0),
     knitr,
     rmarkdown,
-    progress,
-    ggplot2 (>= 3.3.0),
-    ggraph (>= 2.0.0),
-    tidygraph (>= 1.2.0),
-    igraph (>= 1.2.0),
-    scales,
-    g6R,
-    viridis,
-    ggrepel,
-    stringr,
-    rlang,
-    shiny,
-    shinydashboard,
-    DT,
-    plotly,
-    survminer,
-    patchwork,
-    gganimate,
-    RColorBrewer,
-    MatchIt (>= 4.0.0),
-    fixest (>= 0.10.0),
-    did (>= 2.1.0),
-    augsynth (>= 0.1.0),
-    cobalt (>= 4.3.0),
-    cem (>= 1.1.0),
-    rdrobust (>= 0.99.0),
-    gt (>= 0.8.0),
-    flextable (>= 0.8.0),
-    officer (>= 0.4.0)
+    dplyr,
+    ggplot2
 VignetteBuilder: knitr
 Config/testthat/edition: 3
 RoxygenNote: 7.3.2

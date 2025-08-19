@@ -367,7 +367,7 @@ vecshift_production_mode <- function(dt, column_map = NULL, enable_cleaning = FA
 #'
 #' @return Data.table with performance comparison results
 #'
-#' @export
+# @export
 #'
 #' @examples
 #' \dontrun{

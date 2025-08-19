@@ -529,8 +529,6 @@ process_employment_pipeline <- function(original_data,
 #'     \item{\code{merge_overlapping_values}}: Overlap handling function
 #'     \item{\code{merge_consecutive_employment}}: Period consolidation with over_id
 #'     \item{\code{merge_consecutive_employment_fast}}: Traditional consecutive merging
-#'     \item{\code{validate_over_id_consistency}}: over_id validation
-#'     \item{\code{validate_duration_invariant}}: Duration consistency validation
 #'   }
 #'
 #' @export
@@ -552,9 +550,7 @@ check_pipeline_functions <- function() {
     "merge_original_columns", 
     "merge_overlapping_values",
     "merge_consecutive_employment",
-    "merge_consecutive_employment_fast",
-    "validate_over_id_consistency",
-    "validate_duration_invariant"
+    "merge_consecutive_employment_fast"
   )
   
   availability <- sapply(functions_to_check, function(fn) {

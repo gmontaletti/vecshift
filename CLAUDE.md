@@ -185,3 +185,5 @@ Use `../reference/vecshift` directory to store artifacts like:
 - Development notes and scratch files
 
 When using agent-r-project-maintainer, instruct it to move these files there instead of deleting them.
+- licence is mit
+- project author and mantainer Giampaolo Montaletti, giampaolo.montaletti@gmail.com, github.com/gmontaletti, ORCID https://orcid.org/0009-0002-5327-1122
