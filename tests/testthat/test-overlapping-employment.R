@@ -26,8 +26,8 @@ test_that("vecshift correctly classifies part-time to full-time overlap", {
   test_data <- data.table::data.table(
     id = c(1L, 2L),
     cf = c("PERSON001", "PERSON001"),
-    INIZIO = as.Date(c("2023-01-01", "2023-03-01")),  # PT starts first
-    FINE = as.Date(c("2023-06-30", "2023-05-31")),    # FT overlaps and ends first
+    inizio = as.Date(c("2023-01-01", "2023-03-01")),  # PT starts first
+    fine = as.Date(c("2023-06-30", "2023-05-31")),    # FT overlaps and ends first
     prior = c(0L, 1L)  # part-time then full-time
   )
   
@@ -50,8 +50,8 @@ test_that("vecshift correctly classifies full-time to part-time overlap", {
   test_data <- data.table::data.table(
     id = c(1L, 2L),
     cf = c("PERSON001", "PERSON001"),
-    INIZIO = as.Date(c("2023-01-01", "2023-03-01")),  # FT starts first
-    FINE = as.Date(c("2023-06-30", "2023-05-31")),    # PT overlaps
+    inizio = as.Date(c("2023-01-01", "2023-03-01")),  # FT starts first
+    fine = as.Date(c("2023-06-30", "2023-05-31")),    # PT overlaps
     prior = c(1L, 0L)  # full-time then part-time
   )
   
@@ -134,8 +134,8 @@ test_that("vecshift calculates arco (overlap count) correctly", {
   test_data <- data.table::data.table(
     id = c(1L, 2L, 3L),
     cf = c("PERSON001", "PERSON001", "PERSON001"),
-    INIZIO = as.Date(c("2023-01-01", "2023-02-01", "2023-03-01")),
-    FINE = as.Date(c("2023-12-31", "2023-12-31", "2023-12-31")),  # All end same time
+    inizio = as.Date(c("2023-01-01", "2023-02-01", "2023-03-01")),
+    fine = as.Date(c("2023-12-31", "2023-12-31", "2023-12-31")),  # All end same time
     prior = c(1L, 1L, 1L)  # All full-time
   )
   
@@ -160,8 +160,8 @@ test_that("vecshift handles partial overlaps correctly", {
   test_data <- data.table::data.table(
     id = c(1L, 2L),
     cf = c("PERSON001", "PERSON001"),
-    INIZIO = as.Date(c("2023-01-01", "2023-06-01")),
-    FINE = as.Date(c("2023-09-30", "2023-12-31")),  # Overlap Jun-Sep
+    inizio = as.Date(c("2023-01-01", "2023-06-01")),
+    fine = as.Date(c("2023-09-30", "2023-12-31")),  # Overlap Jun-Sep
     prior = c(1L, 0L)
   )
   
@@ -181,7 +181,7 @@ test_that("vecshift handles partial overlaps correctly", {
   expect_equal(result$arco[3], 1L)  # Third period: single job again
   
   # Check states
-  expect_equal(result$stato[1], "occ_ft")     # Single full-time
+  expect_equal(result$prior[1], "occ_ft")     # Single full-time
   expect_true(result$stato[2] %in% c("over_pt_ft", "over_ft_pt"))  # Overlap
   expect_equal(result$stato[3], "occ_pt")     # Single part-time
 })
@@ -193,8 +193,8 @@ test_that("vecshift overlap states match employment type transitions", {
   pt_to_ft <- data.table::data.table(
     id = c(1L, 2L),
     cf = c("PERSON001", "PERSON001"),
-    INIZIO = as.Date(c("2023-01-01", "2023-06-01")),
-    FINE = as.Date(c("2023-12-31", "2023-09-30")),
+    inizio = as.Date(c("2023-01-01", "2023-06-01")),
+    fine = as.Date(c("2023-12-31", "2023-09-30")),
     prior = c(0L, 1L)  # PT first, then FT
   )
   
@@ -206,8 +206,8 @@ test_that("vecshift overlap states match employment type transitions", {
   ft_to_pt <- data.table::data.table(
     id = c(1L, 2L),
     cf = c("PERSON001", "PERSON001"),
-    INIZIO = as.Date(c("2023-01-01", "2023-06-01")),
-    FINE = as.Date(c("2023-12-31", "2023-09-30")),
+    inizio = as.Date(c("2023-01-01", "2023-06-01")),
+    fine = as.Date(c("2023-12-31", "2023-09-30")),
     prior = c(1L, 0L)  # FT first, then PT
   )
   

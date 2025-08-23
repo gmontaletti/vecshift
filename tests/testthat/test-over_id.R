@@ -11,13 +11,13 @@ test_that("vecshift generates over_id = 0 for unemployment periods", {
   test_data <- data.table(
     id = c(1L, 2L),
     cf = c("PERSON001", "PERSON001"), 
-    INIZIO = as.Date(c("2023-01-01", "2023-07-01")),
-    FINE = as.Date(c("2023-03-31", "2023-12-31")),
+    inizio = as.Date(c("2023-01-01", "2023-07-01")),
+    fine = as.Date(c("2023-03-31", "2023-12-31")),
     prior = c(1L, 1L)
   )
   
   # Act
-  result <- vecshift(test_data, classify_status = FALSE)
+  result <- vecshift(test_data)
   
   # Assert
   expect_s3_class(result, "data.table")
@@ -38,13 +38,13 @@ test_that("vecshift assigns different over_id values to non-overlapping consecut
   test_data <- data.table(
     id = c(1L, 2L),
     cf = c("PERSON001", "PERSON001"),
-    INIZIO = as.Date(c("2023-01-01", "2023-04-01")), 
-    FINE = as.Date(c("2023-03-31", "2023-12-31")),
+    inizio = as.Date(c("2023-01-01", "2023-04-01")), 
+    fine = as.Date(c("2023-03-31", "2023-12-31")),
     prior = c(1L, 0L)
   )
   
   # Act
-  result <- vecshift(test_data, classify_status = FALSE)
+  result <- vecshift(test_data)
   
   # Assert
   expect_s3_class(result, "data.table")
@@ -64,13 +64,13 @@ test_that("vecshift assigns same over_id value to overlapping contracts", {
   test_data <- data.table(
     id = c(1L, 2L),
     cf = c("PERSON001", "PERSON001"),
-    INIZIO = as.Date(c("2023-01-01", "2023-06-01")),
-    FINE = as.Date(c("2023-12-31", "2023-09-30")),  # Second contract ends within first
+    inizio = as.Date(c("2023-01-01", "2023-06-01")),
+    fine = as.Date(c("2023-12-31", "2023-09-30")),  # Second contract ends within first
     prior = c(1L, 0L)
   )
   
   # Act 
-  result <- vecshift(test_data, classify_status = FALSE)
+  result <- vecshift(test_data)
   
   # Assert
   expect_s3_class(result, "data.table")
@@ -90,16 +90,16 @@ test_that("vecshift duration calculation preserves elapsed time equals sum of du
   test_data <- data.table(
     id = c(1L, 2L),
     cf = c("PERSON001", "PERSON001"),
-    INIZIO = as.Date(c("2023-01-01", "2023-07-01")),
-    FINE = as.Date(c("2023-06-30", "2023-12-31")), 
+    inizio = as.Date(c("2023-01-01", "2023-07-01")),
+    fine = as.Date(c("2023-06-30", "2023-12-31")), 
     prior = c(1L, 1L)
   )
   
   # Act
-  result <- vecshift(test_data, classify_status = FALSE)
+  result <- vecshift(test_data)
   
   # Assert
-  # Total elapsed time from first INIZIO to last FINE should equal sum of durations
+  # Total elapsed time from first inizio to last fine should equal sum of durations
   person_data <- result[cf == "PERSON001"]
   
   # Calculate elapsed time: from first inizio to last fine (inclusive)
@@ -118,13 +118,13 @@ test_that("vecshift handles complex overlapping scenario with correct over_id as
   test_data <- data.table(
     id = c(1L, 2L, 3L),
     cf = c("PERSON001", "PERSON001", "PERSON001"),
-    INIZIO = as.Date(c("2023-01-01", "2023-03-01", "2023-08-01")),
-    FINE = as.Date(c("2023-06-30", "2023-05-31", "2023-12-31")),
+    inizio = as.Date(c("2023-01-01", "2023-03-01", "2023-08-01")),
+    fine = as.Date(c("2023-06-30", "2023-05-31", "2023-12-31")),
     prior = c(1L, 0L, 1L)
   )
   
   # Act
-  result <- vecshift(test_data, classify_status = FALSE)
+  result <- vecshift(test_data)
   
   # Assert
   expect_s3_class(result, "data.table")
@@ -153,12 +153,12 @@ test_that("merge_consecutive_employment works with 'overlapping' consolidation",
   test_data <- data.table(
     id = c(1L, 2L),
     cf = c("PERSON001", "PERSON001"),
-    INIZIO = as.Date(c("2023-01-01", "2023-06-01")),
-    FINE = as.Date(c("2023-12-31", "2023-09-30")),
+    inizio = as.Date(c("2023-01-01", "2023-06-01")),
+    fine = as.Date(c("2023-12-31", "2023-09-30")),
     prior = c(1L, 0L)
   )
   
-  vecshift_result <- vecshift(test_data, classify_status = FALSE)
+  vecshift_result <- vecshift(test_data)
   
   # Act - Apply overlapping consolidation  
   merged_result <- merge_consecutive_employment(vecshift_result, consolidation_type = "overlapping")
@@ -182,12 +182,12 @@ test_that("merge_consecutive_employment works with 'consecutive' consolidation",
   test_data <- data.table(
     id = c(1L, 2L),
     cf = c("PERSON001", "PERSON001"), 
-    INIZIO = as.Date(c("2023-01-01", "2023-04-01")),
-    FINE = as.Date(c("2023-03-31", "2023-12-31")),
+    inizio = as.Date(c("2023-01-01", "2023-04-01")),
+    fine = as.Date(c("2023-03-31", "2023-12-31")),
     prior = c(1L, 1L)  # Same employment type to enable merging
   )
   
-  vecshift_result <- vecshift(test_data, classify_status = FALSE)
+  vecshift_result <- vecshift(test_data)
   
   # Act
   merged_result <- merge_consecutive_employment(vecshift_result, consolidation_type = "consecutive")
@@ -212,12 +212,12 @@ test_that("merge_consecutive_employment works with 'both' consolidation", {
   test_data <- data.table(
     id = c(1L, 2L, 3L),
     cf = c("PERSON001", "PERSON001", "PERSON001"),
-    INIZIO = as.Date(c("2023-01-01", "2023-03-01", "2023-08-01")),
-    FINE = as.Date(c("2023-06-30", "2023-05-31", "2023-12-31")),
+    inizio = as.Date(c("2023-01-01", "2023-03-01", "2023-08-01")),
+    fine = as.Date(c("2023-06-30", "2023-05-31", "2023-12-31")),
     prior = c(1L, 0L, 1L)
   )
   
-  vecshift_result <- vecshift(test_data, classify_status = FALSE)
+  vecshift_result <- vecshift(test_data)
   
   # Act - Apply both consolidation types
   merged_result <- merge_consecutive_employment(vecshift_result, consolidation_type = "both")
@@ -238,7 +238,7 @@ test_that("merge_consecutive_employment works with 'both' consolidation", {
 test_that("merge_consecutive_employment works with 'none' consolidation", {
   # Arrange
   test_data <- generate_test_data("overlapping_employment")
-  vecshift_result <- vecshift(test_data, classify_status = FALSE)
+  vecshift_result <- vecshift(test_data)
   
   # Act
   merged_result <- merge_consecutive_employment(vecshift_result, consolidation_type = "none")
@@ -257,12 +257,12 @@ test_that("merge_consecutive_employment preserves duration sums after consolidat
   test_data <- data.table(
     id = c(1L, 2L, 3L, 4L),
     cf = rep("PERSON001", 4),
-    INIZIO = as.Date(c("2023-01-01", "2023-02-01", "2023-04-01", "2023-08-01")),
-    FINE = as.Date(c("2023-03-31", "2023-03-15", "2023-06-30", "2023-12-31")),
+    inizio = as.Date(c("2023-01-01", "2023-02-01", "2023-04-01", "2023-08-01")),
+    fine = as.Date(c("2023-03-31", "2023-03-15", "2023-06-30", "2023-12-31")),
     prior = c(1L, 0L, 1L, 1L)
   )
   
-  vecshift_result <- vecshift(test_data, classify_status = FALSE)
+  vecshift_result <- vecshift(test_data)
   original_total_duration <- sum(as.numeric(vecshift_result$durata))
   
   # Act - Test each consolidation type
@@ -284,8 +284,8 @@ test_that("analyze_employment_transitions works with use_consolidated_periods pa
   test_data <- data.table(
     id = c(1L, 2L),
     cf = c("PERSON001", "PERSON001"),
-    INIZIO = as.Date(c("2023-01-01", "2023-06-01")),
-    FINE = as.Date(c("2023-12-31", "2023-09-30")),  # Overlapping contracts
+    inizio = as.Date(c("2023-01-01", "2023-06-01")),
+    fine = as.Date(c("2023-12-31", "2023-09-30")),  # Overlapping contracts
     prior = c(1L, 0L)
   )
   
@@ -313,12 +313,12 @@ test_that("merge_consecutive_employment supports all consolidation_type options 
   test_data <- data.table(
     id = c(1L, 2L, 3L),
     cf = rep("PERSON001", 3),
-    INIZIO = as.Date(c("2023-01-01", "2023-03-01", "2023-08-01")),
-    FINE = as.Date(c("2023-06-30", "2023-05-31", "2023-12-31")),
+    inizio = as.Date(c("2023-01-01", "2023-03-01", "2023-08-01")),
+    fine = as.Date(c("2023-06-30", "2023-05-31", "2023-12-31")),
     prior = c(1L, 0L, 1L)
   )
   
-  pipeline_result <- vecshift(test_data, classify_status = FALSE)
+  pipeline_result <- vecshift(test_data)
   
   # Act & Assert - Test each consolidation type works without error
   consolidation_types <- c("overlapping", "consecutive", "both", "none")
@@ -345,12 +345,12 @@ test_that("over_id preserves employment period relationships after consolidation
   test_data <- data.table(
     id = c(1L, 2L),
     cf = c("PERSON001", "PERSON001"),
-    INIZIO = as.Date(c("2023-01-01", "2023-03-01")),
-    FINE = as.Date(c("2023-06-30", "2023-05-31")),  # Overlapping periods
+    inizio = as.Date(c("2023-01-01", "2023-03-01")),
+    fine = as.Date(c("2023-06-30", "2023-05-31")),  # Overlapping periods
     prior = c(1L, 0L)
   )
   
-  vecshift_result <- vecshift(test_data, classify_status = FALSE)
+  vecshift_result <- vecshift(test_data)
   
   # Act - Test consolidation preserves over_id logic
   consolidated <- merge_consecutive_employment(vecshift_result, consolidation_type = "overlapping")
@@ -377,7 +377,7 @@ test_that("over_id preserves employment period relationships after consolidation
 test_that("classify_employment_status works with over_id present", {
   # Arrange - Create vecshift output with over_id
   test_data <- generate_test_data("overlapping_employment")
-  vecshift_result <- vecshift(test_data, classify_status = FALSE)
+  vecshift_result <- vecshift(test_data)
   
   # Act - Apply classification
   classified_result <- classify_employment_status(vecshift_result)
@@ -396,7 +396,7 @@ test_that("classify_employment_status works with over_id present", {
 test_that("classify_employment_status maintains backward compatibility when over_id missing", {
   # Arrange - Create vecshift output without over_id (simulate legacy data)
   test_data <- generate_test_data("employment_with_gap")
-  vecshift_result <- vecshift(test_data, classify_status = FALSE)
+  vecshift_result <- vecshift(test_data)
   
   # Remove over_id column to simulate legacy data
   vecshift_result[, over_id := NULL]
@@ -421,13 +421,13 @@ test_that("vecshift handles single day contracts correctly with over_id", {
   test_data <- data.table(
     id = 1L,
     cf = "PERSON001",
-    INIZIO = as.Date("2023-06-15"),
-    FINE = as.Date("2023-06-15"),
+    inizio = as.Date("2023-06-15"),
+    fine = as.Date("2023-06-15"),
     prior = 1L
   )
   
   # Act
-  result <- vecshift(test_data, classify_status = FALSE)
+  result <- vecshift(test_data)
   
   # Assert
   expect_s3_class(result, "data.table")
@@ -441,13 +441,13 @@ test_that("vecshift handles same start/end dates with over_id", {
   test_data <- data.table(
     id = c(1L, 2L),
     cf = c("PERSON001", "PERSON001"),
-    INIZIO = as.Date(c("2023-01-01", "2023-01-01")),
-    FINE = as.Date(c("2023-01-31", "2023-01-31")),
+    inizio = as.Date(c("2023-01-01", "2023-01-01")),
+    fine = as.Date(c("2023-01-31", "2023-01-31")),
     prior = c(1L, 0L)
   )
   
   # Act 
-  result <- vecshift(test_data, classify_status = FALSE)
+  result <- vecshift(test_data)
   
   # Assert - Should handle identical dates correctly
   expect_s3_class(result, "data.table")
@@ -467,13 +467,13 @@ test_that("over_id calculation handles multiple people correctly", {
   test_data <- data.table(
     id = c(1L, 2L, 3L, 4L),
     cf = c("PERSON001", "PERSON001", "PERSON002", "PERSON002"),
-    INIZIO = as.Date(c("2023-01-01", "2023-06-01", "2023-02-01", "2023-08-01")),
-    FINE = as.Date(c("2023-12-31", "2023-09-30", "2023-05-31", "2023-11-30")),
+    inizio = as.Date(c("2023-01-01", "2023-06-01", "2023-02-01", "2023-08-01")),
+    fine = as.Date(c("2023-12-31", "2023-09-30", "2023-05-31", "2023-11-30")),
     prior = c(1L, 0L, 0L, 1L)
   )
   
   # Act
-  result <- vecshift(test_data, classify_status = FALSE)
+  result <- vecshift(test_data)
   
   # Assert
   expect_s3_class(result, "data.table")
@@ -494,13 +494,13 @@ test_that("duration calculation with over_id handles overlapping periods correct
   test_data <- data.table(
     id = c(1L, 2L),
     cf = c("PERSON001", "PERSON001"),
-    INIZIO = as.Date(c("2023-01-01", "2023-02-01")),  
-    FINE = as.Date(c("2023-03-31", "2023-02-28")),  # 90 days, 28 days with overlap
+    inizio = as.Date(c("2023-01-01", "2023-02-01")),  
+    fine = as.Date(c("2023-03-31", "2023-02-28")),  # 90 days, 28 days with overlap
     prior = c(1L, 0L)
   )
   
   # Act
-  result <- vecshift(test_data, classify_status = FALSE)
+  result <- vecshift(test_data)
   
   # Assert duration calculation
   person_result <- result[cf == "PERSON001"]

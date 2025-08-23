@@ -24,8 +24,8 @@ process_employment_pipeline(
 \itemize{
   \item{\code{id}}: Contract identifier
   \item{\code{cf}}: Person identifier  
-  \item{\code{INIZIO}}: Contract start date
-  \item{\code{FINE}}: Contract end date
+  \item{\code{inizio}}: Contract start date
+  \item{\code{fine}}: Contract end date
   \item{\code{prior}}: Employment type indicator
 }}
 
@@ -120,8 +120,8 @@ library(data.table)
 employment_data <- data.table(
   id = 1:4,
   cf = c("PERSON001", "PERSON001", "PERSON001", "PERSON002"),
-  INIZIO = as.Date(c("2023-01-01", "2023-04-01", "2023-07-01", "2023-02-01")),
-  FINE = as.Date(c("2023-03-31", "2023-06-30", "2023-12-31", "2023-11-30")),
+  inizio = as.Date(c("2023-01-01", "2023-04-01", "2023-07-01", "2023-02-01")),
+  fine = as.Date(c("2023-03-31", "2023-06-30", "2023-12-31", "2023-11-30")),
   prior = c(1, 1, 0, 1),
   company = c("CompanyA", "CompanyB", "CompanyC", "CompanyD"),
   salary = c(50000, 55000, 25000, 60000),

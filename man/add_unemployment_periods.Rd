@@ -97,8 +97,8 @@ library(data.table)
 dt <- data.table(
   id = 1:2,
   cf = c("ABC123", "DEF456"),
-  INIZIO = as.Date(c("2023-03-01", "2023-06-01")),
-  FINE = as.Date(c("2023-05-31", "2023-08-31")),
+  inizio = as.Date(c("2023-03-01", "2023-06-01")),
+  fine = as.Date(c("2023-05-31", "2023-08-31")),
   prior = c(1, 0)
 )
 

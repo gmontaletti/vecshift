@@ -8,13 +8,13 @@ library(data.table)
 test_data <- data.table(
   id = 1:4,
   cf = c("PERSON001", "PERSON001", "PERSON001", "PERSON002"),
-  INIZIO = as.Date(c("2023-01-01", "2023-04-01", "2023-07-01", "2023-02-01")),
-  FINE = as.Date(c("2023-03-31", "2023-06-30", "2023-12-31", "2023-11-30")),
+  inizio = as.Date(c("2023-01-01", "2023-04-01", "2023-07-01", "2023-02-01")),
+  fine = as.Date(c("2023-03-31", "2023-06-30", "2023-12-31", "2023-11-30")),
   prior = c(1, 1, 0, 1)
 )
 
-test_that("vecshift preserves stato column when classify_status = TRUE", {
-  result <- vecshift(test_data, classify_status = TRUE)
+test_that("process_employment_pipeline preserves stato column when classify_status = TRUE", {
+  result <- process_employment_pipeline(test_data, show_progress = FALSE)
   
   expect_true("stato" %in% names(result))
   expect_true(all(!is.na(result$stato)))
@@ -62,7 +62,7 @@ test_that("process_employment_pipeline preserves stato column with consolidate_p
 
 test_that("merge_consecutive_employment preserves stato column for all consolidation types", {
   # First get vecshift output with stato
-  vecshift_result <- vecshift(test_data, classify_status = TRUE)
+  vecshift_result <- vecshift(test_data)
   
   consolidation_types <- c("overlapping", "consecutive", "both")
   
@@ -78,7 +78,7 @@ test_that("merge_consecutive_employment preserves stato column for all consolida
 
 test_that("merge_consecutive_employment_fast preserves stato column", {
   # First get vecshift output with stato
-  vecshift_result <- vecshift(test_data, classify_status = TRUE)
+  vecshift_result <- vecshift(test_data)
   
   result <- merge_consecutive_employment_fast(vecshift_result)
   
@@ -91,8 +91,8 @@ test_that("consolidated stato values are logical for merged periods", {
   overlap_data <- data.table(
     id = 1:6,
     cf = rep("PERSON001", 6),
-    INIZIO = as.Date(c("2023-01-01", "2023-03-01", "2023-05-01", "2023-06-01", "2023-08-01", "2023-10-01")),
-    FINE = as.Date(c("2023-04-30", "2023-06-30", "2023-05-31", "2023-07-31", "2023-09-30", "2023-11-30")),
+    inizio = as.Date(c("2023-01-01", "2023-03-01", "2023-05-01", "2023-06-01", "2023-08-01", "2023-10-01")),
+    fine = as.Date(c("2023-04-30", "2023-06-30", "2023-05-31", "2023-07-31", "2023-09-30", "2023-11-30")),
     prior = c(1, 0, 1, 1, 0, 1)
   )
   

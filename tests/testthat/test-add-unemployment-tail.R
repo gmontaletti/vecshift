@@ -13,6 +13,9 @@ test_that("add_unemployment_tail works with basic employment ending before max_d
   expect_s3_class(result, "data.table")
   expect_equal(nrow(result), 2)  # Original employment + unemployment tail
   
+  # Add status classification
+  result <- classify_employment_status(result)
+  
   # Check original employment segment is preserved
   employment_segment <- result[arco > 0]
   expect_equal(nrow(employment_segment), 1)
@@ -45,6 +48,9 @@ test_that("add_unemployment_tail handles multiple people correctly", {
   
   # Assert
   expect_s3_class(result, "data.table")
+  
+  # Add status classification
+  result <- classify_employment_status(result)
   
   # Check that both people get unemployment tails (both end in 2023)
   unemployment_tails <- result[arco == 0]
@@ -116,6 +122,9 @@ test_that("add_unemployment_tail works with employment_with_gap scenario", {
   expect_s3_class(result, "data.table")
   expect_gt(nrow(result), nrow(vecshift_result))  # Should add unemployment tail
   
+  # Add status classification
+  result <- classify_employment_status(result)
+  
   # Check that unemployment tail is added after the last employment
   unemployment_periods <- result[arco == 0]
   expect_gte(nrow(unemployment_periods), 2)  # Original gap + new tail
@@ -147,7 +156,7 @@ test_that("add_unemployment_tail preserves column structure and ordering", {
 test_that("add_unemployment_tail works without stato column (classify_status = FALSE)", {
   # Arrange
   test_data <- generate_test_data("single_employment")
-  vecshift_result <- vecshift(test_data, classify_status = FALSE)
+  vecshift_result <- vecshift(test_data)
   max_date <- as.Date("2025-12-31")
   
   # Act
@@ -170,8 +179,8 @@ test_that("add_unemployment_tail handles numeric dates correctly", {
   numeric_data <- data.table(
     id = 1L,
     cf = "PERSON001",
-    INIZIO = 19358,  # 2023-01-01 as numeric
-    FINE = 19723,    # 2023-12-31 as numeric
+    inizio = 19358,  # 2023-01-01 as numeric
+    fine = 19723,    # 2023-12-31 as numeric
     prior = 1L
   )
   vecshift_result <- vecshift(numeric_data)

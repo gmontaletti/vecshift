@@ -11,13 +11,13 @@
 #' The function implements precise date logic for temporal processing:
 #' \itemize{
 #'   \item Employment contracts are inclusive of both start and end dates
-#'   \item A person works ON both INIZIO and FINE dates
-#'   \item End events are created at FINE date
+#'   \item A person works ON both inizio and fine dates
+#'   \item End events are created at fine date
 #'   \item Unemployment periods are identified (arco=0) and adjusted: inizio+1 and fine-1
 #'   \item This ensures correct temporal boundaries for all segments
 #' }
 #'
-#' The algorithm creates events for each contract start (+1) and end (-1 at FINE), then uses
+#' The algorithm creates events for each contract start (+1) and end (-1 at fine), then uses
 #' cumulative sums to track overlapping contracts. Unemployment segments are identified
 #' (arco=0) and their dates are adjusted to represent the actual unemployment period.
 #'
@@ -25,14 +25,10 @@
 #'   \itemize{
 #'     \item{\code{id}}: Contract identifier (unique key for each employment contract)
 #'     \item{\code{cf}}: Person identifier (e.g., fiscal code)
-#'     \item{\code{INIZIO}}: Contract start date (Date or numeric)
-#'     \item{\code{FINE}}: Contract end date (Date or numeric)
+#'     \item{\code{inizio}}: Contract start date (Date or numeric)
+#'     \item{\code{fine}}: Contract end date (Date or numeric)
 #'     \item{\code{prior}}: Employment type indicator (0 or negative for part-time, positive for full-time)
 #'   }
-#' @param classify_status Logical. If TRUE (default), applies employment status classification.
-#'   Set to FALSE to return raw segments without status labels.
-#' @param status_rules Optional custom status classification rules. If NULL (default),
-#'   uses standard classification. See \code{\link{get_default_status_rules}} for structure.
 #'
 #' @return A data.table with temporal segments containing:
 #'   \itemize{
@@ -43,18 +39,16 @@
 #'     \item{\code{prior}}: Employment type for the segment (0 = part-time, 1 = full-time)
 #'     \item{\code{id}}: Contract ID (0 for unemployment periods)
 #'     \item{\code{durata}}: Duration of the segment in days
-#'     \item{\code{stato}}: Employment status classification (if classify_status = TRUE)
 #'   }
 #'
 #' @note
-#' Status classification is delegated to the \code{\link{classify_employment_status}}
-#' function from the status_labeling module, ensuring consistent and customizable
-#' employment status attribution across the package.
+#' This function performs only the core temporal transformation. For employment
+#' status classification, use \code{\link{classify_employment_status}} separately
+#' or use \code{\link{process_employment_pipeline}} for a complete processing pipeline.
 #'
 #' @seealso
 #' \code{\link{classify_employment_status}} for status classification details
-#' \code{\link{get_default_status_rules}} for default classification rules
-#' \code{\link{create_custom_status_rules}} for creating custom rules
+#' \code{\link{process_employment_pipeline}} for a complete processing pipeline
 #'
 #' @export
 #' @importFrom data.table data.table setorder rbindlist fcase
@@ -66,27 +60,24 @@
 #' dt <- data.table(
 #'   id = 1:3,
 #'   cf = c("ABC123", "ABC123", "DEF456"),
-#'   INIZIO = as.Date(c("2023-01-01", "2023-06-01", "2023-02-01")),
-#'   FINE = as.Date(c("2023-05-31", "2023-12-31", "2023-11-30")),
+#'   inizio = as.Date(c("2023-01-01", "2023-06-01", "2023-02-01")),
+#'   fine = as.Date(c("2023-05-31", "2023-12-31", "2023-11-30")),
 #'   prior = c(1, 0, 1)  # 1 = full-time, 0 = part-time
 #' )
 #'
-#' # Transform to temporal segments with status classification
+#' # Transform to temporal segments (pure transformation)
 #' result <- vecshift(dt)
 #' print(result)
 #'
-#' # Transform without status classification
-#' result_raw <- vecshift(dt, classify_status = FALSE)
-#' print(result_raw)
+#' # Apply status classification separately
+#' result_with_status <- classify_employment_status(result)
+#' print(result_with_status)
 #'
-#' # Use custom status rules
-#' custom_rules <- create_custom_status_rules(
-#'   unemployment_threshold = 30,
-#'   custom_labels = list(unemployed_short = "seeking_job")
-#' )
-#' result_custom <- vecshift(dt, status_rules = custom_rules)
+#' # Use complete pipeline for integrated processing
+#' result_pipeline <- process_employment_pipeline(dt)
+#' print(result_pipeline)
 #' }
-vecshift <- function(dt, classify_status = TRUE, status_rules = NULL) {
+vecshift <- function(dt) {
   # Load required package
   require("data.table")
 
@@ -96,36 +87,36 @@ vecshift <- function(dt, classify_status = TRUE, status_rules = NULL) {
   }
 
   # Check for required columns
-  required_cols <- c("id", "cf", "INIZIO", "FINE", "prior")
+  required_cols <- c("id", "cf", "inizio", "fine", "prior")
   missing_cols <- setdiff(required_cols, names(dt))
   if (length(missing_cols) > 0) {
     stop(paste("Missing required columns:", paste(missing_cols, collapse = ", ")))
   }
 
   # Validate column types
-  if (!is.numeric(dt$INIZIO) && !inherits(dt$INIZIO, "Date")) {
-    stop("Column 'INIZIO' must be numeric or Date type")
+  if (!is.numeric(dt$inizio) && !inherits(dt$inizio, "Date")) {
+    stop("Column 'inizio' must be numeric or Date type")
   }
-  if (!is.numeric(dt$FINE) && !inherits(dt$FINE, "Date")) {
-    stop("Column 'FINE' must be numeric or Date type")
+  if (!is.numeric(dt$fine) && !inherits(dt$fine, "Date")) {
+    stop("Column 'fine' must be numeric or Date type")
   }
   if (!is.numeric(dt$prior)) {
     stop("Column 'prior' must be numeric")
   }
 
   # Check for logical consistency
-  if (any(dt$FINE < dt$INIZIO, na.rm = TRUE)) {
-    warning("Some records have FINE < INIZIO. These may produce unexpected results.")
+  if (any(dt$fine < dt$inizio, na.rm = TRUE)) {
+    warning("Some records have fine < inizio. These may produce unexpected results.")
   }
 
   # Main processing logic
   result <- setorder(
     rbindlist(
       list(
-        dt[, .(id, cf, cdata = INIZIO, value = 1
+        dt[, .(id, cf, cdata = inizio, value = 1
                , prior
         )]
-        , dt[, .(id, cf, cdata = FINE, value = -1
+        , dt[, .(id, cf, cdata = fine, value = -1
                  , prior = 0
         )]
       )
@@ -153,11 +144,6 @@ vecshift <- function(dt, classify_status = TRUE, status_rules = NULL) {
                         arco == 0, fine := fine - 1][
                           , durata := 1 + fine-inizio + first_in_over][durata > 0][
                             , first_in_over := NULL]
-
-  # Apply employment status classification if requested
-  if (classify_status) {
-    result <- classify_employment_status(result, rules = status_rules, group_by = "cf")
-  }
 
   return(result)
 }

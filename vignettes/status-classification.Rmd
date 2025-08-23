@@ -72,9 +72,9 @@ cat("   - over_ft_ft: Multiple full-time employments\n")
 sample_data <- data.table(
   id = 1:5,
   cf = c("P001", "P001", "P001", "P002", "P002"),
-  INIZIO = as.Date(c("2023-01-01", "2023-03-01", "2023-07-01", 
+  inizio = as.Date(c("2023-01-01", "2023-03-01", "2023-07-01", 
                       "2023-02-01", "2023-05-01")),
-  FINE = as.Date(c("2023-02-28", "2023-06-30", "2023-12-31",
+  fine = as.Date(c("2023-02-28", "2023-06-30", "2023-12-31",
                     "2023-04-30", "2023-08-31")),
   prior = c(1, 0, 1, 1, 0)  # Mix of full-time and part-time
 )
@@ -82,8 +82,11 @@ sample_data <- data.table(
 print("Input employment data:")
 print(sample_data)
 
-# Apply vecshift with default classification
-result <- vecshift(sample_data)
+# Apply vecshift transformation
+vecshift_result <- vecshift(sample_data)
+
+# Apply status classification as separate step
+result <- classify_employment_status(vecshift_result)
 
 print("\nProcessed segments with status classification:")
 print(result[, .(cf, inizio, fine, arco, prior, stato, durata)])
@@ -108,7 +111,8 @@ industry_rules <- create_custom_status_rules(
 )
 
 # Apply custom rules
-result_custom <- vecshift(sample_data, status_rules = industry_rules)
+vecshift_result <- vecshift(sample_data)
+result_custom <- classify_employment_status(vecshift_result, rules = industry_rules)
 
 print("Results with custom industry rules:")
 print(result_custom[, .(cf, stato, durata)])
@@ -137,7 +141,8 @@ advanced_rules <- create_custom_status_rules(
 )
 
 # Process with advanced rules
-result_advanced <- vecshift(sample_data, status_rules = advanced_rules)
+vecshift_result <- vecshift(sample_data)
+result_advanced <- classify_employment_status(vecshift_result, rules = advanced_rules)
 
 print("Results with advanced classification:")
 unique_states <- unique(result_advanced$stato)
@@ -150,7 +155,7 @@ Sometimes you may want to work with raw temporal segments without status labels:
 
 ```{r raw-segments}
 # Process without status classification
-raw_segments <- vecshift(sample_data, classify_status = FALSE)
+raw_segments <- vecshift(sample_data)
 
 print("Raw segments without status labels:")
 print(raw_segments[, .(cf, inizio, fine, arco, prior, durata)])
@@ -171,17 +176,18 @@ The package includes tools for analyzing employment status patterns:
 complex_data <- data.table(
   id = 1:10,
   cf = rep(c("P001", "P002", "P003"), c(4, 3, 3)),
-  INIZIO = as.Date(c("2023-01-01", "2023-04-01", "2023-07-01", "2023-10-01",
+  inizio = as.Date(c("2023-01-01", "2023-04-01", "2023-07-01", "2023-10-01",
                       "2023-02-01", "2023-06-01", "2023-09-01",
                       "2023-03-01", "2023-05-01", "2023-11-01")),
-  FINE = as.Date(c("2023-03-31", "2023-06-30", "2023-09-30", "2023-12-31",
+  fine = as.Date(c("2023-03-31", "2023-06-30", "2023-09-30", "2023-12-31",
                     "2023-05-31", "2023-08-31", "2023-12-31",
                     "2023-04-30", "2023-10-31", "2023-12-31")),
   prior = c(1, 0, 1, 0, 1, 1, 0, 0, 1, 1)
 )
 
 # Process and analyze patterns
-result_complex <- vecshift(complex_data)
+vecshift_result <- vecshift(complex_data)
+result_complex <- classify_employment_status(vecshift_result)
 patterns <- analyze_status_patterns(result_complex, include_transitions = TRUE)
 
 # Display pattern analysis
@@ -254,27 +260,16 @@ For comprehensive processing with all modules:
 
 ```{r integrated-system}
 # Use the integrated system for full processing pipeline
-integrated_result <- vecshift_integrated(
+integrated_result <- process_employment_pipeline(
   complex_data,
-  use_fast_core = TRUE,
-  enable_validation = TRUE,
-  enable_cleaning = FALSE,
-  status_rules = NULL,  # Use default rules
-  quality_report = TRUE,
-  verbose = FALSE
+  classify_status = TRUE,
+  show_progress = FALSE
 )
 
 # Access different components of the result
 cat("Processing summary:\n")
-cat("- Input rows:", integrated_result$processing_info$input_rows, "\n")
-cat("- Output rows:", integrated_result$processing_info$output_rows, "\n")
-cat("- Modules used:", paste(integrated_result$processing_info$modules_used, 
-                             collapse = ", "), "\n")
-
-if (!is.null(integrated_result$quality_report)) {
-  cat("\nQuality report available with", 
-      length(integrated_result$quality_report), "metrics\n")
-}
+cat("- Output rows:", nrow(integrated_result), "\n")
+cat("- Status labels applied:", "stato" %in% names(integrated_result), "\n")
 ```
 
 ## Performance Considerations
@@ -285,8 +280,8 @@ Different scenarios call for different approaches:
 
 1. **High-volume production**: Use `vecshift()` with default settings
 2. **Custom business rules**: Use `vecshift()` with custom status rules
-3. **Development/debugging**: Use `vecshift_integrated()` with verbose output
-4. **Raw processing**: Use `vecshift(classify_status = FALSE)` for maximum speed
+3. **Development/debugging**: Use `process_employment_pipeline()` with verbose output
+4. **Raw processing**: Use `vecshift()` directly for maximum speed (apply status classification separately if needed)
 
 ```{r performance-comparison, eval=FALSE}
 # Example: Benchmarking different approaches
@@ -296,16 +291,16 @@ library(microbenchmark)
 large_data <- data.table(
   id = 1:10000,
   cf = rep(paste0("P", 1:1000), each = 10),
-  INIZIO = as.Date("2020-01-01") + sample(0:1000, 10000, replace = TRUE),
-  FINE = as.Date("2020-01-01") + sample(100:1100, 10000, replace = TRUE),
+  inizio = as.Date("2020-01-01") + sample(0:1000, 10000, replace = TRUE),
+  fine = as.Date("2020-01-01") + sample(100:1100, 10000, replace = TRUE),
   prior = sample(0:1, 10000, replace = TRUE)
 )
 
 # Benchmark different approaches
 benchmark_results <- microbenchmark(
-  with_status = vecshift(large_data),
-  without_status = vecshift(large_data, classify_status = FALSE),
-  custom_rules = vecshift(large_data, status_rules = industry_rules),
+  vecshift_only = vecshift(large_data),
+  with_status = {vecshift_result <- vecshift(large_data); classify_employment_status(vecshift_result)},
+  custom_rules = {vecshift_result <- vecshift(large_data); classify_employment_status(vecshift_result, rules = industry_rules)},
   times = 10
 )
 
@@ -327,7 +322,8 @@ Always validate your classifications, especially with custom rules:
 
 ```{r validation-practice}
 # Good practice: Always validate after custom classification
-custom_result <- vecshift(sample_data, status_rules = industry_rules)
+vecshift_result <- vecshift(sample_data)
+custom_result <- classify_employment_status(vecshift_result, rules = industry_rules)
 validation <- validate_status_classifications(custom_result, rules = industry_rules)
 
 if (validation$is_valid) {

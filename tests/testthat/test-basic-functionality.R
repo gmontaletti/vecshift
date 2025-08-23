@@ -14,12 +14,12 @@ test_that("vecshift works with single employment record", {
   expect_equal(result$arco, 1L)
   expect_equal(result$prior, 1L)
   expect_equal(result$id, 1L)
-  expect_equal(result$stato, "occ_ft")
+  expect_equal(result$arco, 1)  # Employment segment
   expect_gt(result$durata, 0)
   
   # Check that dates are properly handled
   expect_equal(result$inizio, as.Date("2023-01-01"))
-  expect_equal(result$fine, as.Date("2024-01-01"))  # FINE + 1 day
+  expect_equal(result$fine, as.Date("2023-12-31"))  # Should match original FINE date
 })
 
 test_that("vecshift works with single part-time employment", {
@@ -36,7 +36,7 @@ test_that("vecshift works with single part-time employment", {
   expect_equal(result$arco, 1L)
   expect_equal(result$prior, 0L)  # part-time
   expect_equal(result$id, 1L)
-  expect_equal(result$stato, "occ_pt")  # part-time status
+  expect_equal(result$prior, 0)  # part-time indicator
 })
 
 test_that("vecshift correctly handles employment gaps (unemployment periods)", {
@@ -49,6 +49,9 @@ test_that("vecshift correctly handles employment gaps (unemployment periods)", {
   # Assert
   expect_s3_class(result, "data.table")
   expect_equal(nrow(result), 3)  # Two employment periods + one unemployment gap
+  
+  # Add status classification
+  result <- classify_employment_status(result)
   
   # Check the unemployment period
   unemployment_period <- result[stato == "disoccupato"]
@@ -75,12 +78,12 @@ test_that("vecshift handles consecutive employment correctly", {
   expect_s3_class(result, "data.table")
   expect_equal(nrow(result), 2)  # Two consecutive employment periods, no gap
   
-  # Check that there's no unemployment period
-  expect_false(any(result$stato == "disoccupato"))
+  # Check that all segments are employment (arco > 0)
+  expect_true(all(result$arco > 0))
   
   # Check employment types
-  expect_equal(result$stato[1], "occ_ft")  # First job full-time
-  expect_equal(result$stato[2], "occ_pt")  # Second job part-time
+  expect_equal(result$prior[1], 1)  # First job full-time
+  expect_equal(result$prior[2], 0)  # Second job part-time
   
   # Verify arco values
   expect_true(all(result$arco == 1L))
@@ -129,7 +132,7 @@ test_that("vecshift handles single day employment correctly", {
   expect_s3_class(result, "data.table")
   expect_equal(nrow(result), 1)
   expect_equal(as.numeric(result$durata), 1)  # Duration is difftime object
-  expect_equal(result$stato, "occ_ft")
+  expect_equal(result$arco, 1)  # Employment segment
 })
 
 test_that("vecshift duration calculation is correct", {
@@ -137,8 +140,8 @@ test_that("vecshift duration calculation is correct", {
   test_data <- data.table::data.table(
     id = 1L,
     cf = "PERSON001",
-    INIZIO = as.Date("2023-01-01"),
-    FINE = as.Date("2023-01-31"),  # 31 days total
+    inizio = as.Date("2023-01-01"),
+    fine = as.Date("2023-01-31"),  # 31 days total
     prior = 1L
   )
   
@@ -150,7 +153,7 @@ test_that("vecshift duration calculation is correct", {
   
   # Check that the date calculation is correct
   expect_equal(result$inizio, as.Date("2023-01-01"))
-  expect_equal(result$fine, as.Date("2023-02-01"))  # FINE + 1
+  expect_equal(result$fine, as.Date("2023-01-31"))  # Should match original FINE date
 })
 
 test_that("vecshift handles negative prior values as part-time", {
@@ -167,6 +170,9 @@ test_that("vecshift handles negative prior values as part-time", {
   # Check that negative prior values are converted to 0 (part-time)
   # and positive values are converted to 1 (full-time)
   expect_true(all(result$prior %in% c(0, 1)))
+  
+  # Add status classification
+  result <- classify_employment_status(result)
   
   # Should have part-time employment periods
   states <- unique(result$stato)

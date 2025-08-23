@@ -19,6 +19,9 @@ test_that("add_unemployment_periods works with head unemployment only", {
   expect_s3_class(result, "data.table")
   expect_equal(nrow(result), 2)  # Original employment + unemployment head
   
+  # Add status classification
+  result <- classify_employment_status(result)
+  
   # Check unemployment head was added correctly
   unemployment_head <- result[arco == 0]
   expect_equal(nrow(unemployment_head), 1)
@@ -57,6 +60,9 @@ test_that("add_unemployment_periods works with tail unemployment only", {
   expect_s3_class(result, "data.table")
   expect_equal(nrow(result), 2)  # Original employment + unemployment tail
   
+  # Add status classification
+  result <- classify_employment_status(result)
+  
   # Check unemployment tail was added correctly
   unemployment_tail <- result[arco == 0]
   expect_equal(nrow(unemployment_tail), 1)
@@ -90,6 +96,9 @@ test_that("add_unemployment_periods works with both head and tail", {
   # Assert
   expect_s3_class(result, "data.table")
   expect_equal(nrow(result), 3)  # Head unemployment + employment + tail unemployment
+  
+  # Add status classification
+  result <- classify_employment_status(result)
   
   # Check unemployment periods
   unemployment_periods <- result[arco == 0]
@@ -170,6 +179,9 @@ test_that("add_unemployment_periods handles multiple people with head unemployme
   # Assert
   expect_s3_class(result, "data.table")
   
+  # Add status classification
+  result <- classify_employment_status(result)
+  
   # Check that both people get unemployment heads
   unemployment_heads <- result[arco == 0 & inizio == min_date]
   expect_equal(length(unique(unemployment_heads$cf)), 2)
@@ -202,6 +214,9 @@ test_that("add_unemployment_periods works with employment_with_gap scenario", {
   # Assert
   expect_s3_class(result, "data.table")
   expect_gt(nrow(result), nrow(vecshift_result))  # Should add unemployment periods
+  
+  # Add status classification
+  result <- classify_employment_status(result)
   
   # Check that both head and tail unemployment are added
   unemployment_periods <- result[arco == 0]
@@ -264,7 +279,7 @@ test_that("add_unemployment_periods validates parameters correctly", {
 test_that("add_unemployment_periods works without stato column", {
   # Arrange
   test_data <- generate_test_data("single_employment")
-  vecshift_result <- vecshift(test_data, classify_status = FALSE)
+  vecshift_result <- vecshift(test_data)
   min_date <- as.Date("2022-01-01")
   max_date <- as.Date("2025-12-31")
   
@@ -295,8 +310,8 @@ test_that("add_unemployment_periods handles numeric dates correctly", {
   numeric_data <- data.table(
     id = 1L,
     cf = "PERSON001",
-    INIZIO = 19358,  # 2023-01-01 as numeric
-    FINE = 19723,    # 2023-12-31 as numeric
+    inizio = 19358,  # 2023-01-01 as numeric
+    fine = 19723,    # 2023-12-31 as numeric
     prior = 1L
   )
   vecshift_result <- vecshift(numeric_data)

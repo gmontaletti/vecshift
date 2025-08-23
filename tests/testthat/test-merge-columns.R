@@ -7,13 +7,13 @@ test_that("merge_original_columns works with single column", {
   original_data <- data.table(
     id = c(1L, 2L),
     cf = c("PERSON001", "PERSON001"),
-    INIZIO = as.Date(c("2023-01-01", "2023-07-01")),
-    FINE = as.Date(c("2023-03-31", "2023-12-31")),
+    inizio = as.Date(c("2023-01-01", "2023-07-01")),
+    fine = as.Date(c("2023-03-31", "2023-12-31")),
     prior = c(1L, 0L),
     company = c("CompanyA", "CompanyB")
   )
   
-  segments <- vecshift(original_data, classify_status = FALSE)
+  segments <- vecshift(original_data)
   
   # Act
   result <- merge_original_columns(original_data, segments, "company")
@@ -38,15 +38,15 @@ test_that("merge_original_columns works with multiple columns", {
   original_data <- data.table(
     id = c(1L, 2L, 3L),
     cf = c("PERSON001", "PERSON001", "PERSON002"),
-    INIZIO = as.Date(c("2023-01-01", "2023-06-01", "2023-02-01")),
-    FINE = as.Date(c("2023-05-31", "2023-12-31", "2023-11-30")),
+    inizio = as.Date(c("2023-01-01", "2023-06-01", "2023-02-01")),
+    fine = as.Date(c("2023-05-31", "2023-12-31", "2023-11-30")),
     prior = c(1L, 0L, 1L),
     company = c("CompanyA", "CompanyB", "CompanyC"),
     salary = c(50000, 25000, 60000),
     department = c("IT", "HR", "Finance")
   )
   
-  segments <- vecshift(original_data, classify_status = FALSE)
+  segments <- vecshift(original_data)
   
   # Act
   result <- merge_original_columns(
@@ -71,13 +71,13 @@ test_that("merge_original_columns handles unemployment periods correctly", {
   original_data <- data.table(
     id = c(1L, 2L),
     cf = c("PERSON001", "PERSON001"),
-    INIZIO = as.Date(c("2023-01-01", "2023-07-01")),  # Gap: April-June
-    FINE = as.Date(c("2023-03-31", "2023-12-31")),
+    inizio = as.Date(c("2023-01-01", "2023-07-01")),  # Gap: April-June
+    fine = as.Date(c("2023-03-31", "2023-12-31")),
     prior = c(1L, 1L),
     company = c("CompanyA", "CompanyB")
   )
   
-  segments <- vecshift(original_data, classify_status = FALSE)
+  segments <- vecshift(original_data)
   
   # Act
   result <- merge_original_columns(original_data, segments, "company")
@@ -102,13 +102,13 @@ test_that("merge_original_columns preserves temporal ordering", {
   original_data <- data.table(
     id = c(3L, 1L, 2L),  # Deliberately out of order
     cf = c("PERSON001", "PERSON001", "PERSON001"),
-    INIZIO = as.Date(c("2023-09-01", "2023-01-01", "2023-05-01")),
-    FINE = as.Date(c("2023-12-31", "2023-03-31", "2023-07-31")),
+    inizio = as.Date(c("2023-09-01", "2023-01-01", "2023-05-01")),
+    fine = as.Date(c("2023-12-31", "2023-03-31", "2023-07-31")),
     prior = c(1L, 1L, 0L),
     company = c("CompanyC", "CompanyA", "CompanyB")
   )
   
-  segments <- vecshift(original_data, classify_status = FALSE)
+  segments <- vecshift(original_data)
   
   # Act
   result <- merge_original_columns(original_data, segments, "company")
@@ -125,13 +125,13 @@ test_that("merge_original_columns validates input parameters", {
   original_data <- data.table(
     id = 1L,
     cf = "PERSON001",
-    INIZIO = as.Date("2023-01-01"),
-    FINE = as.Date("2023-12-31"),
+    inizio = as.Date("2023-01-01"),
+    fine = as.Date("2023-12-31"),
     prior = 1L,
     company = "CompanyA"
   )
   
-  segments <- vecshift(original_data, classify_status = FALSE)
+  segments <- vecshift(original_data)
   
   # Act & Assert - Test various error conditions
   
@@ -177,8 +177,8 @@ test_that("merge_original_columns handles different data types correctly", {
   original_data <- data.table(
     id = c(1L, 2L),
     cf = c("PERSON001", "PERSON001"),
-    INIZIO = as.Date(c("2023-01-01", "2023-07-01")),
-    FINE = as.Date(c("2023-03-31", "2023-12-31")),
+    inizio = as.Date(c("2023-01-01", "2023-07-01")),
+    fine = as.Date(c("2023-03-31", "2023-12-31")),
     prior = c(1L, 0L),
     company = c("CompanyA", "CompanyB"),           # character
     salary = c(50000.5, 25000.75),                # numeric
@@ -189,7 +189,7 @@ test_that("merge_original_columns handles different data types correctly", {
   # Create gap to generate unemployment
   original_data[1, FINE := as.Date("2023-05-31")]  # Creates unemployment gap
   
-  segments <- vecshift(original_data, classify_status = FALSE)
+  segments <- vecshift(original_data)
   
   # Act
   result <- merge_original_columns(
@@ -222,13 +222,13 @@ test_that("merge_original_columns warns about column conflicts", {
   original_data <- data.table(
     id = 1L,
     cf = "PERSON001",
-    INIZIO = as.Date("2023-01-01"),
-    FINE = as.Date("2023-12-31"),
+    inizio = as.Date("2023-01-01"),
+    fine = as.Date("2023-12-31"),
     prior = 1L,
     durata = 100  # This conflicts with segments$durata
   )
   
-  segments <- vecshift(original_data, classify_status = FALSE)
+  segments <- vecshift(original_data)
   
   # Act & Assert
   expect_warning(
@@ -243,13 +243,13 @@ test_that("merge_overlapping_values handles character columns correctly", {
   original_data <- data.table(
     id = c(1L, 2L),
     cf = c("PERSON001", "PERSON001"),
-    INIZIO = as.Date(c("2023-01-01", "2023-04-01")),
-    FINE = as.Date(c("2023-06-30", "2023-05-31")),  # Creates overlap
+    inizio = as.Date(c("2023-01-01", "2023-04-01")),
+    fine = as.Date(c("2023-06-30", "2023-05-31")),  # Creates overlap
     prior = c(1L, 0L),
     company = c("CompanyA", "CompanyB")
   )
   
-  segments <- vecshift(original_data, classify_status = FALSE)
+  segments <- vecshift(original_data)
   with_columns <- merge_original_columns(original_data, segments, "company")
   
   # Act
@@ -271,13 +271,13 @@ test_that("merge_overlapping_values handles numeric columns correctly", {
   original_data <- data.table(
     id = c(1L, 2L),
     cf = c("PERSON001", "PERSON001"),
-    INIZIO = as.Date(c("2023-01-01", "2023-04-01")),
-    FINE = as.Date(c("2023-06-30", "2023-05-31")),  # Creates overlap
+    inizio = as.Date(c("2023-01-01", "2023-04-01")),
+    fine = as.Date(c("2023-06-30", "2023-05-31")),  # Creates overlap
     prior = c(1L, 0L),
     salary = c(50000, 30000)
   )
   
-  segments <- vecshift(original_data, classify_status = FALSE)
+  segments <- vecshift(original_data)
   with_columns <- merge_original_columns(original_data, segments, "salary")
   
   # Act
@@ -299,15 +299,15 @@ test_that("merge_overlapping_values handles multiple columns with different type
   original_data <- data.table(
     id = c(1L, 2L),
     cf = c("PERSON001", "PERSON001"),
-    INIZIO = as.Date(c("2023-01-01", "2023-04-01")),
-    FINE = as.Date(c("2023-06-30", "2023-05-31")),  # Creates overlap
+    inizio = as.Date(c("2023-01-01", "2023-04-01")),
+    fine = as.Date(c("2023-06-30", "2023-05-31")),  # Creates overlap
     prior = c(1L, 0L),
     company = c("CompanyA", "CompanyB"),
     salary = c(50000, 30000),
     department = c("IT", "HR")
   )
   
-  segments <- vecshift(original_data, classify_status = FALSE)
+  segments <- vecshift(original_data)
   with_columns <- merge_original_columns(original_data, segments, c("company", "salary", "department"))
   
   # Act
@@ -333,13 +333,13 @@ test_that("merge_overlapping_values handles factor columns", {
   original_data <- data.table(
     id = c(1L, 2L),
     cf = c("PERSON001", "PERSON001"),
-    INIZIO = as.Date(c("2023-01-01", "2023-04-01")),
-    FINE = as.Date(c("2023-06-30", "2023-05-31")),  # Creates overlap
+    inizio = as.Date(c("2023-01-01", "2023-04-01")),
+    fine = as.Date(c("2023-06-30", "2023-05-31")),  # Creates overlap
     prior = c(1L, 0L),
     level = factor(c("Junior", "Senior"))
   )
   
-  segments <- vecshift(original_data, classify_status = FALSE)
+  segments <- vecshift(original_data)
   with_columns <- merge_original_columns(original_data, segments, "level")
   
   # Act
@@ -361,14 +361,14 @@ test_that("merge_overlapping_values handles triple overlap (arco = 3)", {
   original_data <- data.table(
     id = c(1L, 2L, 3L),
     cf = c("PERSON001", "PERSON001", "PERSON001"),
-    INIZIO = as.Date(c("2023-01-01", "2023-02-01", "2023-03-01")),
-    FINE = as.Date(c("2023-12-31", "2023-12-31", "2023-12-31")),  # All end together
+    inizio = as.Date(c("2023-01-01", "2023-02-01", "2023-03-01")),
+    fine = as.Date(c("2023-12-31", "2023-12-31", "2023-12-31")),  # All end together
     prior = c(1L, 1L, 0L),
     company = c("CompanyA", "CompanyB", "CompanyC"),
     salary = c(50000, 30000, 20000)
   )
   
-  segments <- vecshift(original_data, classify_status = FALSE)
+  segments <- vecshift(original_data)
   with_columns <- merge_original_columns(original_data, segments, c("company", "salary"))
   
   # Act
@@ -393,13 +393,13 @@ test_that("merge_overlapping_values leaves non-overlapping periods unchanged", {
   original_data <- data.table(
     id = c(1L, 2L, 3L),
     cf = c("PERSON001", "PERSON001", "PERSON001"),
-    INIZIO = as.Date(c("2023-01-01", "2023-04-01", "2023-08-01")),
-    FINE = as.Date(c("2023-03-31", "2023-06-30", "2023-10-31")),  # No overlaps
+    inizio = as.Date(c("2023-01-01", "2023-04-01", "2023-08-01")),
+    fine = as.Date(c("2023-03-31", "2023-06-30", "2023-10-31")),  # No overlaps
     prior = c(1L, 0L, 1L),
     company = c("CompanyA", "CompanyB", "CompanyC")
   )
   
-  segments <- vecshift(original_data, classify_status = FALSE)
+  segments <- vecshift(original_data)
   with_columns <- merge_original_columns(original_data, segments, "company")
   
   # Act
@@ -419,13 +419,13 @@ test_that("merge_overlapping_values handles data with no overlaps", {
   original_data <- data.table(
     id = c(1L, 2L),
     cf = c("PERSON001", "PERSON001"),
-    INIZIO = as.Date(c("2023-01-01", "2023-07-01")),  # No overlap
-    FINE = as.Date(c("2023-03-31", "2023-09-30")),
+    inizio = as.Date(c("2023-01-01", "2023-07-01")),  # No overlap
+    fine = as.Date(c("2023-03-31", "2023-09-30")),
     prior = c(1L, 0L),
     company = c("CompanyA", "CompanyB")
   )
   
-  segments <- vecshift(original_data, classify_status = FALSE)
+  segments <- vecshift(original_data)
   with_columns <- merge_original_columns(original_data, segments, "company")
   
   # Act
@@ -444,13 +444,13 @@ test_that("merge_overlapping_values validates input parameters", {
   original_data <- data.table(
     id = 1L,
     cf = "PERSON001",
-    INIZIO = as.Date("2023-01-01"),
-    FINE = as.Date("2023-12-31"),
+    inizio = as.Date("2023-01-01"),
+    fine = as.Date("2023-12-31"),
     prior = 1L,
     company = "CompanyA"
   )
   
-  segments <- vecshift(original_data, classify_status = FALSE)
+  segments <- vecshift(original_data)
   with_columns <- merge_original_columns(original_data, segments, "company")
   
   # Act & Assert - Test various error conditions
@@ -492,14 +492,14 @@ test_that("merge_overlapping_values handles NA values correctly", {
   original_data <- data.table(
     id = c(1L, 2L, 3L),
     cf = c("PERSON001", "PERSON001", "PERSON001"),
-    INIZIO = as.Date(c("2023-01-01", "2023-04-01", "2023-06-01")),
-    FINE = as.Date(c("2023-08-31", "2023-07-31", "2023-09-30")),  # Creates overlaps
+    inizio = as.Date(c("2023-01-01", "2023-04-01", "2023-06-01")),
+    fine = as.Date(c("2023-08-31", "2023-07-31", "2023-09-30")),  # Creates overlaps
     prior = c(1L, 0L, 1L),
     company = c("CompanyA", NA_character_, "CompanyC"),
     salary = c(50000, 30000, NA_real_)
   )
   
-  segments <- vecshift(original_data, classify_status = FALSE)
+  segments <- vecshift(original_data)
   with_columns <- merge_original_columns(original_data, segments, c("company", "salary"))
   
   # Act
@@ -518,14 +518,14 @@ test_that("merge_overlapping_values processes multiple persons independently", {
   original_data <- data.table(
     id = c(1L, 2L, 3L, 4L),
     cf = c("PERSON001", "PERSON001", "PERSON002", "PERSON002"),
-    INIZIO = as.Date(c("2023-01-01", "2023-04-01", "2023-01-01", "2023-04-01")),
-    FINE = as.Date(c("2023-06-30", "2023-05-31", "2023-06-30", "2023-05-31")),  # Both have overlaps
+    inizio = as.Date(c("2023-01-01", "2023-04-01", "2023-01-01", "2023-04-01")),
+    fine = as.Date(c("2023-06-30", "2023-05-31", "2023-06-30", "2023-05-31")),  # Both have overlaps
     prior = c(1L, 0L, 0L, 1L),
     company = c("CompanyA", "CompanyB", "CompanyX", "CompanyY"),
     salary = c(50000, 30000, 40000, 35000)
   )
   
-  segments <- vecshift(original_data, classify_status = FALSE)
+  segments <- vecshift(original_data)
   with_columns <- merge_original_columns(original_data, segments, c("company", "salary"))
   
   # Act

@@ -38,8 +38,8 @@ library(data.table)
 sample_data <- data.table(
   id = 1:100,
   cf = sample(paste0("PERSON", 1:20), 100, replace = TRUE),
-  INIZIO = sample(seq(as.Date("2020-01-01"), as.Date("2023-12-31"), by = "day"), 100),
-  FINE = INIZIO + sample(30:365, 100, replace = TRUE),
+  inizio = sample(seq(as.Date("2020-01-01"), as.Date("2023-12-31"), by = "day"), 100),
+  fine = INIZIO + sample(30:365, 100, replace = TRUE),
   prior = sample(c(0, 1), 100, replace = TRUE),
   company = sample(c("CompanyA", "CompanyB", "CompanyC"), 100, replace = TRUE),
   salary = sample(25000:80000, 100, replace = TRUE)

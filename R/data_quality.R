@@ -19,8 +19,8 @@ NULL
 #'   \itemize{
 #'     \item{\code{id}}: Contract identifier column name (required)
 #'     \item{\code{cf}}: Person identifier column name (required) 
-#'     \item{\code{INIZIO}}: Start date column name (required)
-#'     \item{\code{FINE}}: End date column name (required)
+#'     \item{\code{inizio}}: Start date column name (required)
+#'     \item{\code{fine}}: End date column name (required)
 #'     \item{\code{prior}}: Employment type column name (required)
 #'   }
 #' @param validate Logical. If TRUE, validates the mapped columns
@@ -46,8 +46,8 @@ NULL
 #' col_map <- list(
 #'   id = "contract_id",
 #'   cf = "person_code", 
-#'   INIZIO = "start_date",
-#'   FINE = "end_date",
+#'   inizio = "start_date",
+#'   fine = "end_date",
 #'   prior = "employment_type"
 #' )
 #' 
@@ -57,7 +57,7 @@ NULL
 standardize_columns <- function(dt, column_map, validate = TRUE) {
   
   # Required standard column names
-  required_standard <- c("id", "cf", "INIZIO", "FINE", "prior")
+  required_standard <- c("id", "cf", "inizio", "fine", "prior")
   
   # Check that all required mappings are provided
   missing_mappings <- setdiff(required_standard, names(column_map))
@@ -121,7 +121,7 @@ validate_employment_data_types <- function(dt, strict = FALSE,
   }
   
   # Check for required columns
-  required_cols <- c("id", "cf", "INIZIO", "FINE", "prior")
+  required_cols <- c("id", "cf", "inizio", "fine", "prior")
   missing_cols <- setdiff(required_cols, names(dt))
   if (length(missing_cols) > 0) {
     stop("Missing required columns: ", paste(missing_cols, collapse = ", "))
@@ -150,7 +150,7 @@ validate_employment_data_types <- function(dt, strict = FALSE,
   }
   
   # Validate date columns
-  date_cols <- c("INIZIO", "FINE")
+  date_cols <- c("inizio", "fine")
   for (col in date_cols) {
     col_data <- dt[[col]]
     if (!is.numeric(col_data) && !inherits(col_data, "Date")) {
@@ -176,7 +176,7 @@ validate_employment_data_types <- function(dt, strict = FALSE,
   }
   
   # Check for logical date consistency
-  invalid_dates <- dt$FINE < dt$INIZIO
+  invalid_dates <- dt$fine < dt$inizio
   if (any(invalid_dates, na.rm = TRUE)) {
     n_invalid <- sum(invalid_dates, na.rm = TRUE)
     msg <- paste("Found", n_invalid, "records where end date < start date")
@@ -189,7 +189,7 @@ validate_employment_data_types <- function(dt, strict = FALSE,
   }
   
   # Check for zero-duration contracts
-  zero_duration <- dt$FINE == dt$INIZIO
+  zero_duration <- dt$fine == dt$inizio
   if (any(zero_duration, na.rm = TRUE)) {
     n_zero <- sum(zero_duration, na.rm = TRUE)
     validation_results$zero_duration_contracts <- n_zero
@@ -280,10 +280,10 @@ assess_data_quality <- function(dt,
     n_records = nrow(dt),
     n_persons = uniqueN(dt[[person_col]]),
     n_unique_ids = uniqueN(dt$id),
-    date_range = if (is.numeric(dt$INIZIO)) {
-      range(dt$INIZIO, na.rm = TRUE)
+    date_range = if (is.numeric(dt$inizio)) {
+      range(dt$inizio, na.rm = TRUE)
     } else {
-      range(as.Date(dt$INIZIO), na.rm = TRUE)  
+      range(as.Date(dt$inizio), na.rm = TRUE)  
     }
   )
   
@@ -298,8 +298,8 @@ assess_data_quality <- function(dt,
   
   # Logical consistency checks
   quality_report$logical_consistency <- list(
-    invalid_date_ranges = sum(dt$FINE < dt$INIZIO, na.rm = TRUE),
-    zero_duration_contracts = sum(dt$FINE == dt$INIZIO, na.rm = TRUE),
+    invalid_date_ranges = sum(dt$fine < dt$inizio, na.rm = TRUE),
+    zero_duration_contracts = sum(dt$fine == dt$inizio, na.rm = TRUE),
     negative_prior_values = sum(dt$prior < 0, na.rm = TRUE),
     missing_person_ids = sum(is.na(dt[[person_col]]) | dt[[person_col]] == "")
   )
@@ -321,16 +321,16 @@ assess_data_quality <- function(dt,
   
   if ("durata" %in% names(dt)) {
     person_stats <- dt[, {
-      total_elapsed <- as.integer(max(FINE) - min(INIZIO) + 1)
+      total_elapsed <- as.integer(max(fine) - min(inizio) + 1)
       total_duration <- sum(durata, na.rm = TRUE)
       
       list(
         n_contracts = .N,
-        total_days = sum(FINE - INIZIO + 1, na.rm = TRUE),
+        total_days = sum(fine - inizio + 1, na.rm = TRUE),
         date_span_days = total_elapsed,
         has_overlaps = if (.N > 1) {
-          setorder(.SD, INIZIO)
-          any(INIZIO[2:.N] <= FINE[1:(.N-1)])
+          setorder(.SD, inizio)
+          any(inizio[2:.N] <= fine[1:(.N-1)])
         } else FALSE,
         duration_sum = total_duration,
         duration_matches_elapsed = (total_duration == total_elapsed)
@@ -341,11 +341,11 @@ assess_data_quality <- function(dt,
     person_stats <- dt[, {
       list(
         n_contracts = .N,
-        total_days = sum(FINE - INIZIO + 1, na.rm = TRUE),
-        date_span_days = as.integer(max(FINE) - min(INIZIO) + 1),
+        total_days = sum(fine - inizio + 1, na.rm = TRUE),
+        date_span_days = as.integer(max(fine) - min(inizio) + 1),
         has_overlaps = if (.N > 1) {
-          setorder(.SD, INIZIO)
-          any(INIZIO[2:.N] <= FINE[1:(.N-1)])
+          setorder(.SD, inizio)
+          any(inizio[2:.N] <= fine[1:(.N-1)])
         } else FALSE
       )
     }, by = c(person_col)]
@@ -389,7 +389,7 @@ assess_data_quality <- function(dt,
   if (include_distributions) {
     quality_report$distributions <- list(
       prior_values = table(dt$prior),
-      contract_durations = summary(as.numeric(dt$FINE - dt$INIZIO + 1), na.rm = TRUE),
+      contract_durations = summary(as.numeric(dt$fine - dt$inizio + 1), na.rm = TRUE),
       contracts_by_person = table(person_stats$n_contracts),
       employment_type_by_person = dt[, list(
         ft_contracts = sum(prior > 0),
@@ -407,8 +407,8 @@ assess_data_quality <- function(dt,
   
   # Temporal pattern analysis
   if (include_temporal) {
-    if (inherits(dt$INIZIO, "Date") || is.numeric(dt$INIZIO)) {
-      dates <- if (is.numeric(dt$INIZIO)) as.Date(dt$INIZIO, origin = "1970-01-01") else dt$INIZIO
+    if (inherits(dt$inizio, "Date") || is.numeric(dt$inizio)) {
+      dates <- if (is.numeric(dt$inizio)) as.Date(dt$inizio, origin = "1970-01-01") else dt$inizio
       
       quality_report$temporal_patterns <- list(
         contracts_by_year = table(format(dates, "%Y")),
@@ -453,10 +453,10 @@ assess_data_quality <- function(dt,
 analyze_temporal_clustering <- function(dt, person_col = "cf") {
   
   # Convert dates for analysis
-  start_dates <- if (is.numeric(dt$INIZIO)) {
-    as.Date(dt$INIZIO, origin = "1970-01-01")
+  start_dates <- if (is.numeric(dt$inizio)) {
+    as.Date(dt$inizio, origin = "1970-01-01")
   } else {
-    as.Date(dt$INIZIO)
+    as.Date(dt$inizio)
   }
   
   # Day of month analysis (detect batch processing)
@@ -550,10 +550,10 @@ validate_over_id_consistency <- function(dt) {
 #'
 #' @description
 #' Validates that the mathematical invariant holds: for each person,
-#' sum(durata) should equal (max(FINE) - min(INIZIO) + 1).
+#' sum(durata) should equal (max(fine) - min(inizio) + 1).
 #' This ensures duration calculations are consistent.
 #'
-#' @param dt Data.table with cf, INIZIO, FINE, and durata columns
+#' @param dt Data.table with cf, inizio, fine, and durata columns
 #'
 #' @return List with duration validation results
 #'
@@ -562,7 +562,7 @@ validate_duration_invariant <- function(dt) {
   
   validation_results <- list(
     has_durata = "durata" %in% names(dt),
-    has_required_columns = all(c("cf", "INIZIO", "FINE", "durata") %in% names(dt))
+    has_required_columns = all(c("cf", "inizio", "fine", "durata") %in% names(dt))
   )
   
   if (!validation_results$has_required_columns) {
@@ -572,7 +572,7 @@ validate_duration_invariant <- function(dt) {
   
   # Calculate per-person duration consistency
   person_duration_check <- dt[, .(
-    elapsed_time = as.integer(max(FINE, na.rm = TRUE) - min(INIZIO, na.rm = TRUE) + 1),
+    elapsed_time = as.integer(max(fine, na.rm = TRUE) - min(inizio, na.rm = TRUE) + 1),
     total_duration = sum(durata, na.rm = TRUE),
     n_periods = .N
   ), by = cf]
@@ -645,8 +645,8 @@ clean_employment_data <- function(dt,
   
   # Remove invalid date ranges
   if (remove_invalid_dates) {
-    invalid_before <- sum(cleaned_dt$FINE < cleaned_dt$INIZIO, na.rm = TRUE)
-    cleaned_dt <- cleaned_dt[!(FINE < INIZIO)]
+    invalid_before <- sum(cleaned_dt$fine < cleaned_dt$inizio, na.rm = TRUE)
+    cleaned_dt <- cleaned_dt[!(fine < inizio)]
     cleaning_log$invalid_dates_removed <- invalid_before
     if (verbose && invalid_before > 0) {
       message("Removed ", invalid_before, " records with invalid date ranges")
@@ -655,8 +655,8 @@ clean_employment_data <- function(dt,
   
   # Remove zero-duration contracts
   if (remove_zero_duration) {
-    zero_before <- sum(cleaned_dt$FINE == cleaned_dt$INIZIO, na.rm = TRUE)
-    cleaned_dt <- cleaned_dt[!(FINE == INIZIO)]
+    zero_before <- sum(cleaned_dt$fine == cleaned_dt$inizio, na.rm = TRUE)
+    cleaned_dt <- cleaned_dt[!(fine == inizio)]
     cleaning_log$zero_duration_removed <- zero_before
     if (verbose && zero_before > 0) {
       message("Removed ", zero_before, " zero-duration contracts")

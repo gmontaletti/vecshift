@@ -9,8 +9,8 @@ test_that("process_employment_pipeline works with basic parameters", {
   employment_data <- data.table(
     id = 1:4,
     cf = c("PERSON001", "PERSON001", "PERSON002", "PERSON002"),
-    INIZIO = as.Date(c("2023-01-01", "2023-06-01", "2023-02-01", "2023-08-01")),
-    FINE = as.Date(c("2023-03-31", "2023-12-31", "2023-05-31", "2023-11-30")),
+    inizio = as.Date(c("2023-01-01", "2023-06-01", "2023-02-01", "2023-08-01")),
+    fine = as.Date(c("2023-03-31", "2023-12-31", "2023-05-31", "2023-11-30")),
     prior = c(1, 0, 1, 1),
     company = c("CompanyA", "CompanyB", "CompanyC", "CompanyD"),
     salary = c(50000, 25000, 60000, 55000)
@@ -67,8 +67,8 @@ test_that("process_employment_pipeline validates input parameters", {
   valid_data <- data.table(
     id = 1:2,
     cf = c("PERSON001", "PERSON001"),
-    INIZIO = as.Date(c("2023-01-01", "2023-06-01")),
-    FINE = as.Date(c("2023-03-31", "2023-12-31")),
+    inizio = as.Date(c("2023-01-01", "2023-06-01")),
+    fine = as.Date(c("2023-03-31", "2023-12-31")),
     prior = c(1, 0),
     company = c("CompanyA", "CompanyB")
   )
@@ -89,8 +89,8 @@ test_that("process_employment_pipeline handles missing functions gracefully", {
   employment_data <- data.table(
     id = 1:2,
     cf = c("PERSON001", "PERSON001"),
-    INIZIO = as.Date(c("2023-01-01", "2023-06-01")),
-    FINE = as.Date(c("2023-03-31", "2023-12-31")),
+    inizio = as.Date(c("2023-01-01", "2023-06-01")),
+    fine = as.Date(c("2023-03-31", "2023-12-31")),
     prior = c(1, 0),
     company = c("CompanyA", "CompanyB")
   )
@@ -120,8 +120,8 @@ test_that("process_employment_pipeline selective step execution", {
   employment_data <- data.table(
     id = 1:3,
     cf = rep("PERSON001", 3),
-    INIZIO = as.Date(c("2023-01-01", "2023-04-01", "2023-07-01")),
-    FINE = as.Date(c("2023-03-31", "2023-06-30", "2023-09-30")),
+    inizio = as.Date(c("2023-01-01", "2023-04-01", "2023-07-01")),
+    fine = as.Date(c("2023-03-31", "2023-06-30", "2023-09-30")),
     prior = c(1, 0, 1),
     department = c("IT", "HR", "Finance")
   )
@@ -161,8 +161,8 @@ test_that("process_employment_pipeline status classification options", {
   employment_data <- data.table(
     id = 1:2,
     cf = c("PERSON001", "PERSON001"),
-    INIZIO = as.Date(c("2023-01-01", "2023-06-01")),
-    FINE = as.Date(c("2023-03-31", "2023-12-31")),
+    inizio = as.Date(c("2023-01-01", "2023-06-01")),
+    fine = as.Date(c("2023-03-31", "2023-12-31")),
     prior = c(1, 0)
   )
   
@@ -210,8 +210,8 @@ test_that("process_employment_pipeline progress reporting works", {
   employment_data <- data.table(
     id = 1:5,
     cf = rep(c("PERSON001", "PERSON002"), c(3, 2)),
-    INIZIO = as.Date("2023-01-01") + c(0, 90, 180, 30, 120),
-    FINE = as.Date("2023-01-01") + c(60, 150, 240, 90, 180),
+    inizio = as.Date("2023-01-01") + c(0, 90, 180, 30, 120),
+    fine = as.Date("2023-01-01") + c(60, 150, 240, 90, 180),
     prior = c(1, 0, 1, 1, 0),
     company = paste0("Company", LETTERS[1:5])
   )
@@ -262,8 +262,8 @@ test_that("get_pipeline_recommendations provides appropriate suggestions", {
   analysis_data <- data.table(
     id = 1:10,
     cf = rep(paste0("PERSON", 1:3), c(4, 3, 3)),
-    INIZIO = as.Date("2023-01-01") + sample(0:365, 10),
-    FINE = as.Date("2023-01-01") + sample(30:395, 10),
+    inizio = as.Date("2023-01-01") + sample(0:365, 10),
+    fine = as.Date("2023-01-01") + sample(30:395, 10),
     prior = sample(c(0, 1), 10, replace = TRUE),
     company = paste0("Company", LETTERS[1:10]),
     salary = sample(25000:80000, 10),
@@ -305,8 +305,8 @@ test_that("get_pipeline_recommendations handles different target operations", {
   test_data <- data.table(
     id = 1:5,
     cf = rep("PERSON001", 5),
-    INIZIO = as.Date("2023-01-01") + 0:4,
-    FINE = as.Date("2023-01-01") + 30:34,
+    inizio = as.Date("2023-01-01") + 0:4,
+    fine = as.Date("2023-01-01") + 30:34,
     prior = c(1, 0, 1, 0, 1),
     extra_col = letters[1:5]
   )
@@ -332,9 +332,9 @@ test_that("get_pipeline_recommendations detects data quality issues", {
   problematic_data <- data.table(
     id = 1:6,
     cf = rep("PERSON001", 6),
-    INIZIO = as.Date(c("2023-01-01", "2023-03-01", "2023-05-01", 
+    inizio = as.Date(c("2023-01-01", "2023-03-01", "2023-05-01", 
                        "2023-07-01", "2023-09-01", "2023-11-01")),
-    FINE = as.Date(c("2023-02-28", "2023-02-15", "2023-06-30",  # Second has FINE < INIZIO
+    fine = as.Date(c("2023-02-28", "2023-02-15", "2023-06-30",  # Second has FINE < INIZIO
                      "2023-08-31", "2023-10-31", "2023-12-31")),
     prior = c(1, 0, 1, 0, 1, 1)
   )
@@ -352,8 +352,8 @@ test_that("get_pipeline_recommendations handles large datasets", {
   large_data <- data.table(
     id = 1:150000,  # > 100k records
     cf = rep(paste0("PERSON", 1:1000), each = 150),
-    INIZIO = as.Date("2020-01-01") + sample(0:1000, 150000, replace = TRUE),
-    FINE = as.Date("2020-01-01") + sample(30:1030, 150000, replace = TRUE),
+    inizio = as.Date("2020-01-01") + sample(0:1000, 150000, replace = TRUE),
+    fine = as.Date("2020-01-01") + sample(30:1030, 150000, replace = TRUE),
     prior = sample(c(0, 1), 150000, replace = TRUE)
   )
   
@@ -370,8 +370,8 @@ test_that("get_pipeline_recommendations validates input parameters", {
   test_data <- data.table(
     id = 1:3,
     cf = rep("PERSON001", 3),
-    INIZIO = as.Date("2023-01-01") + 0:2,
-    FINE = as.Date("2023-01-01") + 30:32,
+    inizio = as.Date("2023-01-01") + 0:2,
+    fine = as.Date("2023-01-01") + 30:32,
     prior = c(1, 0, 1)
   )
   
@@ -399,8 +399,8 @@ test_that("pipeline handles overlapping employment correctly", {
   overlapping_data <- data.table(
     id = 1:3,
     cf = rep("PERSON001", 3),
-    INIZIO = as.Date(c("2023-01-01", "2023-03-01", "2023-05-01")),
-    FINE = as.Date(c("2023-06-30", "2023-07-31", "2023-12-31")),  # First two overlap
+    inizio = as.Date(c("2023-01-01", "2023-03-01", "2023-05-01")),
+    fine = as.Date(c("2023-06-30", "2023-07-31", "2023-12-31")),  # First two overlap
     prior = c(1, 0, 1),
     company = c("CompanyA", "CompanyB", "CompanyC"),
     salary = c(50000, 30000, 60000)
@@ -433,8 +433,8 @@ test_that("pipeline memory usage and performance tracking", {
   medium_data <- data.table(
     id = 1:1000,
     cf = rep(paste0("PERSON", 1:50), each = 20),
-    INIZIO = as.Date("2023-01-01") + sample(0:300, 1000, replace = TRUE),
-    FINE = as.Date("2023-01-01") + sample(30:330, 1000, replace = TRUE),
+    inizio = as.Date("2023-01-01") + sample(0:300, 1000, replace = TRUE),
+    fine = as.Date("2023-01-01") + sample(30:330, 1000, replace = TRUE),
     prior = sample(c(0, 1), 1000, replace = TRUE),
     company = sample(paste0("Company", 1:10), 1000, replace = TRUE)
   )
@@ -466,8 +466,8 @@ test_that("pipeline handles empty and minimal datasets", {
   minimal_data <- data.table(
     id = 1L,
     cf = "PERSON001",
-    INIZIO = as.Date("2023-01-01"),
-    FINE = as.Date("2023-12-31"),
+    inizio = as.Date("2023-01-01"),
+    fine = as.Date("2023-12-31"),
     prior = 1L
   )
   
@@ -481,8 +481,8 @@ test_that("pipeline handles empty and minimal datasets", {
   empty_data <- data.table(
     id = integer(0),
     cf = character(0),
-    INIZIO = as.Date(character(0)),
-    FINE = as.Date(character(0)),
+    inizio = as.Date(character(0)),
+    fine = as.Date(character(0)),
     prior = integer(0)
   )
   

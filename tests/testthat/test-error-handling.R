@@ -27,8 +27,8 @@ test_that("vecshift throws error for wrong column types", {
   invalid_data <- data.table::data.table(
     id = 1L,
     cf = "PERSON001",
-    INIZIO = "not-a-date",  # Invalid type
-    FINE = as.Date("2023-12-31"),
+    inizio = "not-a-date",  # Invalid type
+    fine = as.Date("2023-12-31"),
     prior = 1L
   )
   
@@ -44,8 +44,8 @@ test_that("vecshift throws error for invalid FINE column type", {
   invalid_data <- data.table::data.table(
     id = 1L,
     cf = "PERSON001",
-    INIZIO = as.Date("2023-01-01"),
-    FINE = "not-a-date",  # Invalid type
+    inizio = as.Date("2023-01-01"),
+    fine = "not-a-date",  # Invalid type
     prior = 1L
   )
   
@@ -61,8 +61,8 @@ test_that("vecshift throws error for non-numeric prior column", {
   invalid_data <- data.table::data.table(
     id = 1L,
     cf = "PERSON001",
-    INIZIO = as.Date("2023-01-01"),
-    FINE = as.Date("2023-12-31"),
+    inizio = as.Date("2023-01-01"),
+    fine = as.Date("2023-12-31"),
     prior = "not-numeric"  # Invalid type
   )
   
@@ -89,8 +89,8 @@ test_that("vecshift handles NA values appropriately", {
   test_data <- data.table::data.table(
     id = c(1L, 2L),
     cf = c("PERSON001", "PERSON002"),
-    INIZIO = as.Date(c("2023-01-01", NA)),
-    FINE = as.Date(c("2023-12-31", "2023-12-31")),
+    inizio = as.Date(c("2023-01-01", NA)),
+    fine = as.Date(c("2023-12-31", "2023-12-31")),
     prior = c(1L, NA_integer_)
   )
   
@@ -124,8 +124,8 @@ test_that("vecshift handles numeric dates correctly", {
   numeric_date_data <- data.table::data.table(
     id = 1L,
     cf = "PERSON001",
-    INIZIO = as.numeric(as.Date("2023-01-01")),  # Numeric date
-    FINE = as.numeric(as.Date("2023-12-31")),    # Numeric date
+    inizio = as.numeric(as.Date("2023-01-01")),  # Numeric date
+    fine = as.numeric(as.Date("2023-12-31")),    # Numeric date
     prior = 1L
   )
   
@@ -146,8 +146,8 @@ test_that("vecshift input validation covers all required columns", {
     complete_data <- data.table::data.table(
       id = 1L,
       cf = "PERSON001", 
-      INIZIO = as.Date("2023-01-01"),
-      FINE = as.Date("2023-12-31"),
+      inizio = as.Date("2023-01-01"),
+      fine = as.Date("2023-12-31"),
       prior = 1L
     )
     
@@ -168,8 +168,8 @@ test_that("vecshift handles mixed valid and invalid dates", {
   mixed_data <- data.table::data.table(
     id = c(1L, 2L, 3L),
     cf = c("PERSON001", "PERSON001", "PERSON001"),
-    INIZIO = as.Date(c("2023-01-01", "2023-06-01", "2023-12-01")),
-    FINE = as.Date(c("2023-05-31", "2023-03-01", "2023-12-31")),  # Second one is invalid
+    inizio = as.Date(c("2023-01-01", "2023-06-01", "2023-12-01")),
+    fine = as.Date(c("2023-05-31", "2023-03-01", "2023-12-31")),  # Second one is invalid
     prior = c(1L, 1L, 1L)
   )
   

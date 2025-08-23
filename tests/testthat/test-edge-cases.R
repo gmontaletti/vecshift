@@ -5,13 +5,14 @@ test_that("vecshift handles zero-duration employment correctly", {
   test_data <- data.table::data.table(
     id = 1L,
     cf = "PERSON001",
-    INIZIO = as.Date("2023-06-15"),
-    FINE = as.Date("2023-06-15"),  # Same day
+    inizio = as.Date("2023-06-15"),
+    fine = as.Date("2023-06-15"),  # Same day
     prior = 1L
   )
   
   # Act
   result <- vecshift(test_data)
+  result <- classify_employment_status(result)
   
   # Assert
   expect_s3_class(result, "data.table")
@@ -25,13 +26,14 @@ test_that("vecshift handles very short gaps between employment", {
   test_data <- data.table::data.table(
     id = c(1L, 2L),
     cf = c("PERSON001", "PERSON001"),
-    INIZIO = as.Date(c("2023-01-01", "2023-01-05")),  # 2-day gap after first job ends
-    FINE = as.Date(c("2023-01-02", "2023-01-06")),
+    inizio = as.Date(c("2023-01-01", "2023-01-05")),  # 2-day gap after first job ends
+    fine = as.Date(c("2023-01-02", "2023-01-06")),
     prior = c(1L, 1L)
   )
   
   # Act
   result <- vecshift(test_data)
+  result <- classify_employment_status(result)
   
   # Assert
   expect_s3_class(result, "data.table")
@@ -47,13 +49,14 @@ test_that("vecshift handles employment starting at year boundary", {
   test_data <- data.table::data.table(
     id = 1L,
     cf = "PERSON001",
-    INIZIO = as.Date("2023-12-15"),
-    FINE = as.Date("2024-01-15"),  # Crosses year boundary
+    inizio = as.Date("2023-12-15"),
+    fine = as.Date("2024-01-15"),  # Crosses year boundary
     prior = 1L
   )
   
   # Act
   result <- vecshift(test_data)
+  result <- classify_employment_status(result)
   
   # Assert
   expect_s3_class(result, "data.table")
@@ -67,8 +70,8 @@ test_that("vecshift handles leap year dates correctly", {
   test_data <- data.table::data.table(
     id = 1L,
     cf = "PERSON001",
-    INIZIO = as.Date("2024-02-28"),  # 2024 is leap year
-    FINE = as.Date("2024-03-01"),    # Includes Feb 29
+    inizio = as.Date("2024-02-28"),  # 2024 is leap year
+    fine = as.Date("2024-03-01"),    # Includes Feb 29
     prior = 1L
   )
   
@@ -89,13 +92,14 @@ test_that("vecshift handles numeric dates (Unix timestamps)", {
   test_data <- data.table::data.table(
     id = 1L,
     cf = "PERSON001",
-    INIZIO = start_date,
-    FINE = end_date,
+    inizio = start_date,
+    fine = end_date,
     prior = 1L
   )
   
   # Act
   result <- vecshift(test_data)
+  result <- classify_employment_status(result)
   
   # Assert
   expect_s3_class(result, "data.table")
@@ -109,13 +113,14 @@ test_that("vecshift handles very large prior values", {
   test_data <- data.table::data.table(
     id = c(1L, 2L, 3L),
     cf = c("PERSON001", "PERSON001", "PERSON001"),
-    INIZIO = as.Date(c("2023-01-01", "2023-05-01", "2023-09-01")),
-    FINE = as.Date(c("2023-04-30", "2023-08-31", "2023-12-31")),
+    inizio = as.Date(c("2023-01-01", "2023-05-01", "2023-09-01")),
+    fine = as.Date(c("2023-04-30", "2023-08-31", "2023-12-31")),
     prior = c(999L, 1000000L, 1L)  # Various large positive values
   )
   
   # Act
   result <- vecshift(test_data)
+  result <- classify_employment_status(result)
   
   # Assert
   expect_s3_class(result, "data.table")
@@ -137,8 +142,8 @@ test_that("vecshift handles zero duration segments appropriately", {
   test_data <- data.table::data.table(
     id = c(1L, 2L),
     cf = c("PERSON001", "PERSON001"),
-    INIZIO = as.Date(c("2023-01-01", "2023-01-02")),
-    FINE = as.Date(c("2023-01-01", "2023-01-02")),  # Consecutive single days
+    inizio = as.Date(c("2023-01-01", "2023-01-02")),
+    fine = as.Date(c("2023-01-01", "2023-01-02")),  # Consecutive single days
     prior = c(1L, 1L)
   )
   

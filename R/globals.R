@@ -4,7 +4,7 @@
 globalVariables(c(
   # Common data.table variables
   "cf", "inizio", "fine", "arco", "id", "prior", "durata", "stato", 
-  "INIZIO", "FINE", "cdata", "value", "acf",
+  "cdata", "value", "acf",
   
   # analyze_employment_transitions specific variables
   "transition_duration", "from", "to", "weight", "variable",

@@ -11,8 +11,8 @@ vecshift(dt, classify_status = TRUE, status_rules = NULL)
 \itemize{
   \item{\code{id}}: Contract identifier (unique key for each employment contract)
   \item{\code{cf}}: Person identifier (e.g., fiscal code)
-  \item{\code{INIZIO}}: Contract start date (Date or numeric)
-  \item{\code{FINE}}: Contract end date (Date or numeric)
+  \item{\code{inizio}}: Contract start date (Date or numeric)
+  \item{\code{fine}}: Contract end date (Date or numeric)
   \item{\code{prior}}: Employment type indicator (0 or negative for part-time, positive for full-time)
 }}
 
@@ -68,8 +68,8 @@ library(data.table)
 dt <- data.table(
   id = 1:3,
   cf = c("ABC123", "ABC123", "DEF456"),
-  INIZIO = as.Date(c("2023-01-01", "2023-06-01", "2023-02-01")),
-  FINE = as.Date(c("2023-05-31", "2023-12-31", "2023-11-30")),
+  inizio = as.Date(c("2023-01-01", "2023-06-01", "2023-02-01")),
+  fine = as.Date(c("2023-05-31", "2023-12-31", "2023-11-30")),
   prior = c(1, 0, 1)  # 1 = full-time, 0 = part-time
 )
 

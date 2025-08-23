@@ -9,7 +9,8 @@
 #' @details
 #' The function performs the following operations in sequence:
 #' \enumerate{
-#'   \item \strong{vecshift()}: Transforms employment records into temporal segments with over_id
+#'   \item \strong{vecshift()}: Core temporal transformation to create segments with over_id
+#'   \item \strong{classify_employment_status()}: Applies employment status classification as separate step (optional)
 #'   \item \strong{Validation}: Validates over_id consistency and duration invariant
 #'   \item \strong{merge_original_columns()}: Merges additional columns from original data (optional)
 #'   \item \strong{merge_overlapping_values()}: Handles overlapping employment values (optional)
@@ -28,8 +29,8 @@
 #'   \itemize{
 #'     \item{\code{id}}: Contract identifier
 #'     \item{\code{cf}}: Person identifier  
-#'     \item{\code{INIZIO}}: Contract start date
-#'     \item{\code{FINE}}: Contract end date
+#'     \item{\code{inizio}}: Contract start date
+#'     \item{\code{fine}}: Contract end date
 #'     \item{\code{prior}}: Employment type indicator
 #'   }
 #' @param apply_vecshift Logical. If TRUE (default), applies vecshift transformation.
@@ -45,8 +46,8 @@
 #' @param consolidation_type Character. Consolidation strategy when consolidate_periods is TRUE:
 #'   "both" (default), "overlapping", "consecutive", or "none".
 #' @param classify_status Logical. If TRUE (default), applies employment status
-#'   classification during vecshift step.
-#' @param status_rules Optional custom status rules for vecshift. If NULL, uses defaults.
+#'   classification as a separate step after vecshift transformation.
+#' @param status_rules Optional custom status rules for status classification step. If NULL, uses defaults.
 #' @param validate_over_id Logical. If TRUE (default), validates over_id consistency
 #'   and duration invariant after vecshift transformation.
 #' @param validate_functions Logical. If TRUE (default), checks for function availability
@@ -91,8 +92,8 @@
 #' employment_data <- data.table(
 #'   id = 1:4,
 #'   cf = c("PERSON001", "PERSON001", "PERSON001", "PERSON002"),
-#'   INIZIO = as.Date(c("2023-01-01", "2023-04-01", "2023-07-01", "2023-02-01")),
-#'   FINE = as.Date(c("2023-03-31", "2023-06-30", "2023-12-31", "2023-11-30")),
+#'   inizio = as.Date(c("2023-01-01", "2023-04-01", "2023-07-01", "2023-02-01")),
+#'   fine = as.Date(c("2023-03-31", "2023-06-30", "2023-12-31", "2023-11-30")),
 #'   prior = c(1, 1, 0, 1),
 #'   company = c("CompanyA", "CompanyB", "CompanyC", "CompanyD"),
 #'   salary = c(50000, 55000, 25000, 60000),
@@ -168,6 +169,11 @@ process_employment_pipeline <- function(original_data,
     if (apply_vecshift) {
       progress_steps[["vecshift"]] <- TRUE
       progress_names <- c(progress_names, "Applying vecshift transformation")
+      
+      if (classify_status) {
+        progress_steps[["classify_status"]] <- TRUE
+        progress_names <- c(progress_names, "Applying employment status classification")
+      }
       
       if (validate_over_id) {
         progress_steps[["validate_over_id"]] <- TRUE
@@ -269,7 +275,7 @@ process_employment_pipeline <- function(original_data,
   
   # Check required columns for vecshift if applying it
   if (apply_vecshift) {
-    required_cols <- c("id", "cf", "INIZIO", "FINE", "prior")
+    required_cols <- c("id", "cf", "inizio", "fine", "prior")
     missing_cols <- setdiff(required_cols, names(original_data))
     if (length(missing_cols) > 0) {
       stop(paste("Missing required columns for vecshift:", paste(missing_cols, collapse = ", ")))
@@ -302,11 +308,29 @@ process_employment_pipeline <- function(original_data,
       stop("Function 'vecshift' not found. Please ensure the vecshift.R file is loaded.")
     }
     
-    result <- vecshift(original_data, classify_status = classify_status, status_rules = status_rules)
+    result <- vecshift(original_data)
     
     # Provide memory usage information if in verbose mode
     if (getOption("vecshift.verbose", FALSE)) {
       cat("Step 1 (vecshift) completed. Rows:", nrow(result), "\n")
+    }
+    
+    # Step 1a: Apply status classification as separate step if requested
+    if (classify_status) {
+      if (show_progress) {
+        update_progress("Applying employment status classification")
+      }
+      
+      if (exists("classify_employment_status", mode = "function")) {
+        result <- classify_employment_status(result, rules = status_rules, group_by = "cf")
+        
+        if (getOption("vecshift.verbose", FALSE)) {
+          cat("Step 1a (status classification) completed.\n")
+        }
+      } else {
+        warning("classify_employment_status function not found. Skipping status classification.")
+        classify_status <- FALSE
+      }
     }
     
     # Step 1b: Validate over_id consistency if requested
@@ -595,8 +619,8 @@ check_pipeline_functions <- function() {
 #' sample_data <- data.table(
 #'   id = 1:100,
 #'   cf = sample(paste0("PERSON", 1:20), 100, replace = TRUE),
-#'   INIZIO = sample(seq(as.Date("2020-01-01"), as.Date("2023-12-31"), by = "day"), 100),
-#'   FINE = INIZIO + sample(30:365, 100, replace = TRUE),
+#'   inizio = sample(seq(as.Date("2020-01-01"), as.Date("2023-12-31"), by = "day"), 100),
+#'   fine = inizio + sample(30:365, 100, replace = TRUE),
 #'   prior = sample(c(0, 1), 100, replace = TRUE),
 #'   company = sample(c("CompanyA", "CompanyB", "CompanyC"), 100, replace = TRUE),
 #'   salary = sample(25000:80000, 100, replace = TRUE)
@@ -646,7 +670,7 @@ get_pipeline_recommendations <- function(data, target_operation = "analysis") {
   n_persons <- if ("cf" %in% names(data)) length(unique(data$cf)) else NA
   
   # Check for additional columns beyond required vecshift columns
-  required_cols <- c("id", "cf", "INIZIO", "FINE", "prior")
+  required_cols <- c("id", "cf", "inizio", "fine", "prior")
   extra_cols <- setdiff(names(data), required_cols)
   
   if (length(extra_cols) > 0) {
@@ -693,10 +717,10 @@ get_pipeline_recommendations <- function(data, target_operation = "analysis") {
   }
   
   # Check for potential data quality issues
-  if ("INIZIO" %in% names(data) && "FINE" %in% names(data)) {
-    invalid_ranges <- sum(data$FINE < data$INIZIO, na.rm = TRUE)
+  if ("inizio" %in% names(data) && "fine" %in% names(data)) {
+    invalid_ranges <- sum(data$fine < data$inizio, na.rm = TRUE)
     if (invalid_ranges > 0) {
-      warnings <- c(warnings, paste(invalid_ranges, "records have FINE < INIZIO. Consider data cleaning."))
+      warnings <- c(warnings, paste(invalid_ranges, "records have fine < inizio. Consider data cleaning."))
     }
   }
   

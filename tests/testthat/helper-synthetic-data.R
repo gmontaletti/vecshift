@@ -18,8 +18,8 @@ generate_test_data <- function(scenario) {
       data.table(
         id = 1L,
         cf = "PERSON001",
-        INIZIO = as.Date("2023-01-01"),
-        FINE = as.Date("2023-12-31"),
+        inizio = as.Date("2023-01-01"),
+        fine = as.Date("2023-12-31"),
         prior = 1L  # full-time
       )
     },
@@ -29,8 +29,8 @@ generate_test_data <- function(scenario) {
       data.table(
         id = 1L,
         cf = "PERSON001", 
-        INIZIO = as.Date("2023-01-01"),
-        FINE = as.Date("2023-12-31"),
+        inizio = as.Date("2023-01-01"),
+        fine = as.Date("2023-12-31"),
         prior = 0L  # part-time
       )
     },
@@ -40,8 +40,8 @@ generate_test_data <- function(scenario) {
       data.table(
         id = c(1L, 2L),
         cf = c("PERSON001", "PERSON001"),
-        INIZIO = as.Date(c("2023-01-01", "2023-07-01")),
-        FINE = as.Date(c("2023-03-31", "2023-12-31")),
+        inizio = as.Date(c("2023-01-01", "2023-07-01")),
+        fine = as.Date(c("2023-03-31", "2023-12-31")),
         prior = c(1L, 1L)  # both full-time
       )
     },
@@ -51,8 +51,8 @@ generate_test_data <- function(scenario) {
       data.table(
         id = c(1L, 2L),
         cf = c("PERSON001", "PERSON001"),
-        INIZIO = as.Date(c("2023-01-01", "2023-04-01")),
-        FINE = as.Date(c("2023-03-31", "2023-12-31")),
+        inizio = as.Date(c("2023-01-01", "2023-04-01")),
+        fine = as.Date(c("2023-03-31", "2023-12-31")),
         prior = c(1L, 0L)  # full-time then part-time
       )
     },
@@ -62,8 +62,8 @@ generate_test_data <- function(scenario) {
       data.table(
         id = c(1L, 2L),
         cf = c("PERSON001", "PERSON001"),
-        INIZIO = as.Date(c("2023-01-01", "2023-06-01")),
-        FINE = as.Date(c("2023-12-31", "2023-09-30")),
+        inizio = as.Date(c("2023-01-01", "2023-06-01")),
+        fine = as.Date(c("2023-12-31", "2023-09-30")),
         prior = c(1L, 0L)  # full-time overlapping with part-time
       )
     },
@@ -73,8 +73,8 @@ generate_test_data <- function(scenario) {
       data.table(
         id = c(1L, 2L, 3L),
         cf = c("PERSON001", "PERSON001", "PERSON001"),
-        INIZIO = as.Date(c("2023-01-01", "2023-03-15", "2023-06-01")),
-        FINE = as.Date(c("2023-08-31", "2023-07-15", "2023-12-31")),
+        inizio = as.Date(c("2023-01-01", "2023-03-15", "2023-06-01")),
+        fine = as.Date(c("2023-08-31", "2023-07-15", "2023-12-31")),
         prior = c(1L, 0L, 1L)  # ft, pt, ft with various overlaps
       )
     },
@@ -84,8 +84,8 @@ generate_test_data <- function(scenario) {
       data.table(
         id = 1L,
         cf = "PERSON001",
-        INIZIO = as.Date("2023-06-15"),
-        FINE = as.Date("2023-06-15"),
+        inizio = as.Date("2023-06-15"),
+        fine = as.Date("2023-06-15"),
         prior = 1L
       )
     },
@@ -95,8 +95,8 @@ generate_test_data <- function(scenario) {
       data.table(
         id = c(1L, 2L, 3L, 4L),
         cf = c("PERSON001", "PERSON001", "PERSON002", "PERSON002"),
-        INIZIO = as.Date(c("2023-01-01", "2023-07-01", "2023-02-01", "2023-08-01")),
-        FINE = as.Date(c("2023-06-30", "2023-12-31", "2023-05-31", "2023-11-30")),
+        inizio = as.Date(c("2023-01-01", "2023-07-01", "2023-02-01", "2023-08-01")),
+        fine = as.Date(c("2023-06-30", "2023-12-31", "2023-05-31", "2023-11-30")),
         prior = c(1L, 0L, 0L, 1L)
       )
     },
@@ -106,8 +106,8 @@ generate_test_data <- function(scenario) {
       data.table(
         id = c(1L, 2L),
         cf = c("PERSON001", "PERSON001"),
-        INIZIO = as.Date(c("2023-01-01", "2023-01-02")),
-        FINE = as.Date(c("2023-01-01", "2023-01-03")),
+        inizio = as.Date(c("2023-01-01", "2023-01-02")),
+        fine = as.Date(c("2023-01-01", "2023-01-03")),
         prior = c(1L, 0L)
       )
     },
@@ -117,8 +117,8 @@ generate_test_data <- function(scenario) {
       data.table(
         id = c(1L, 2L, 3L),
         cf = c("PERSON001", "PERSON001", "PERSON001"),
-        INIZIO = as.Date(c("2023-01-01", "2023-02-01", "2023-03-01")),
-        FINE = as.Date(c("2023-06-30", "2023-05-31", "2023-08-31")),
+        inizio = as.Date(c("2023-01-01", "2023-02-01", "2023-03-01")),
+        fine = as.Date(c("2023-06-30", "2023-05-31", "2023-08-31")),
         prior = c(0L, 0L, 0L)  # all part-time
       )
     },
@@ -128,8 +128,8 @@ generate_test_data <- function(scenario) {
       data.table(
         id = c(1L, 2L),
         cf = c("PERSON001", "PERSON001"),
-        INIZIO = as.Date(c("2023-01-01", "2023-06-01")),
-        FINE = as.Date(c("2023-12-31", "2023-09-30")),
+        inizio = as.Date(c("2023-01-01", "2023-06-01")),
+        fine = as.Date(c("2023-12-31", "2023-09-30")),
         prior = c(1L, 2L)  # both full-time (prior > 0)
       )
     },
@@ -139,8 +139,8 @@ generate_test_data <- function(scenario) {
       data.table(
         id = c(1L, 2L),
         cf = c("PERSON001", "PERSON001"),
-        INIZIO = as.Date(c("2023-01-01", "2023-07-01")),
-        FINE = as.Date(c("2023-06-30", "2023-12-31")),
+        inizio = as.Date(c("2023-01-01", "2023-07-01")),
+        fine = as.Date(c("2023-06-30", "2023-12-31")),
         prior = c(-1L, 1L)  # negative should be part-time
       )
     },
@@ -150,8 +150,8 @@ generate_test_data <- function(scenario) {
       data.table(
         id = integer(0),
         cf = character(0),
-        INIZIO = as.Date(character(0)),
-        FINE = as.Date(character(0)),
+        inizio = as.Date(character(0)),
+        fine = as.Date(character(0)),
         prior = integer(0)
       )
     },
@@ -177,7 +177,7 @@ generate_invalid_data <- function(error_type) {
       data.table(
         id = 1L,
         cf = "PERSON001",
-        INIZIO = as.Date("2023-01-01")
+        inizio = as.Date("2023-01-01")
         # Missing FINE and prior
       )
     },
@@ -187,8 +187,8 @@ generate_invalid_data <- function(error_type) {
       data.table(
         id = 1L,
         cf = "PERSON001",
-        INIZIO = "not-a-date",  # Should be Date or numeric
-        FINE = as.Date("2023-12-31"),
+        inizio = "not-a-date",  # Should be Date or numeric
+        fine = as.Date("2023-12-31"),
         prior = "not-numeric"   # Should be numeric
       )
     },
@@ -198,8 +198,8 @@ generate_invalid_data <- function(error_type) {
       data.table(
         id = 1L,
         cf = "PERSON001",
-        INIZIO = as.Date("2023-12-31"),
-        FINE = as.Date("2023-01-01"),  # End before start
+        inizio = as.Date("2023-12-31"),
+        fine = as.Date("2023-01-01"),  # End before start
         prior = 1L
       )
     },
@@ -209,8 +209,8 @@ generate_invalid_data <- function(error_type) {
       data.frame(  # Regular data.frame, not data.table
         id = 1L,
         cf = "PERSON001",
-        INIZIO = as.Date("2023-01-01"),
-        FINE = as.Date("2023-12-31"),
+        inizio = as.Date("2023-01-01"),
+        fine = as.Date("2023-12-31"),
         prior = 1L
       )
     },
@@ -220,8 +220,8 @@ generate_invalid_data <- function(error_type) {
       data.table(
         id = c(1L, 2L),
         cf = c("PERSON001", NA_character_),
-        INIZIO = as.Date(c("2023-01-01", "2023-06-01")),
-        FINE = as.Date(c("2023-12-31", NA)),
+        inizio = as.Date(c("2023-01-01", "2023-06-01")),
+        fine = as.Date(c("2023-12-31", NA)),
         prior = c(1L, NA_integer_)
       )
     },

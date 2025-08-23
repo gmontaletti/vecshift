@@ -5,8 +5,8 @@ test_that("add_external_events basic functionality works", {
   employment_dt <- data.table(
     id = 1:3,
     cf = c("ABC123", "ABC123", "DEF456"),
-    INIZIO = as.Date(c("2023-01-01", "2023-07-01", "2023-03-01")),
-    FINE = as.Date(c("2023-03-31", "2023-12-31", "2023-06-30")),
+    inizio = as.Date(c("2023-01-01", "2023-07-01", "2023-03-01")),
+    fine = as.Date(c("2023-03-31", "2023-12-31", "2023-06-30")),
     prior = c(1, 1, 0)
   )
   
@@ -50,8 +50,8 @@ test_that("add_external_events handles overlap matching correctly", {
   employment_dt <- data.table(
     id = 1:2,
     cf = c("ABC123", "ABC123"),
-    INIZIO = as.Date(c("2023-01-01", "2023-06-01")),
-    FINE = as.Date(c("2023-03-31", "2023-08-31")),
+    inizio = as.Date(c("2023-01-01", "2023-06-01")),
+    fine = as.Date(c("2023-03-31", "2023-08-31")),
     prior = c(1, 1)
   )
   
@@ -87,8 +87,8 @@ test_that("add_external_events handles nearest neighbor matching", {
   employment_dt <- data.table(
     id = 1:2,
     cf = c("ABC123", "ABC123"),
-    INIZIO = as.Date(c("2023-01-01", "2023-06-01")),
-    FINE = as.Date(c("2023-03-31", "2023-08-31")),
+    inizio = as.Date(c("2023-01-01", "2023-06-01")),
+    fine = as.Date(c("2023-03-31", "2023-08-31")),
     prior = c(1, 1)
   )
   
@@ -124,8 +124,8 @@ test_that("add_external_events creates synthetic unemployment periods", {
   employment_dt <- data.table(
     id = 1,
     cf = "ABC123",
-    INIZIO = as.Date("2023-01-01"),
-    FINE = as.Date("2023-03-31"),
+    inizio = as.Date("2023-01-01"),
+    fine = as.Date("2023-03-31"),
     prior = 1
   )
   
@@ -165,8 +165,8 @@ test_that("add_external_events handles single-day events", {
   employment_dt <- data.table(
     id = 1:2,
     cf = c("ABC123", "ABC123"),
-    INIZIO = as.Date(c("2023-01-01", "2023-06-01")),
-    FINE = as.Date(c("2023-03-31", "2023-08-31")),
+    inizio = as.Date(c("2023-01-01", "2023-06-01")),
+    fine = as.Date(c("2023-03-31", "2023-08-31")),
     prior = c(1, 1)
   )
   
@@ -198,8 +198,8 @@ test_that("add_external_events handles multiple events per person", {
   employment_dt <- data.table(
     id = 1:2,
     cf = c("ABC123", "ABC123"),
-    INIZIO = as.Date(c("2023-01-01", "2023-08-01")),
-    FINE = as.Date(c("2023-03-31", "2023-10-31")),
+    inizio = as.Date(c("2023-01-01", "2023-08-01")),
+    fine = as.Date(c("2023-03-31", "2023-10-31")),
     prior = c(1, 1)
   )
   
@@ -236,8 +236,8 @@ test_that("add_external_events validates inputs correctly", {
   employment_dt <- data.table(
     id = 1,
     cf = "ABC123",
-    INIZIO = as.Date("2023-01-01"),
-    FINE = as.Date("2023-03-31"),
+    inizio = as.Date("2023-01-01"),
+    fine = as.Date("2023-03-31"),
     prior = 1
   )
   
@@ -279,8 +279,8 @@ test_that("add_external_events handles empty datasets", {
   employment_dt <- data.table(
     id = 1,
     cf = "ABC123",
-    INIZIO = as.Date("2023-01-01"),
-    FINE = as.Date("2023-03-31"),
+    inizio = as.Date("2023-01-01"),
+    fine = as.Date("2023-03-31"),
     prior = 1
   )
   
@@ -310,8 +310,8 @@ test_that("add_external_events preserves existing data integrity", {
   employment_dt <- data.table(
     id = 1:3,
     cf = c("ABC123", "ABC123", "DEF456"),
-    INIZIO = as.Date(c("2023-01-01", "2023-06-01", "2023-03-01")),
-    FINE = as.Date(c("2023-03-31", "2023-08-31", "2023-05-31")),
+    inizio = as.Date(c("2023-01-01", "2023-06-01", "2023-03-01")),
+    fine = as.Date(c("2023-03-31", "2023-08-31", "2023-05-31")),
     prior = c(1, 1, 0)
   )
   
