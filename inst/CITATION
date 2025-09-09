@@ -1,0 +1,14 @@
+bibentry(
+  bibtype = "Manual",
+  title = "vecshift: Temporal Analysis of Employment Data with Event-Based Processing",
+  author = person("Giampaolo", "Montaletti", 
+                  email = "giampaolo.montaletti@gmail.com",
+                  comment = c(ORCID = "0009-0002-5327-1122")),
+  year = "2025",
+  note = "R package version 1.0.0",
+  url = "https://github.com/gmontaletti/vecshift",
+  textVersion = paste("Montaletti, G. (2025).",
+                      "vecshift: Temporal Analysis of Employment Data with Event-Based Processing.",
+                      "R package version 1.0.0.",
+                      "https://github.com/gmontaletti/vecshift")
+)

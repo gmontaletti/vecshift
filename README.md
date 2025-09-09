@@ -1,5 +1,7 @@
 # vecshift
 
+> *"Time is not a line, but a dimension - where employment periods overlap, interweave, and transform into the tapestry of working life."*
+
 An R package for temporal data analysis of employment records. The `vecshift` package transforms employment data with overlapping time periods into continuous temporal segments with employment status classifications.
 
 ## Overview
@@ -113,9 +115,42 @@ devtools::build_manual()
 - R (>= 4.0.0)
 - data.table (>= 1.14.0)
 
+## Citation
+
+If you use `vecshift` in your research or publications, please cite it as follows:
+
+```r
+# To get citation information in R:
+citation("vecshift")
+```
+
+**BibTeX entry:**
+
+```bibtex
+@Manual{vecshift2025,
+  title = {vecshift: Temporal Analysis of Employment Data with Event-Based Processing},
+  author = {Giampaolo Montaletti},
+  year = {2025},
+  note = {R package version 1.0.0},
+  url = {https://github.com/gmontaletti/vecshift},
+  doi = {10.5281/zenodo.XXXXXXX}
+}
+```
+
+**APA format:**
+
+Montaletti, G. (2025). *vecshift: Temporal Analysis of Employment Data with Event-Based Processing* (Version 1.0.0) [Computer software]. https://github.com/gmontaletti/vecshift
+
 ## License
 
-[Specify your license here]
+This project is licensed under the MIT License - see the [LICENSE.md](LICENSE.md) file for details.
+
+## Author
+
+**Giampaolo Montaletti**  
+📧 giampaolo.montaletti@gmail.com  
+🔗 [GitHub](https://github.com/gmontaletti)  
+🆔 [ORCID: 0009-0002-5327-1122](https://orcid.org/0009-0002-5327-1122)
 
 ## Contributing
 
