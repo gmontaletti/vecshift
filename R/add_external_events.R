@@ -535,18 +535,18 @@ add_external_events <- function(
   
   # Use foverlaps to find all overlaps between events and vecshift segments
   overlaps <- foverlaps(
-    events_data, 
+    events_data,
     vecshift_data,
     by.x = c("cf", "event_start", "event_end"),
     by.y = c("cf", "inizio", "fine"),
     type = "any",
-    nomatch = 0L
+    nomatch = NA
   )
   
   if (progress) message(sprintf("Found %d overlaps from foverlaps", nrow(overlaps)))
   
   # VECTORIZED CASE 1: Direct unemployment overlaps
-  unemployment_overlaps <- overlaps[arco == 0]
+  unemployment_overlaps <- overlaps[!is.na(arco) & arco == 0]
   if (nrow(unemployment_overlaps) > 0) {
     # Group by event_name and process each event type
     unique_event_names <- unique(unemployment_overlaps$event_name)
@@ -639,19 +639,25 @@ add_external_events <- function(
       viable_synthetic <- events_with_first[event_start < first_inizio]
       
       if (nrow(viable_synthetic) > 0) {
-        # Create synthetic unemployment periods vectorized
-        synthetic_periods <- viable_synthetic[, .SD[1], by = .(cf, event_start, event_end, event_name, first_inizio)]
+        # Create consolidated synthetic unemployment periods to avoid overlaps
+        # Group events by person and create a single period from earliest event to first contract
+        synthetic_periods <- viable_synthetic[, .(
+          earliest_event = min(event_start),
+          first_contract = first(first_inizio),
+          event_names = paste(event_name, collapse = ",")
+        ), by = cf]
+
         synthetic_periods[, `:=`(
-          inizio = event_start,
-          fine = first_inizio - 1,
+          inizio = earliest_event,
+          fine = first_contract - 1,
           arco = 0L,
           prior = 0L,
           id = 0L,
           over_id = 0L,
           durata = if(inherits(vecshift_data$durata, "difftime")) {
-            as.difftime(first_inizio - event_start, units = "days")
+            as.difftime(first_contract - earliest_event, units = "days")
           } else {
-            as.numeric(first_inizio - event_start)
+            as.numeric(first_contract - earliest_event)
           },
           .row_id = max(vecshift_data$.row_id) + seq_len(.N)
         )]
@@ -666,32 +672,31 @@ add_external_events <- function(
         attr_cols <- paste0(unique_events, "_attribute")
         dist_cols <- paste0(unique_events, "_distance")
         quality_cols <- paste0(unique_events, "_match_quality")
-        
+
         synthetic_periods[, (attr_cols) := 0]
         synthetic_periods[, (dist_cols) := NA_real_]
         synthetic_periods[, (quality_cols) := "none"]
-        
-        # Set appropriate values for matched events vectorized
-        synthetic_periods[, `:=`(
-          temp_attr = paste0(event_name, "_attribute"),
-          temp_dist = paste0(event_name, "_distance"),
-          temp_qual = paste0(event_name, "_match_quality")
-        )]
-        
-        # Update attribute columns for each synthetic period
+
+        # For consolidated periods, set attributes for all events that contributed to each period
         for (i in seq_len(nrow(synthetic_periods))) {
-          event_name <- synthetic_periods[i, event_name]
-          col_attr <- paste0(event_name, "_attribute")
-          col_dist <- paste0(event_name, "_distance")
-          col_quality <- paste0(event_name, "_match_quality")
-          
-          set(synthetic_periods, i = i, j = col_attr, value = 1L)
-          set(synthetic_periods, i = i, j = col_dist, value = 0)
-          set(synthetic_periods, i = i, j = col_quality, value = "synthetic")
+          person_cf <- synthetic_periods[i, cf]
+          # Get all events for this person that contributed to this synthetic period
+          person_events <- viable_synthetic[cf == person_cf, unique(event_name)]
+
+          # Set attributes for all contributing events
+          for (event_name in person_events) {
+            col_attr <- paste0(event_name, "_attribute")
+            col_dist <- paste0(event_name, "_distance")
+            col_quality <- paste0(event_name, "_match_quality")
+
+            set(synthetic_periods, i = i, j = col_attr, value = 1L)
+            set(synthetic_periods, i = i, j = col_dist, value = 0)
+            set(synthetic_periods, i = i, j = col_quality, value = "synthetic")
+          }
         }
-        
+
         # Clean up temporary columns
-        synthetic_periods[, c("event_name", "first_inizio", "temp_attr", "temp_dist", "temp_qual") := NULL]
+        synthetic_periods[, c("event_names", "earliest_event", "first_contract") := NULL]
         
         # Ensure column order matches vecshift_data
         missing_cols <- setdiff(names(vecshift_data), names(synthetic_periods))

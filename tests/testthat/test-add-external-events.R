@@ -305,7 +305,7 @@ test_that("add_external_events handles empty datasets", {
 
 test_that("add_external_events preserves existing data integrity", {
   library(data.table)
-  
+
   # Create employment data
   employment_dt <- data.table(
     id = 1:3,
@@ -314,9 +314,9 @@ test_that("add_external_events preserves existing data integrity", {
     fine = as.Date(c("2023-03-31", "2023-08-31", "2023-05-31")),
     prior = c(1, 1, 0)
   )
-  
+
   original_vecshift <- vecshift(employment_dt)
-  
+
   # Create external events
   events <- data.table(
     cf = "ABC123",
@@ -324,24 +324,95 @@ test_that("add_external_events preserves existing data integrity", {
     event_start = as.Date("2023-05-01"),
     event_end = as.Date("2023-05-10")
   )
-  
+
   result <- add_external_events(
     vecshift_data = original_vecshift,
     external_events = events,
     event_matching_strategy = "overlap"
   )
-  
+
   # Check that original data structure is preserved
   original_cols <- names(original_vecshift)
   expect_true(all(original_cols %in% names(result)))
-  
+
   # Check that original values in core columns are unchanged
   for (col in c("cf", "inizio", "fine", "arco", "prior", "id", "over_id", "durata")) {
     expect_equal(result[[col]], original_vecshift[[col]], info = paste("Column:", col))
   }
-  
+
   # Check that new attribute columns were added
   expect_true("training_attribute" %in% names(result))
   expect_true("training_distance" %in% names(result))
   expect_true("training_match_quality" %in% names(result))
+})
+
+test_that("add_external_events handles multiple events to same unemployment period without duplication", {
+  library(data.table)
+
+  # Create employment data with known unemployment periods
+  employment_dt <- data.table(
+    id = 1:3,
+    cf = c("ABC123", "ABC123", "ABC123"),
+    inizio = as.Date(c("2023-01-01", "2023-06-01", "2023-09-01")),
+    fine = as.Date(c("2023-02-28", "2023-07-31", "2023-10-31")),
+    prior = c(1, 1, 1)
+  )
+
+  vecshift_result <- vecshift(employment_dt)
+  original_row_count <- nrow(vecshift_result)
+
+  # Create multiple external events that overlap with same unemployment period
+  multiple_events <- data.table(
+    cf = c("ABC123", "ABC123", "ABC123"),
+    event_name = c("training_program", "job_interview", "career_counseling"),
+    event_start = as.Date(c("2023-03-15", "2023-04-10", "2023-04-20")),
+    event_end = as.Date(c("2023-03-20", "2023-04-12", "2023-04-25"))
+  )
+
+  result <- add_external_events(
+    vecshift_data = vecshift_result,
+    external_events = multiple_events,
+    event_matching_strategy = "overlap"
+  )
+
+  # CRITICAL TEST: No row duplication
+  expect_equal(nrow(result), original_row_count)
+
+  # Check that multiple event attributes exist
+  expect_true("training_program_attribute" %in% names(result))
+  expect_true("job_interview_attribute" %in% names(result))
+  expect_true("career_counseling_attribute" %in% names(result))
+
+  # Find the unemployment period that should have multiple events
+  unemployment_periods <- result[arco == 0]
+
+  # Check that we can have multiple events on the same unemployment period
+  first_unemployment <- unemployment_periods[1]
+  event_attrs <- c("training_program_attribute", "job_interview_attribute", "career_counseling_attribute")
+  events_on_period <- sum(first_unemployment[, ..event_attrs] == 1, na.rm = TRUE)
+
+  # At least one unemployment period should have multiple events
+  expect_gt(events_on_period, 1)
+
+  # Verify only unemployment periods have event attributes = 1
+  employment_periods <- result[arco > 0]
+  for (attr_col in event_attrs) {
+    expect_true(all(employment_periods[[attr_col]] == 0))
+  }
+
+  # Verify overlap matching properties
+  for (i in seq_along(event_attrs)) {
+    attr_col <- event_attrs[i]
+    dist_col <- gsub("_attribute$", "_distance", attr_col)
+    quality_col <- gsub("_attribute$", "_match_quality", attr_col)
+
+    matched_periods <- result[get(attr_col) == 1]
+    if (nrow(matched_periods) > 0) {
+      # All overlap matches should have distance = 0
+      expect_true(all(matched_periods[[dist_col]] == 0))
+
+      # All should be marked as "overlap" matches
+      expect_true(all(matched_periods[[quality_col]] == "overlap"))
+    }
+  }
 })

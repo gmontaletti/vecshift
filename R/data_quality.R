@@ -586,7 +586,7 @@ validate_duration_invariant <- function(dt) {
   validation_results$consistency_rate <- mean(person_duration_check$duration_matches, na.rm = TRUE)
   
   # Calculate magnitude of discrepancies
-  mismatched_persons <- person_duration_check[!duration_matches]
+  mismatched_persons <- person_duration_check[duration_matches == FALSE]
   if (nrow(mismatched_persons) > 0) {
     mismatched_persons[, discrepancy := abs(elapsed_time - total_duration)]
     validation_results$avg_discrepancy_days <- mean(mismatched_persons$discrepancy, na.rm = TRUE)
