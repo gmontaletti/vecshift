@@ -14,8 +14,6 @@ A named logical vector indicating which functions are available:
     \item{\code{merge_overlapping_values}}: Overlap handling function
     \item{\code{merge_consecutive_employment}}: Period consolidation with over_id
     \item{\code{merge_consecutive_employment_fast}}: Traditional consecutive merging
-    \item{\code{validate_over_id_consistency}}: over_id validation
-    \item{\code{validate_duration_invariant}}: Duration consistency validation
   }
 }
 \description{

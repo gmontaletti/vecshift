@@ -7,14 +7,44 @@
 get_default_status_rules()
 }
 \value{
-List with default classification rules
+List with default classification rules containing:
+  \itemize{
+    \item unemployment: Rules for unemployment periods with duration thresholds
+    \item prior_labels: Named list mapping prior values to employment type labels
+    \item single_employment: Rules for single employment periods
+    \item overlapping_employment: Rules for overlapping employment periods
+  }
 }
 \description{
 Returns the default classification rules used by vecshift for employment status.
-These can be modified to implement custom business logic for different contexts.
+These rules include flexible prior value mappings and support sequence-based
+overlap labeling. The rules can be modified to implement custom business logic.
+}
+\details{
+The default rules include:
+
+**Prior Labels Mapping**: Maps numeric prior values to employment type labels:
+* "-1", "0" -> "pt" (part-time)
+* "1" -> "ft" (full-time)
+* "2" -> "fixed" (fixed-term contract)
+* "3" -> "temp" (temporary contract)
+
+**Unemployment Classification**: Based on duration thresholds (8 days default)
+
+**Single Employment**: Creates labels like "occ_ft", "occ_pt", "occ_fixed"
+
+**Overlapping Employment**: Uses sequence-based labeling to create labels
+like "over_pt_ft_fixed" based on the chronological sequence of employment
+types within the overlapping period.
 }
 \examples{
 # View default rules
 default_rules <- get_default_status_rules()
 print(default_rules)
+
+# Check prior labels mapping
+print(default_rules$prior_labels)
+
+# Example: prior value 2 maps to "fixed"
+print(default_rules$prior_labels["2"])  # "fixed"
 }

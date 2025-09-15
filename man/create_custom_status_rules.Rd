@@ -7,35 +7,111 @@
 create_custom_status_rules(
   unemployment_threshold = 8,
   custom_labels = NULL,
+  prior_labels = NULL,
   include_intensity = FALSE,
   include_transitions = FALSE
 )
 }
 \arguments{
-\item{unemployment_threshold}{Days threshold for short vs long unemployment}
+\item{unemployment_threshold}{Days threshold for short vs long unemployment (default: 8)}
 
-\item{custom_labels}{Named list of custom status labels}
+\item{custom_labels}{Named list of custom status labels to override defaults}
+
+\item{prior_labels}{Named list mapping prior values to employment type labels.
+Keys should be string representations of prior values, values should be
+the corresponding employment type labels. Example:
+list("0" = "pt", "1" = "ft", "2" = "fixed", "5" = "intern")}
 
 \item{include_intensity}{Logical. Include employment intensity classifications}
 
 \item{include_transitions}{Logical. Include transition-based classifications}
 }
 \value{
-List of custom classification rules
+List of custom classification rules compatible with classify_employment_status()
 }
 \description{
 Helper function to create custom employment status classification rules
-for specific business contexts or analytical requirements.
+for specific business contexts or analytical requirements. Supports flexible
+prior value mappings for different employment coding systems.
+}
+\details{
+**Key Features**:
+
+1. **Custom Prior Labels**: Map any numeric prior values to meaningful labels.
+   This enables support for industry-specific or organization-specific
+   employment type coding systems.
+
+2. **Flexible Thresholds**: Customize unemployment duration thresholds
+   based on analytical requirements or policy definitions.
+
+3. **Custom Label Systems**: Override default status labels to match
+   organizational terminology or reporting requirements.
+
+4. **Extension Support**: Include additional classification dimensions
+   like employment intensity or transition-based classifications.
+
+**Prior Labels Usage**:
+The prior_labels parameter is crucial for the enhanced flexible system.
+It maps string representations of prior values to employment type labels
+that will be used in the final status classifications.
 }
 \examples{
-# Create rules with custom unemployment threshold and labels
-custom_rules <- create_custom_status_rules(
-  unemployment_threshold = 30,  # 30 days instead of 8
+# Basic custom rules with industry-specific employment types
+healthcare_rules <- create_custom_status_rules(
+  unemployment_threshold = 15,  # 15 days for healthcare sector
+  prior_labels = list(
+    "0" = "parttime",
+    "1" = "fulltime",
+    "2" = "locum",      # Temporary medical staff
+    "3" = "agency",     # Agency workers
+    "4" = "oncall"      # On-call staff
+  )
+)
+
+# Advanced rules with custom labels and extended mappings
+academic_rules <- create_custom_status_rules(
+  unemployment_threshold = 90,  # Longer periods common in academia
   custom_labels = list(
-    unemployed_short = "job_search",
-    unemployed_long = "long_term_unemployed",
-    full_time = "employed_ft",
-    part_time = "employed_pt"
+    unemployed_short = "between_positions",
+    unemployed_long = "career_transition"
+  ),
+  prior_labels = list(
+    "1" = "tenured",
+    "2" = "tenure_track",
+    "3" = "adjunct",
+    "4" = "postdoc",
+    "5" = "visiting",
+    "10" = "emeritus"
+  ),
+  include_intensity = TRUE
+)
+
+# Demonstrate the effect of custom prior labels
+\dontrun{
+library(data.table)
+segments <- data.table(
+  cf = "PROF001",
+  inizio = c(1, 30, 60),
+  fine = c(29, 59, 90),
+  arco = c(1, 0, 2),
+  prior = c(2, NA, 4),  # tenure_track, unemployment, postdoc
+  durata = c(29, 30, 31),
+  over_id = c(1, 0, 2)
+)
+
+classified <- classify_employment_status(segments, academic_rules)
+print(classified$stato)
+# Expected: "occ_tenure_track", "between_positions", "occ_postdoc"
+}
+
+# Legacy system compatibility - mapping old codes to new labels
+legacy_rules <- create_custom_status_rules(
+  prior_labels = list(
+    "100" = "manager",
+    "200" = "supervisor",
+    "300" = "specialist",
+    "400" = "trainee",
+    "999" = "consultant"
   )
 )
 }

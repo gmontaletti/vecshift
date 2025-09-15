@@ -1,7 +1,7 @@
 Package: vecshift
 Type: Package
 Title: Temporal Analysis of Employment Data with Event-Based Processing
-Version: 1.0.1
+Version: 1.0.2
 Authors@R: c(
     person(
       "Giampaolo", "Montaletti",
@@ -17,7 +17,7 @@ Description: Processes employment records with temporal data, transforming them 
 License: MIT + file LICENSE
 Encoding: UTF-8
 LazyData: true
-Imports: data.table
+Imports: data.table, progress
 Suggests: 
     testthat (>= 3.0.0),
     knitr,

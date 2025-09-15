@@ -47,8 +47,8 @@ library(data.table)
 original_dt <- data.table(
   id = 1:3,
   cf = c("ABC123", "ABC123", "DEF456"),
-  inizio = as.Date(c("2023-01-01", "2023-06-01", "2023-02-01")),
-  fine = as.Date(c("2023-05-31", "2023-12-31", "2023-11-30")),
+  INIZIO = as.Date(c("2023-01-01", "2023-06-01", "2023-02-01")),
+  FINE = as.Date(c("2023-05-31", "2023-12-31", "2023-11-30")),
   prior = c(1, 0, 1),
   company = c("CompanyA", "CompanyB", "CompanyC"),
   salary = c(50000, 25000, 60000),

@@ -16,8 +16,8 @@ test_that("all synthetic test datasets can be generated without error", {
     # Assert
     expect_s3_class(test_data, "data.table")
     
-    # Check that all required columns are present
-    required_cols <- c("id", "cf", "INIZIO", "FINE", "prior")
+    # Check that all required columns are present (updated for lowercase names)
+    required_cols <- c("id", "cf", "inizio", "fine", "prior")
     expect_true(all(required_cols %in% names(test_data)), 
                 info = paste("Missing columns in scenario:", scenario))
     
@@ -25,8 +25,8 @@ test_that("all synthetic test datasets can be generated without error", {
     if (scenario != "empty") {
       expect_true(is.integer(test_data$id) || is.numeric(test_data$id))
       expect_true(is.character(test_data$cf))
-      expect_true(inherits(test_data$INIZIO, "Date"))
-      expect_true(inherits(test_data$FINE, "Date"))
+      expect_true(inherits(test_data$inizio, "Date"))
+      expect_true(inherits(test_data$fine, "Date"))
       expect_true(is.integer(test_data$prior) || is.numeric(test_data$prior))
     }
   }
@@ -50,13 +50,14 @@ test_that("all synthetic datasets produce valid vecshift results", {
     # Arrange
     test_data <- generate_test_data(scenario)
     
-    # Act
-    result <- expect_silent(vecshift(test_data))
+    # Act - apply status classification to get complete result
+    raw_result <- expect_silent(vecshift(test_data))
+    result <- classify_employment_status(raw_result)
     
     # Assert
     expect_s3_class(result, "data.table")
     
-    # Check result structure
+    # Check result structure (updated for complete processing)
     expected_cols <- c("cf", "inizio", "fine", "arco", "prior", "id", "durata", "stato")
     expect_true(all(expected_cols %in% names(result)), 
                 info = paste("Missing result columns in scenario:", scenario))
@@ -96,18 +97,22 @@ test_that("synthetic datasets demonstrate all employment scenarios", {
   # Verify that our synthetic datasets cover all major scenarios
   
   # Test single employment scenarios
-  single_ft <- vecshift(generate_test_data("single_employment"))
+  single_ft_raw <- vecshift(generate_test_data("single_employment"))
+  single_ft <- classify_employment_status(single_ft_raw)
   expect_true("occ_ft" %in% single_ft$stato)
-  
-  single_pt <- vecshift(generate_test_data("single_parttime"))
+
+  single_pt_raw <- vecshift(generate_test_data("single_parttime"))
+  single_pt <- classify_employment_status(single_pt_raw)
   expect_true("occ_pt" %in% single_pt$stato)
-  
+
   # Test gap scenarios
-  gap_result <- vecshift(generate_test_data("employment_with_gap"))
+  gap_result_raw <- vecshift(generate_test_data("employment_with_gap"))
+  gap_result <- classify_employment_status(gap_result_raw)
   expect_true("disoccupato" %in% gap_result$stato)
   
   # Test overlapping scenarios
-  overlap_result <- vecshift(generate_test_data("overlapping_employment"))
+  overlap_result_raw <- vecshift(generate_test_data("overlapping_employment"))
+  overlap_result <- classify_employment_status(overlap_result_raw)
   overlap_states <- overlap_result[arco > 1]$stato
   expect_gt(length(overlap_states), 0)
   
@@ -143,16 +148,17 @@ test_that("synthetic datasets provide educational examples", {
   for (description in names(scenarios)) {
     scenario <- scenarios[[description]]
     test_data <- generate_test_data(scenario)
-    result <- vecshift(test_data)
-    
+    raw_result <- vecshift(test_data)
+    result <- classify_employment_status(raw_result)
+
     cat("\n", description, ":\n")
     cat("  Input rows:", nrow(test_data), "\n")
     cat("  Output segments:", nrow(result), "\n")
-    
+
     if (nrow(result) > 0) {
       states <- unique(result$stato)
       cat("  Employment states:", paste(states, collapse = ", "), "\n")
-      
+
       max_arco <- max(result$arco)
       cat("  Max concurrent jobs:", max_arco, "\n")
     }
@@ -168,8 +174,8 @@ test_that("synthetic datasets provide educational examples", {
 test_that("synthetic datasets demonstrate all employment status classifications", {
   # Ensure we can demonstrate every possible employment status
   
-  all_statuses <- c("disoccupato", "occ_ft", "occ_pt", "over_pt_ft", 
-                    "over_ft_pt", "over_pt_pt", "over_ft_ft")
+  # Updated for new flexible status classification system
+  all_statuses <- c("disoccupato", "occ_ft", "occ_pt", "over_ft", "over_pt")
   found_statuses <- character(0)
   
   # Collect all statuses from all scenarios
@@ -180,7 +186,9 @@ test_that("synthetic datasets demonstrate all employment status classifications"
   )
   
   for (scenario in scenarios) {
-    result <- vecshift(generate_test_data(scenario))
+    # Apply status classification to get stato column
+    raw_result <- vecshift(generate_test_data(scenario))
+    result <- classify_employment_status(raw_result)
     found_statuses <- c(found_statuses, result$stato)
   }
   

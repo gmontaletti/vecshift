@@ -7,14 +7,14 @@
 validate_duration_invariant(dt)
 }
 \arguments{
-\item{dt}{Data.table with cf, INIZIO, FINE, and durata columns}
+\item{dt}{Data.table with cf, inizio, fine, and durata columns}
 }
 \value{
 List with duration validation results
 }
 \description{
 Validates that the mathematical invariant holds: for each person,
-sum(durata) should equal (max(FINE) - min(INIZIO) + 1).
+sum(durata) should equal (max(fine) - min(inizio) + 1).
 This ensures duration calculations are consistent.
 }
 \keyword{internal}

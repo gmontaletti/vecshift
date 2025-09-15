@@ -133,8 +133,8 @@ library(data.table)
 employment_dt <- data.table(
   id = 1:3,
   cf = c("ABC123", "ABC123", "DEF456"),
-  inizio = as.Date(c("2023-01-01", "2023-07-01", "2023-03-01")),
-  fine = as.Date(c("2023-03-31", "2023-12-31", "2023-06-30")),
+  INIZIO = as.Date(c("2023-01-01", "2023-07-01", "2023-03-01")),
+  FINE = as.Date(c("2023-03-31", "2023-12-31", "2023-06-30")),
   prior = c(1, 1, 0)
 )
 

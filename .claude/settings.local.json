@@ -8,7 +8,9 @@
       "Bash(rm:*)",
       "Bash(find:*)",
       "Bash(grep:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Read(//Users/giampaolomontaletti/Documents/funzioni/longworkR/**)",
+      "WebSearch"
     ],
     "deny": []
   },

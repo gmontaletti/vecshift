@@ -4,7 +4,7 @@
 \alias{vecshift}
 \title{Transform Employment Records into Temporal Segments (Core Function)}
 \usage{
-vecshift(dt, classify_status = TRUE, status_rules = NULL)
+vecshift(dt)
 }
 \arguments{
 \item{dt}{A data.table containing employment contract records with the following required columns:
@@ -15,12 +15,6 @@ vecshift(dt, classify_status = TRUE, status_rules = NULL)
   \item{\code{fine}}: Contract end date (Date or numeric)
   \item{\code{prior}}: Employment type indicator (0 or negative for part-time, positive for full-time)
 }}
-
-\item{classify_status}{Logical. If TRUE (default), applies employment status classification.
-Set to FALSE to return raw segments without status labels.}
-
-\item{status_rules}{Optional custom status classification rules. If NULL (default),
-uses standard classification. See \code{\link{get_default_status_rules}} for structure.}
 }
 \value{
 A data.table with temporal segments containing:
@@ -32,7 +26,6 @@ A data.table with temporal segments containing:
     \item{\code{prior}}: Employment type for the segment (0 = part-time, 1 = full-time)
     \item{\code{id}}: Contract ID (0 for unemployment periods)
     \item{\code{durata}}: Duration of the segment in days
-    \item{\code{stato}}: Employment status classification (if classify_status = TRUE)
   }
 }
 \description{
@@ -46,20 +39,20 @@ employment situations.
 The function implements precise date logic for temporal processing:
 \itemize{
   \item Employment contracts are inclusive of both start and end dates
-  \item A person works ON both INIZIO and FINE dates
-  \item End events are created at FINE date
+  \item A person works ON both inizio and fine dates
+  \item End events are created at fine date
   \item Unemployment periods are identified (arco=0) and adjusted: inizio+1 and fine-1
   \item This ensures correct temporal boundaries for all segments
 }
 
-The algorithm creates events for each contract start (+1) and end (-1 at FINE), then uses
+The algorithm creates events for each contract start (+1) and end (-1 at fine), then uses
 cumulative sums to track overlapping contracts. Unemployment segments are identified
 (arco=0) and their dates are adjusted to represent the actual unemployment period.
 }
 \note{
-Status classification is delegated to the \code{\link{classify_employment_status}}
-function from the status_labeling module, ensuring consistent and customizable
-employment status attribution across the package.
+This function performs only the core temporal transformation. For employment
+status classification, use \code{\link{classify_employment_status}} separately
+or use \code{\link{process_employment_pipeline}} for a complete processing pipeline.
 }
 \examples{
 \dontrun{
@@ -73,24 +66,20 @@ dt <- data.table(
   prior = c(1, 0, 1)  # 1 = full-time, 0 = part-time
 )
 
-# Transform to temporal segments with status classification
+# Transform to temporal segments (pure transformation)
 result <- vecshift(dt)
 print(result)
 
-# Transform without status classification
-result_raw <- vecshift(dt, classify_status = FALSE)
-print(result_raw)
+# Apply status classification separately
+result_with_status <- classify_employment_status(result)
+print(result_with_status)
 
-# Use custom status rules
-custom_rules <- create_custom_status_rules(
-  unemployment_threshold = 30,
-  custom_labels = list(unemployed_short = "seeking_job")
-)
-result_custom <- vecshift(dt, status_rules = custom_rules)
+# Use complete pipeline for integrated processing
+result_pipeline <- process_employment_pipeline(dt)
+print(result_pipeline)
 }
 }
 \seealso{
 \code{\link{classify_employment_status}} for status classification details
-\code{\link{get_default_status_rules}} for default classification rules
-\code{\link{create_custom_status_rules}} for creating custom rules
+\code{\link{process_employment_pipeline}} for a complete processing pipeline
 }

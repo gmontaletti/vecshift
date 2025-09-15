@@ -48,9 +48,9 @@ when collapse_consecutive is TRUE. Passed to merge_consecutive_employment().}
 "both" (default), "overlapping", "consecutive", or "none".}
 
 \item{classify_status}{Logical. If TRUE (default), applies employment status
-classification during vecshift step.}
+classification as a separate step after vecshift transformation.}
 
-\item{status_rules}{Optional custom status rules for vecshift. If NULL, uses defaults.}
+\item{status_rules}{Optional custom status rules for status classification step. If NULL, uses defaults.}
 
 \item{validate_over_id}{Logical. If TRUE (default), validates over_id consistency
 and duration invariant after vecshift transformation.}
@@ -88,7 +88,8 @@ to processed temporal segments with merged original data and period consolidatio
 \details{
 The function performs the following operations in sequence:
 \enumerate{
-  \item \strong{vecshift()}: Transforms employment records into temporal segments with over_id
+  \item \strong{vecshift()}: Core temporal transformation to create segments with over_id
+  \item \strong{classify_employment_status()}: Applies employment status classification as separate step (optional)
   \item \strong{Validation}: Validates over_id consistency and duration invariant
   \item \strong{merge_original_columns()}: Merges additional columns from original data (optional)
   \item \strong{merge_overlapping_values()}: Handles overlapping employment values (optional)
