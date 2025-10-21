@@ -256,7 +256,9 @@ validate_employment_data_types <- function(dt, strict = FALSE,
 #' validation for over_id consistency and duration calculation invariant.
 #'
 #' @param dt Data.table with employment records (standardized columns)
-#' @param person_col Name of person identifier column
+#' @param person_col Name of person identifier column (default: "cf")
+#' @param start_col Name of start date column (default: "inizio")
+#' @param end_col Name of end date column (default: "fine")
 #' @param include_distributions Logical. Include distribution analysis
 #' @param include_temporal Logical. Include temporal pattern analysis
 #' @param validate_over_id Logical. Include over_id consistency checks
@@ -266,8 +268,10 @@ validate_employment_data_types <- function(dt, strict = FALSE,
 #'
 #' @export
 #' @importFrom data.table uniqueN
-assess_data_quality <- function(dt, 
+assess_data_quality <- function(dt,
                                person_col = "cf",
+                               start_col = "inizio",
+                               end_col = "fine",
                                include_distributions = TRUE,
                                include_temporal = TRUE,
                                validate_over_id = TRUE,
@@ -280,10 +284,10 @@ assess_data_quality <- function(dt,
     n_records = nrow(dt),
     n_persons = uniqueN(dt[[person_col]]),
     n_unique_ids = uniqueN(dt$id),
-    date_range = if (is.numeric(dt$inizio)) {
-      range(dt$inizio, na.rm = TRUE)
+    date_range = if (is.numeric(dt[[start_col]])) {
+      range(dt[[start_col]], na.rm = TRUE)
     } else {
-      range(as.Date(dt$inizio), na.rm = TRUE)  
+      range(as.Date(dt[[start_col]]), na.rm = TRUE)
     }
   )
   
@@ -298,8 +302,8 @@ assess_data_quality <- function(dt,
   
   # Logical consistency checks
   quality_report$logical_consistency <- list(
-    invalid_date_ranges = sum(dt$fine < dt$inizio, na.rm = TRUE),
-    zero_duration_contracts = sum(dt$fine == dt$inizio, na.rm = TRUE),
+    invalid_date_ranges = sum(dt[[end_col]] < dt[[start_col]], na.rm = TRUE),
+    zero_duration_contracts = sum(dt[[end_col]] == dt[[start_col]], na.rm = TRUE),
     negative_prior_values = sum(dt$prior < 0, na.rm = TRUE),
     missing_person_ids = sum(is.na(dt[[person_col]]) | dt[[person_col]] == "")
   )
@@ -312,25 +316,29 @@ assess_data_quality <- function(dt,
   
   # Duration calculation validation (if durata column exists)
   if (validate_duration && "durata" %in% names(dt)) {
-    duration_validation <- validate_duration_invariant(dt)
+    duration_validation <- validate_duration_invariant(dt, person_col, start_col, end_col)
     quality_report$duration_consistency <- duration_validation
   }
   
   # Person-level analysis
   person_stats_cols <- c("n_contracts", "total_days", "date_span_days", "has_overlaps")
-  
+
   if ("durata" %in% names(dt)) {
     person_stats <- dt[, {
-      total_elapsed <- as.integer(max(fine) - min(inizio) + 1)
+      start_vals <- get(start_col)
+      end_vals <- get(end_col)
+      total_elapsed <- as.integer(max(end_vals) - min(start_vals) + 1)
       total_duration <- sum(durata, na.rm = TRUE)
-      
+
       list(
         n_contracts = .N,
-        total_days = sum(fine - inizio + 1, na.rm = TRUE),
+        total_days = sum(end_vals - start_vals + 1, na.rm = TRUE),
         date_span_days = total_elapsed,
         has_overlaps = if (.N > 1) {
-          setorder(.SD, inizio)
-          any(inizio[2:.N] <= fine[1:(.N-1)])
+          ord <- order(start_vals)
+          start_sorted <- start_vals[ord]
+          end_sorted <- end_vals[ord]
+          any(start_sorted[2:.N] <= end_sorted[1:(.N-1)])
         } else FALSE,
         duration_sum = total_duration,
         duration_matches_elapsed = (total_duration == total_elapsed)
@@ -339,13 +347,17 @@ assess_data_quality <- function(dt,
     person_stats_cols <- c(person_stats_cols, "duration_sum", "duration_matches_elapsed")
   } else {
     person_stats <- dt[, {
+      start_vals <- get(start_col)
+      end_vals <- get(end_col)
       list(
         n_contracts = .N,
-        total_days = sum(fine - inizio + 1, na.rm = TRUE),
-        date_span_days = as.integer(max(fine) - min(inizio) + 1),
+        total_days = sum(end_vals - start_vals + 1, na.rm = TRUE),
+        date_span_days = as.integer(max(end_vals) - min(start_vals) + 1),
         has_overlaps = if (.N > 1) {
-          setorder(.SD, inizio)
-          any(inizio[2:.N] <= fine[1:(.N-1)])
+          ord <- order(start_vals)
+          start_sorted <- start_vals[ord]
+          end_sorted <- end_vals[ord]
+          any(start_sorted[2:.N] <= end_sorted[1:(.N-1)])
         } else FALSE
       )
     }, by = c(person_col)]
@@ -389,7 +401,7 @@ assess_data_quality <- function(dt,
   if (include_distributions) {
     quality_report$distributions <- list(
       prior_values = table(dt$prior),
-      contract_durations = summary(as.numeric(dt$fine - dt$inizio + 1), na.rm = TRUE),
+      contract_durations = summary(as.numeric(dt[[end_col]] - dt[[start_col]] + 1), na.rm = TRUE),
       contracts_by_person = table(person_stats$n_contracts),
       employment_type_by_person = dt[, list(
         ft_contracts = sum(prior > 0),
@@ -397,7 +409,7 @@ assess_data_quality <- function(dt,
       ), by = c(person_col)][, {
         list(
           only_ft = sum(ft_contracts > 0 & pt_contracts == 0),
-          only_pt = sum(ft_contracts == 0 & pt_contracts > 0), 
+          only_pt = sum(ft_contracts == 0 & pt_contracts > 0),
           mixed = sum(ft_contracts > 0 & pt_contracts > 0),
           no_contracts = sum(ft_contracts == 0 & pt_contracts == 0)
         )
@@ -407,14 +419,14 @@ assess_data_quality <- function(dt,
   
   # Temporal pattern analysis
   if (include_temporal) {
-    if (inherits(dt$inizio, "Date") || is.numeric(dt$inizio)) {
-      dates <- if (is.numeric(dt$inizio)) as.Date(dt$inizio, origin = "1970-01-01") else dt$inizio
-      
+    if (inherits(dt[[start_col]], "Date") || is.numeric(dt[[start_col]])) {
+      dates <- if (is.numeric(dt[[start_col]])) as.Date(dt[[start_col]], origin = "1970-01-01") else dt[[start_col]]
+
       quality_report$temporal_patterns <- list(
         contracts_by_year = table(format(dates, "%Y")),
         contracts_by_month = table(format(dates, "%m")),
         seasonal_distribution = table(quarters(dates)),
-        temporal_clustering = analyze_temporal_clustering(dt, person_col)
+        temporal_clustering = analyze_temporal_clustering(dt, person_col, start_col)
       )
     }
   }
@@ -439,24 +451,25 @@ assess_data_quality <- function(dt,
 }
 
 #' Analyze Temporal Clustering Patterns
-#' 
+#'
 #' @description
 #' Detects patterns in contract timing such as seasonal employment,
 #' batch processing indicators, or systematic data collection periods.
 #'
 #' @param dt Data.table with employment records
 #' @param person_col Person identifier column name
+#' @param start_col Start date column name
 #'
 #' @return List with temporal clustering analysis
-#' 
+#'
 #' @keywords internal
-analyze_temporal_clustering <- function(dt, person_col = "cf") {
-  
+analyze_temporal_clustering <- function(dt, person_col = "cf", start_col = "inizio") {
+
   # Convert dates for analysis
-  start_dates <- if (is.numeric(dt$inizio)) {
-    as.Date(dt$inizio, origin = "1970-01-01")
+  start_dates <- if (is.numeric(dt[[start_col]])) {
+    as.Date(dt[[start_col]], origin = "1970-01-01")
   } else {
-    as.Date(dt$inizio)
+    as.Date(dt[[start_col]])
   }
   
   # Day of month analysis (detect batch processing)
@@ -554,28 +567,35 @@ validate_over_id_consistency <- function(dt) {
 #' This ensures duration calculations are consistent.
 #'
 #' @param dt Data.table with cf, inizio, fine, and durata columns
+#' @param person_col Name of person identifier column (default: "cf")
+#' @param start_col Name of start date column (default: "inizio")
+#' @param end_col Name of end date column (default: "fine")
 #'
 #' @return List with duration validation results
 #'
 #' @keywords internal
-validate_duration_invariant <- function(dt) {
-  
+validate_duration_invariant <- function(dt, person_col = "cf", start_col = "inizio", end_col = "fine") {
+
   validation_results <- list(
     has_durata = "durata" %in% names(dt),
-    has_required_columns = all(c("cf", "inizio", "fine", "durata") %in% names(dt))
+    has_required_columns = all(c(person_col, start_col, end_col, "durata") %in% names(dt))
   )
-  
+
   if (!validation_results$has_required_columns) {
     validation_results$status <- "Required columns missing for duration validation"
     return(validation_results)
   }
-  
+
   # Calculate per-person duration consistency
-  person_duration_check <- dt[, .(
-    elapsed_time = as.integer(max(fine, na.rm = TRUE) - min(inizio, na.rm = TRUE) + 1),
-    total_duration = sum(durata, na.rm = TRUE),
-    n_periods = .N
-  ), by = cf]
+  person_duration_check <- dt[, {
+    start_vals <- get(start_col)
+    end_vals <- get(end_col)
+    list(
+      elapsed_time = as.integer(max(end_vals, na.rm = TRUE) - min(start_vals, na.rm = TRUE) + 1),
+      total_duration = sum(durata, na.rm = TRUE),
+      n_periods = .N
+    )
+  }, by = c(person_col)]
   
   # Add consistency flag
   person_duration_check[, duration_matches := (elapsed_time == total_duration)]
