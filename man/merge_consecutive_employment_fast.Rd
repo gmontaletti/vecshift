@@ -16,3 +16,39 @@ A data.table with collapsed consecutive employment periods
 A faster implementation inspired by vecshift's event-based mechanism for
 collapsing consecutive employment periods.
 }
+\examples{
+\dontrun{
+library(data.table)
+library(vecshift)
+
+# Create processed data with consecutive employment periods
+employment_data <- data.table(
+  id = 1:6,
+  cf = rep("P001", 6),
+  inizio = as.Date(c("2023-01-01", "2023-02-01", "2023-04-01",
+                     "2023-05-01", "2023-08-01", "2023-10-01")),
+  fine = as.Date(c("2023-01-31", "2023-03-31", "2023-04-30",
+                   "2023-07-31", "2023-09-30", "2023-12-31")),
+  prior = c(1, 1, 0, 0, 1, 1)
+)
+
+# Process with vecshift
+processed_data <- vecshift(employment_data)
+
+cat("Original segments:", nrow(processed_data), "\n")
+
+# Fast merge - consolidates consecutive same-type employment
+merged_fast <- merge_consecutive_employment_fast(processed_data)
+
+cat("After fast merge:", nrow(merged_fast), "\n")
+print(merged_fast[, .(cf, inizio, fine, arco, durata)])
+
+# Compare with standard merge for validation
+merged_standard <- merge_consecutive_employment(processed_data)
+
+# Both methods should produce same number of segments
+cat("\nStandard merge:", nrow(merged_standard), "segments\n")
+cat("Fast merge:", nrow(merged_fast), "segments\n")
+cat("Results match:", nrow(merged_fast) == nrow(merged_standard), "\n")
+}
+}

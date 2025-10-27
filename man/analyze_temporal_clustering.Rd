@@ -4,12 +4,14 @@
 \alias{analyze_temporal_clustering}
 \title{Analyze Temporal Clustering Patterns}
 \usage{
-analyze_temporal_clustering(dt, person_col = "cf")
+analyze_temporal_clustering(dt, person_col = "cf", start_col = "inizio")
 }
 \arguments{
 \item{dt}{Data.table with employment records}
 
 \item{person_col}{Person identifier column name}
+
+\item{start_col}{Start date column name}
 }
 \value{
 List with temporal clustering analysis

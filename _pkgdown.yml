@@ -22,6 +22,8 @@ navbar:
     articles:
       text: Articles
       menu:
+      - text: Complete Workflow
+        href: articles/complete-workflow.html
       - text: Understanding Date Logic
         href: articles/understanding-date-logic.html
       - text: Employment Status Classification
@@ -100,6 +102,11 @@ reference:
       - print.employment_status_validation
 
 articles:
+  - title: "Getting Started"
+    desc: "Complete workflow from raw data to analysis"
+    contents:
+      - complete-workflow
+
   - title: "Core Concepts"
     desc: "Understanding the fundamental concepts of vecshift"
     contents:

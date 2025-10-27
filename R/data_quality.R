@@ -109,6 +109,44 @@ standardize_columns <- function(dt, column_map, validate = TRUE) {
 #' @return Invisible validation results list
 #'
 #' @export
+#'
+#' @examples
+#' \dontrun{
+#' library(data.table)
+#' library(vecshift)
+#'
+#' # Create correctly typed data
+#' good_data <- data.table(
+#'   id = 1:3,
+#'   cf = c("P001", "P001", "P002"),
+#'   inizio = as.Date(c("2023-01-01", "2023-04-01", "2023-02-01")),
+#'   fine = as.Date(c("2023-03-31", "2023-06-30", "2023-05-31")),
+#'   prior = c(1, 0, 1)
+#' )
+#'
+#' # Validate - should pass
+#' validation_good <- validate_employment_data_types(good_data)
+#' print(validation_good)
+#'
+#' # Create data with type issues
+#' bad_data <- data.table(
+#'   id = 1:3,
+#'   cf = c("P001", "P001", "P002"),
+#'   inizio = c("2023-01-01", "2023-04-01", "2023-02-01"),  # Character, not Date!
+#'   fine = as.Date(c("2023-03-31", "2023-06-30", "2023-05-31")),
+#'   prior = c("1", "0", "1")  # Character, not numeric!
+#' )
+#'
+#' # Validate - should identify issues
+#' validation_bad <- validate_employment_data_types(bad_data)
+#' print(validation_bad)
+#'
+#' # Check validation results
+#' if (!validation_bad$is_valid) {
+#'   cat("\nType errors detected:\n")
+#'   print(validation_bad)
+#' }
+#' }
 validate_employment_data_types <- function(dt, strict = FALSE, 
                                           validate_over_id = TRUE, 
                                           validate_duration = TRUE) {
@@ -268,6 +306,46 @@ validate_employment_data_types <- function(dt, strict = FALSE,
 #'
 #' @export
 #' @importFrom data.table uniqueN
+#'
+#' @examples
+#' \dontrun{
+#' library(data.table)
+#' library(vecshift)
+#'
+#' # Create sample employment data with quality issues
+#' sample_data <- data.table(
+#'   id = 1:10,
+#'   cf = c(rep("P001", 4), rep("P002", 3), rep("P003", 3)),
+#'   inizio = as.Date(c("2023-01-01", "2023-03-01", "2023-06-01", "2023-09-01",
+#'                      "2023-02-01", "2023-05-01", "2023-08-01",
+#'                      "2023-01-15", "2023-01-15", "2023-07-01")),
+#'   fine = as.Date(c("2023-02-28", "2023-05-31", "2023-08-31", "2023-12-31",
+#'                    "2023-04-30", "2023-07-31", "2023-10-31",
+#'                    "2023-06-30", "2023-06-30", "2023-09-30")),
+#'   prior = c(1, 0, 1, 0, 1, 1, 0, 1, 1, 0)
+#' )
+#'
+#' # Assess data quality
+#' quality_report <- assess_data_quality(sample_data, person_col = "cf")
+#'
+#' # View quality report
+#' print(quality_report)
+#'
+#' # Access specific quality metrics
+#' quality_report$missing_values
+#' quality_report$duplicates
+#' quality_report$quality_score
+#'
+#' # Quality assessment with processed data
+#' processed_data <- vecshift(sample_data)
+#' quality_post <- assess_data_quality(
+#'   processed_data,
+#'   person_col = "cf",
+#'   validate_over_id = TRUE,
+#'   validate_duration = TRUE
+#' )
+#' print(quality_post)
+#' }
 assess_data_quality <- function(dt,
                                person_col = "cf",
                                start_col = "inizio",
@@ -639,6 +717,47 @@ validate_duration_invariant <- function(dt, person_col = "cf", start_col = "iniz
 #' @return Cleaned data.table with cleaning summary as attribute
 #'
 #' @export
+#'
+#' @examples
+#' \dontrun{
+#' library(data.table)
+#' library(vecshift)
+#'
+#' # Create messy employment data
+#' messy_data <- data.table(
+#'   id = c(1:6, 3),  # Duplicate ID 3
+#'   cf = c("P001", "P001", "P002", "P002", "P003", "P003", "P002"),
+#'   inizio = as.Date(c("2023-01-01", "2023-04-01", "2023-02-01",
+#'                      "2023-06-15", "2023-03-01", "2023-05-01",
+#'                      "2023-02-01")),  # Duplicate record
+#'   fine = as.Date(c("2023-03-31", "2023-03-15", "2023-05-31",  # Invalid: fine < inizio!
+#'                    "2023-08-31", "2023-03-01", "2023-07-31",  # Zero duration
+#'                    "2023-05-31")),
+#'   prior = c(1, NA, 0, 1, NA, 0, 0)  # Missing prior values
+#' )
+#'
+#' cat("Original data (", nrow(messy_data), "records):\n")
+#' print(messy_data)
+#'
+#' # Clean the data with defaults
+#' clean_data <- clean_employment_data(messy_data, verbose = TRUE)
+#'
+#' cat("\nCleaned data (", nrow(clean_data), "records):\n")
+#' print(clean_data)
+#'
+#' # Access cleaning summary
+#' attr(clean_data, "cleaning_log")
+#'
+#' # Custom cleaning - keep zero duration
+#' clean_data2 <- clean_employment_data(
+#'   messy_data,
+#'   remove_duplicates = TRUE,
+#'   remove_invalid_dates = TRUE,
+#'   remove_zero_duration = FALSE,
+#'   fill_missing_prior = TRUE,
+#'   verbose = TRUE
+#' )
+#' }
 clean_employment_data <- function(dt,
                                  remove_duplicates = TRUE,
                                  remove_invalid_dates = TRUE, 

@@ -4,10 +4,21 @@
 \alias{validate_duration_invariant}
 \title{Validate Duration Calculation Invariant}
 \usage{
-validate_duration_invariant(dt)
+validate_duration_invariant(
+  dt,
+  person_col = "cf",
+  start_col = "inizio",
+  end_col = "fine"
+)
 }
 \arguments{
 \item{dt}{Data.table with cf, inizio, fine, and durata columns}
+
+\item{person_col}{Name of person identifier column (default: "cf")}
+
+\item{start_col}{Name of start date column (default: "inizio")}
+
+\item{end_col}{Name of end date column (default: "fine")}
 }
 \value{
 List with duration validation results
