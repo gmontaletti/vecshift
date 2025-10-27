@@ -1,0 +1,10 @@
+pandoc: 3.1.11
+pkgdown: 2.1.3
+pkgdown_sha: ~
+articles:
+  status-classification: status-classification.html
+  understanding-date-logic: understanding-date-logic.html
+last_built: 2025-10-27T09:17Z
+urls:
+  reference: https://gmontaletti.github.io/vecshift/reference
+  article: https://gmontaletti.github.io/vecshift/articles
