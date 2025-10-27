@@ -1,0 +1,115 @@
+url: https://gmontaletti.github.io/vecshift/
+template:
+  bootstrap: 5
+  bslib:
+    primary: "#0054AD"
+    base_font: {google: "Roboto"}
+
+development:
+  mode: auto
+
+home:
+  title: "vecshift: Temporal Analysis of Employment Data"
+  description: >
+    Event-based temporal transformation of employment records with
+    overlap detection and status classification
+
+navbar:
+  structure:
+    left: [intro, reference, articles, news]
+    right: [search, github]
+  components:
+    articles:
+      text: Articles
+      menu:
+      - text: Understanding Date Logic
+        href: articles/understanding-date-logic.html
+      - text: Employment Status Classification
+        href: articles/status-classification.html
+
+reference:
+  - title: "Core Transformation"
+    desc: >
+      Main function for event-based temporal transformation of employment data
+    contents:
+      - vecshift
+
+  - title: "Pipeline Processing"
+    desc: >
+      Modular pipeline for comprehensive employment data processing
+    contents:
+      - process_employment_pipeline
+      - check_pipeline_functions
+      - get_pipeline_recommendations
+
+  - title: "Employment Status Classification"
+    desc: >
+      Functions for classifying and analyzing employment status
+    contents:
+      - classify_employment_status
+      - create_custom_status_rules
+      - get_default_status_rules
+      - analyze_status_patterns
+      - validate_status_classifications
+
+  - title: "External Events & Unemployment"
+    desc: >
+      Functions for integrating external events and handling unemployment periods
+    contents:
+      - add_external_events
+      - add_unemployment_periods
+      - add_unemployment_tail
+
+  - title: "Employment Consolidation"
+    desc: >
+      Functions for merging and consolidating employment periods
+    contents:
+      - merge_consecutive_employment
+      - merge_consecutive_employment_fast
+      - merge_consecutive_employment_fast_with_type
+      - merge_original_columns
+      - merge_overlapping_values
+
+  - title: "Data Quality & Validation"
+    desc: >
+      Functions for assessing and improving data quality
+    contents:
+      - assess_data_quality
+      - validate_employment_data_types
+      - clean_employment_data
+      - data_quality
+
+  - title: "Data Preparation"
+    desc: >
+      Functions for standardizing and preparing input data
+    contents:
+      - standardize_columns
+
+  - title: "Module Documentation"
+    desc: >
+      Overview documentation for functional modules
+    contents:
+      - status_labeling
+
+  - title: "Print Methods"
+    desc: >
+      S3 print methods for package objects
+    contents:
+      - print.employment_quality_report
+      - print.employment_status_patterns
+      - print.employment_status_validation
+
+articles:
+  - title: "Core Concepts"
+    desc: "Understanding the fundamental concepts of vecshift"
+    contents:
+      - understanding-date-logic
+
+  - title: "Advanced Features"
+    desc: "Customization and advanced usage patterns"
+    contents:
+      - status-classification
+
+authors:
+  Giampaolo Montaletti:
+    href: https://github.com/gmontaletti

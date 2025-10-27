@@ -67,12 +67,12 @@ cat("   - over_ft_ft: Multiple full-time employments\n")
 
 ### Example with Default Classification
 
-```{r default-example}
+```{r default-example, cache=TRUE}
 # Create sample employment data with various scenarios
 sample_data <- data.table(
   id = 1:5,
   cf = c("P001", "P001", "P001", "P002", "P002"),
-  inizio = as.Date(c("2023-01-01", "2023-03-01", "2023-07-01", 
+  inizio = as.Date(c("2023-01-01", "2023-03-01", "2023-07-01",
                       "2023-02-01", "2023-05-01")),
   fine = as.Date(c("2023-02-28", "2023-06-30", "2023-12-31",
                     "2023-04-30", "2023-08-31")),
@@ -98,7 +98,7 @@ print(result[, .(cf, inizio, fine, arco, prior, stato, durata)])
 
 You can create custom classification rules for different business contexts:
 
-```{r custom-rules}
+```{r custom-rules, eval=FALSE}
 # Example 1: Custom rules for a specific industry
 industry_rules <- create_custom_status_rules(
   unemployment_threshold = 15,  # Different threshold for unemployment
@@ -122,7 +122,7 @@ print(result_custom[, .(cf, stato, durata)])
 
 For more complex scenarios, you can create sophisticated rule sets:
 
-```{r advanced-rules}
+```{r advanced-rules, eval=FALSE}
 # Create rules with intensity and transition tracking
 advanced_rules <- create_custom_status_rules(
   unemployment_threshold = 30,
@@ -153,7 +153,7 @@ cat("Unique employment states found:", paste(unique_states, collapse = ", "), "\
 
 Sometimes you may want to work with raw temporal segments without status labels:
 
-```{r raw-segments}
+```{r raw-segments, eval=FALSE}
 # Process without status classification
 raw_segments <- vecshift(sample_data)
 
@@ -171,7 +171,7 @@ print(classified_later[, .(cf, inizio, fine, stato)])
 
 The package includes tools for analyzing employment status patterns:
 
-```{r pattern-analysis}
+```{r pattern-analysis, cache=TRUE}
 # Generate more complex data for pattern analysis
 complex_data <- data.table(
   id = 1:10,
@@ -198,7 +198,7 @@ print(patterns)
 
 Ensure the integrity of your status classifications:
 
-```{r validation}
+```{r validation, cache=TRUE}
 # Validate status classifications
 validation <- validate_status_classifications(result_complex)
 
@@ -207,14 +207,14 @@ print(validation)
 # Check for specific issues
 if (!validation$is_valid) {
   cat("\nValidation issues detected:\n")
-  
+
   if (validation$missing_labels > 0) {
     cat("- Missing labels:", validation$missing_labels, "\n")
   }
-  
+
   if (validation$total_impossible > 0) {
     cat("- Impossible combinations:", validation$total_impossible, "\n")
-    
+
     # Show details of impossible combinations
     for (issue in names(validation$impossible_combinations)) {
       count <- validation$impossible_combinations[[issue]]
@@ -230,22 +230,22 @@ if (!validation$is_valid) {
 
 ### Working with Data Quality Module
 
-```{r data-quality-integration}
+```{r data-quality-integration, eval=FALSE}
 # Check data quality before processing
 quality_assessment <- assess_data_quality(complex_data)
 
 # Check if data has quality issues (using production readiness as indicator)
-if (!is.null(quality_assessment$quality_score$is_production_ready) && 
+if (!is.null(quality_assessment$quality_score$is_production_ready) &&
     !quality_assessment$quality_score$is_production_ready) {
   cat("Data quality issues detected. Cleaning data...\n")
-  
+
   # Clean data if needed
   clean_data <- clean_employment_data(
     complex_data,
     remove_duplicates = TRUE,
     remove_invalid_dates = TRUE
   )
-  
+
   # Process cleaned data
   result_clean <- vecshift(clean_data)
 } else {
@@ -258,7 +258,7 @@ if (!is.null(quality_assessment$quality_score$is_production_ready) &&
 
 For comprehensive processing with all modules:
 
-```{r integrated-system}
+```{r integrated-system, eval=FALSE}
 # Use the integrated system for full processing pipeline
 integrated_result <- process_employment_pipeline(
   complex_data,
@@ -320,7 +320,7 @@ Select rules that match your business context:
 
 Always validate your classifications, especially with custom rules:
 
-```{r validation-practice}
+```{r validation-practice, eval=FALSE}
 # Good practice: Always validate after custom classification
 vecshift_result <- vecshift(sample_data)
 custom_result <- classify_employment_status(vecshift_result, rules = industry_rules)
@@ -337,7 +337,7 @@ if (validation$is_valid) {
 
 When creating custom rules, document their business logic:
 
-```{r document-rules}
+```{r document-rules, eval=FALSE}
 # Example: Well-documented custom rules
 seasonal_employment_rules <- create_custom_status_rules(
   unemployment_threshold = 60,  # Seasonal workers may have longer gaps

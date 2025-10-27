@@ -42,3 +42,9 @@ test_*.R
 
 # Generated HTML files in vignettes
 vignettes/*.html
+
+# Vignette cache directories
+vignettes/*_cache/
+
+# pkgdown website
+docs/

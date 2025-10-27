@@ -10,11 +10,13 @@ Authors@R: c(
       comment = c(ORCID = "0009-0002-5327-1122")
     )
   )
-Description: Processes employment records with temporal data, transforming them into 
-    continuous time segments with employment status classifications. Implements precise 
-    date logic including FINE+1 rules for unemployment calculations, handles overlapping 
+Description: Processes employment records with temporal data, transforming them into
+    continuous time segments with employment status classifications. Implements precise
+    date logic including FINE+1 rules for unemployment calculations, handles overlapping
     contracts, and provides both high-performance and modular processing modes.
 License: MIT + file LICENSE
+URL: https://gmontaletti.github.io/vecshift/, https://github.com/gmontaletti/vecshift
+BugReports: https://github.com/gmontaletti/vecshift/issues
 Encoding: UTF-8
 LazyData: true
 Imports: data.table, progress
