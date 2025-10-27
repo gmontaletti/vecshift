@@ -20,7 +20,8 @@ batch processing indicators, or systematic data collection periods."></head><bod
       <ul class="navbar-nav me-auto"><li class="active nav-item"><a class="nav-link" href="../reference/index.html">Reference</a></li>
 <li class="nav-item dropdown">
   <button class="nav-link dropdown-toggle" type="button" id="dropdown-articles" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true">Articles</button>
-  <ul class="dropdown-menu" aria-labelledby="dropdown-articles"><li><a class="dropdown-item" href="../articles/understanding-date-logic.html">Understanding Date Logic</a></li>
+  <ul class="dropdown-menu" aria-labelledby="dropdown-articles"><li><a class="dropdown-item" href="../articles/complete-workflow.html">Complete Workflow</a></li>
+    <li><a class="dropdown-item" href="../articles/understanding-date-logic.html">Understanding Date Logic</a></li>
     <li><a class="dropdown-item" href="../articles/status-classification.html">Employment Status Classification</a></li>
   </ul></li>
       </ul><ul class="navbar-nav"><li class="nav-item"><form class="form-inline" role="search">
@@ -46,7 +47,7 @@ batch processing indicators, or systematic data collection periods.</p>
 
     <div class="section level2">
     <h2 id="ref-usage">Usage<a class="anchor" aria-label="anchor" href="#ref-usage"></a></h2>
-    <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">analyze_temporal_clustering</span><span class="op">(</span><span class="va">dt</span>, person_col <span class="op">=</span> <span class="st">"cf"</span><span class="op">)</span></span></code></pre></div>
+    <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">analyze_temporal_clustering</span><span class="op">(</span><span class="va">dt</span>, person_col <span class="op">=</span> <span class="st">"cf"</span>, start_col <span class="op">=</span> <span class="st">"inizio"</span><span class="op">)</span></span></code></pre></div>
     </div>
 
     <div class="section level2">
@@ -59,6 +60,10 @@ batch processing indicators, or systematic data collection periods.</p>
 
 <dt id="arg-person-col">person_col<a class="anchor" aria-label="anchor" href="#arg-person-col"></a></dt>
 <dd><p>Person identifier column name</p></dd>
+
+
+<dt id="arg-start-col">start_col<a class="anchor" aria-label="anchor" href="#arg-start-col"></a></dt>
+<dd><p>Start date column name</p></dd>
 
 </dl></div>
     <div class="section level2">
