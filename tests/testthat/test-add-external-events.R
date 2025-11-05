@@ -416,3 +416,123 @@ test_that("add_external_events handles multiple events to same unemployment peri
     }
   }
 })
+
+test_that("add_external_events handles Date and IDate inputs correctly (BUG FIX)", {
+  library(data.table)
+
+  # Create employment data - vecshift will output IDate columns for inizio/fine
+  employment_dt <- data.table(
+    id = 1:2,
+    cf = c("ABC123", "ABC123"),
+    inizio = as.Date(c("2023-01-01", "2023-06-01")),
+    fine = as.Date(c("2023-03-31", "2023-08-31")),
+    prior = c(1, 1)
+  )
+
+  vecshift_result <- vecshift(employment_dt)
+
+  # Note: vecshift may output Date or IDate depending on version/input
+  # The key is that add_external_events should handle both seamlessly
+
+  # TEST 1: External events with standard Date objects (common case)
+  events_with_date <- data.table(
+    cf = "ABC123",
+    event_name = "training_date",
+    event_start = as.Date("2023-04-15"),  # Regular Date object
+    event_end = as.Date("2023-04-25")
+  )
+
+  # This should NOT throw "storage mode of IDate is somehow no longer integer" error
+  result_date <- add_external_events(
+    vecshift_data = vecshift_result,
+    external_events = events_with_date,
+    event_matching_strategy = "overlap"
+  )
+
+  # Verify it worked
+  expect_true("training_date_attribute" %in% names(result_date))
+  unemployment_with_date_event <- result_date[training_date_attribute == 1]
+  expect_gt(nrow(unemployment_with_date_event), 0)
+  expect_equal(unemployment_with_date_event$training_date_match_quality[1], "overlap")
+
+  # TEST 2: External events with IDate objects
+  events_with_idate <- data.table(
+    cf = "ABC123",
+    event_name = "training_idate",
+    event_start = as.IDate("2023-05-01"),  # IDate object
+    event_end = as.IDate("2023-05-10")
+  )
+
+  # This should also work without errors
+  result_idate <- add_external_events(
+    vecshift_data = vecshift_result,
+    external_events = events_with_idate,
+    event_matching_strategy = "overlap"
+  )
+
+  # Verify it worked
+  expect_true("training_idate_attribute" %in% names(result_idate))
+  unemployment_with_idate_event <- result_idate[training_idate_attribute == 1]
+  expect_gt(nrow(unemployment_with_idate_event), 0)
+  expect_equal(unemployment_with_idate_event$training_idate_match_quality[1], "overlap")
+
+  # TEST 3: Mix of Date and IDate in same call (multiple events)
+  mixed_events <- data.table(
+    cf = c("ABC123", "ABC123"),
+    event_name = c("event_date", "event_idate"),
+    event_start = c(as.Date("2023-04-10"), as.IDate("2023-05-15")),
+    event_end = c(as.Date("2023-04-12"), as.IDate("2023-05-20"))
+  )
+
+  # This should work - function should handle mixed date types
+  result_mixed <- add_external_events(
+    vecshift_data = vecshift_result,
+    external_events = mixed_events,
+    event_matching_strategy = "overlap"
+  )
+
+  # Verify both events were processed
+  expect_true("event_date_attribute" %in% names(result_mixed))
+  expect_true("event_idate_attribute" %in% names(result_mixed))
+
+  # TEST 4: Synthetic unemployment with Date inputs
+  events_for_synthetic <- data.table(
+    cf = "GHI789",  # Person not in main data
+    event_name = "synthetic_test",
+    event_start = as.Date("2023-02-01"),  # Date object
+    event_end = as.Date("2023-02-10")
+  )
+
+  result_synthetic <- add_external_events(
+    vecshift_data = vecshift_result,
+    external_events = events_for_synthetic,
+    event_matching_strategy = "overlap",
+    create_synthetic_unemployment = TRUE,
+    synthetic_unemployment_duration = 365L
+  )
+
+  # Should create synthetic unemployment without Date/IDate errors
+  synthetic_periods <- result_synthetic[cf == "GHI789"]
+  expect_gt(nrow(synthetic_periods), 0)
+  expect_true(all(synthetic_periods$arco == 0))
+
+  # TEST 5: Nearest matching with Date inputs (tests distance calculation)
+  events_nearest <- data.table(
+    cf = "ABC123",
+    event_name = "nearest_test",
+    event_start = as.Date("2023-03-20"),  # During employment
+    event_end = as.Date("2023-03-22")
+  )
+
+  result_nearest <- add_external_events(
+    vecshift_data = vecshift_result,
+    external_events = events_nearest,
+    event_matching_strategy = "nearest"
+  )
+
+  # Should calculate distances without Date/IDate errors
+  matched_unemployment <- result_nearest[nearest_test_attribute == 1]
+  expect_gt(nrow(matched_unemployment), 0)
+  expect_true(is.numeric(matched_unemployment$nearest_test_distance))
+  expect_equal(matched_unemployment$nearest_test_match_quality[1], "nearest")
+})

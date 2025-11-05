@@ -355,14 +355,19 @@ add_external_events <- function(
     return(vecshift_data)
   }
   
-  # Get reference dates from main data and events data  
+  # Get reference dates from main data and events data
   max_date_in_main <- max(vecshift_data$fine, na.rm = TRUE)
-  
+
   # Also consider event dates to ensure synthetic unemployment covers them
-  max_event_date <- max(c(events_data[[date_columns["start"]]],
-                         if("end" %in% names(date_columns) && date_columns["end"] %in% names(events_data))
-                           events_data[[date_columns["end"]]] else events_data[[date_columns["start"]]]), na.rm = TRUE)
-  
+  # CRITICAL FIX: Convert event dates to IDate before max() to prevent Date/IDate mixing
+  event_start_dates <- as.IDate(events_data[[date_columns["start"]]])
+  event_end_dates <- if("end" %in% names(date_columns) && date_columns["end"] %in% names(events_data)) {
+    as.IDate(events_data[[date_columns["end"]]])
+  } else {
+    event_start_dates
+  }
+  max_event_date <- max(c(event_start_dates, event_end_dates), na.rm = TRUE)
+
   # Use the later of main data max or event max dates, plus some buffer
   reference_end_date <- max(max_date_in_main, max_event_date, na.rm = TRUE)
   
@@ -492,10 +497,17 @@ add_external_events <- function(
   } else {
     events_prep[, event_end := event_start]
   }
-  
+
+  # CRITICAL FIX: Convert all date columns to IDate to prevent Date/IDate mixing errors
+  # This ensures compatibility with vecshift_data which uses IDate for inizio/fine
+  # Without this, date arithmetic operations (e.g., event_start - fine) cause
+  # "storage mode of IDate is somehow no longer integer" errors
+  events_prep[, event_start := as.IDate(event_start)]
+  events_prep[, event_end := as.IDate(event_end)]
+
   # Ensure events have valid date ranges
   events_prep <- events_prep[event_start <= event_end]
-  
+
   return(events_prep)
 }
 

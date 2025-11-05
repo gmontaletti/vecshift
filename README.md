@@ -131,7 +131,7 @@ citation("vecshift")
   title = {vecshift: Temporal Analysis of Employment Data with Event-Based Processing},
   author = {Giampaolo Montaletti},
   year = {2025},
-  note = {R package version 1.0.3},
+  note = {R package version 1.0.4},
   url = {https://github.com/gmontaletti/vecshift},
   doi = {10.5281/zenodo.XXXXXXX}
 }
@@ -139,7 +139,7 @@ citation("vecshift")
 
 **APA format:**
 
-Montaletti, G. (2025). *vecshift: Temporal Analysis of Employment Data with Event-Based Processing* (Version 1.0.3) [Computer software]. https://github.com/gmontaletti/vecshift
+Montaletti, G. (2025). *vecshift: Temporal Analysis of Employment Data with Event-Based Processing* (Version 1.0.4) [Computer software]. https://github.com/gmontaletti/vecshift
 
 ## License
 
