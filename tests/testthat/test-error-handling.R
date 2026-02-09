@@ -3,7 +3,7 @@
 test_that("vecshift throws error for non-data.table input", {
   # Arrange
   invalid_data <- generate_invalid_data("not_datatable")
-  
+
   # Act & Assert
   expect_error(
     vecshift(invalid_data),
@@ -14,7 +14,7 @@ test_that("vecshift throws error for non-data.table input", {
 test_that("vecshift throws error for missing required columns", {
   # Arrange
   invalid_data <- generate_invalid_data("missing_columns")
-  
+
   # Act & Assert
   expect_error(
     vecshift(invalid_data),
@@ -27,15 +27,15 @@ test_that("vecshift throws error for wrong column types", {
   invalid_data <- data.table::data.table(
     id = 1L,
     cf = "PERSON001",
-    inizio = "not-a-date",  # Invalid type
+    inizio = "not-a-date", # Invalid type
     fine = as.Date("2023-12-31"),
     prior = 1L
   )
-  
+
   # Act & Assert
   expect_error(
     vecshift(invalid_data),
-    "Column 'INIZIO' must be numeric or Date type"
+    "Column 'inizio' must be numeric or Date type"
   )
 })
 
@@ -45,14 +45,14 @@ test_that("vecshift throws error for invalid FINE column type", {
     id = 1L,
     cf = "PERSON001",
     inizio = as.Date("2023-01-01"),
-    fine = "not-a-date",  # Invalid type
+    fine = "not-a-date", # Invalid type
     prior = 1L
   )
-  
+
   # Act & Assert
   expect_error(
     vecshift(invalid_data),
-    "Column 'FINE' must be numeric or Date type"
+    "Column 'fine' must be numeric or Date type"
   )
 })
 
@@ -63,9 +63,9 @@ test_that("vecshift throws error for non-numeric prior column", {
     cf = "PERSON001",
     inizio = as.Date("2023-01-01"),
     fine = as.Date("2023-12-31"),
-    prior = "not-numeric"  # Invalid type
+    prior = "not-numeric" # Invalid type
   )
-  
+
   # Act & Assert
   expect_error(
     vecshift(invalid_data),
@@ -76,11 +76,11 @@ test_that("vecshift throws error for non-numeric prior column", {
 test_that("vecshift warns about invalid date ranges", {
   # Arrange
   invalid_data <- generate_invalid_data("invalid_dates")
-  
+
   # Act & Assert
   expect_warning(
     vecshift(invalid_data),
-    "Some records have FINE < INIZIO"
+    "Some records have fine < inizio"
   )
 })
 
@@ -93,10 +93,10 @@ test_that("vecshift handles NA values appropriately", {
     fine = as.Date(c("2023-12-31", "2023-12-31")),
     prior = c(1L, NA_integer_)
   )
-  
+
   # Act - Should not throw error, but may produce unexpected results
   result <- expect_silent(vecshift(test_data))
-  
+
   # Assert - Check that function completes without error
   expect_s3_class(result, "data.table")
   # Note: The behavior with NA values may vary, but function should not crash
@@ -111,7 +111,7 @@ test_that("vecshift handles empty required column names", {
     wrong_end = as.Date("2023-12-31"),
     wrong_prior = 1L
   )
-  
+
   # Act & Assert
   expect_error(
     vecshift(invalid_data),
@@ -124,14 +124,14 @@ test_that("vecshift handles numeric dates correctly", {
   numeric_date_data <- data.table::data.table(
     id = 1L,
     cf = "PERSON001",
-    inizio = as.numeric(as.Date("2023-01-01")),  # Numeric date
-    fine = as.numeric(as.Date("2023-12-31")),    # Numeric date
+    inizio = as.numeric(as.Date("2023-01-01")), # Numeric date
+    fine = as.numeric(as.Date("2023-12-31")), # Numeric date
     prior = 1L
   )
-  
+
   # Act - Should not throw error as numeric dates are allowed
   result <- expect_silent(vecshift(numeric_date_data))
-  
+
   # Assert
   expect_s3_class(result, "data.table")
   expect_gt(nrow(result), 0)
@@ -139,21 +139,21 @@ test_that("vecshift handles numeric dates correctly", {
 
 test_that("vecshift input validation covers all required columns", {
   # Test that all required columns are actually checked
-  required_columns <- c("id", "cf", "INIZIO", "FINE", "prior")
-  
+  required_columns <- c("id", "cf", "inizio", "fine", "prior")
+
   for (col in required_columns) {
     # Arrange - Create data missing just this column
     complete_data <- data.table::data.table(
       id = 1L,
-      cf = "PERSON001", 
+      cf = "PERSON001",
       inizio = as.Date("2023-01-01"),
       fine = as.Date("2023-12-31"),
       prior = 1L
     )
-    
+
     # Remove the specific column
     complete_data[[col]] <- NULL
-    
+
     # Act & Assert
     expect_error(
       vecshift(complete_data),
@@ -169,16 +169,16 @@ test_that("vecshift handles mixed valid and invalid dates", {
     id = c(1L, 2L, 3L),
     cf = c("PERSON001", "PERSON001", "PERSON001"),
     inizio = as.Date(c("2023-01-01", "2023-06-01", "2023-12-01")),
-    fine = as.Date(c("2023-05-31", "2023-03-01", "2023-12-31")),  # Second one is invalid
+    fine = as.Date(c("2023-05-31", "2023-03-01", "2023-12-31")), # Second one is invalid
     prior = c(1L, 1L, 1L)
   )
-  
+
   # Act & Assert - Should warn but not error
   expect_warning(
     result <- vecshift(mixed_data),
-    "Some records have FINE < INIZIO"
+    "Some records have fine < inizio"
   )
-  
+
   # Function should still complete
   expect_s3_class(result, "data.table")
 })

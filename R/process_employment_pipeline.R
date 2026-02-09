@@ -687,7 +687,8 @@ check_pipeline_functions <- function() {
     "merge_original_columns",
     "merge_overlapping_values",
     "merge_consecutive_employment",
-    "merge_consecutive_employment_fast"
+    "merge_consecutive_employment_fast",
+    "validate_over_id_consistency"
   )
 
   availability <- sapply(functions_to_check, function(fn) {

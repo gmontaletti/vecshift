@@ -288,13 +288,14 @@ classify_employment_status <- function(
     arco == 0L & durata <= unemp_thresh, unemp_short,
     arco == 0L & durata > unemp_thresh, unemp_long,
 
-    # Single employment - vectorized lookup (no occ_ prefix)
+    # Single employment - vectorized lookup with occ_ prefix
     arco == 1L, {
       # Convert prior to character and lookup
       prior_char <- as.character(prior)
       match_idx <- match(prior_char, prior_names)
-      # Use matched value or original if not found
-      ifelse(is.na(match_idx), prior_char, prior_vals[match_idx])
+      # Use matched value or original if not found, prepend occ_
+      raw_label <- ifelse(is.na(match_idx), prior_char, prior_vals[match_idx])
+      paste0("occ_", raw_label)
     },
 
     # Default for overlaps (will be processed in stage 2)
@@ -310,11 +311,28 @@ classify_employment_status <- function(
   overlap_idx <- segments$arco > 1L
   if (any(overlap_idx)) {
     if ("over_id" %in% names(segments) && length(group_by) > 0) {
-      # Process overlaps using efficient grouping - no loops!
-      overlap_results <- segments[overlap_idx][,
+      # Compute overlap labels from segments in the same over_id group,
+      # excluding trailing arco==1 rows (tail after overlap ends) whose
+      # prior reflects the remaining contract, not the overlap composition
+      employment_idx <- segments$over_id > 0L
+      overlap_results <- segments[employment_idx][,
         {
-          # Get unique priors in chronological order for this group
-          unique_priors <- unique(prior[order(inizio)])
+          # Order by start date within over_id group
+          ord <- order(inizio)
+          ordered_arco <- arco[ord]
+          ordered_prior <- prior[ord]
+          n <- length(ordered_arco)
+
+          # Exclude trailing arco==1 rows (tail after overlap ends)
+          # Keep: all arco>1 rows and leading arco==1 rows before overlap
+          overlap_positions <- which(ordered_arco > 1L)
+          if (length(overlap_positions) > 0L) {
+            use_idx <- seq_len(max(overlap_positions))
+          } else {
+            use_idx <- seq_len(n)
+          }
+
+          unique_priors <- unique(ordered_prior[use_idx])
           # Fast vectorized label lookup
           prior_chars <- as.character(unique_priors)
           match_indices <- match(prior_chars, prior_names)
@@ -324,24 +342,21 @@ classify_employment_status <- function(
             prior_vals[match_indices]
           )
 
-          # NEW LOGIC: Two values separated by underscore, or "altri" for more than 2
+          # Two values separated by underscore, or "altri" for more than 2
           if (length(labels) == 1) {
-            # Single contract (shouldn't happen for arco > 1, but handle gracefully)
             sequence_label <- labels[1]
           } else if (length(labels) == 2) {
-            # Two overlapping contracts: join with underscore
             sequence_label <- paste(labels, collapse = "_")
           } else {
-            # More than 2 contracts: use "altri"
             sequence_label <- "altri"
           }
 
-          list(sequence_label = sequence_label)
+          list(sequence_label = paste0("over_", sequence_label))
         },
         by = c(group_by, "over_id")
       ]
 
-      # Fast merge back to original data
+      # Assign labels only to overlap rows (arco > 1)
       segments[
         overlap_idx,
         stato := overlap_results[
@@ -350,6 +365,17 @@ classify_employment_status <- function(
           x.sequence_label
         ]
       ]
+
+      # Fallback: label any remaining unlabeled overlap rows (e.g. over_id==0)
+      unlabeled_overlap <- overlap_idx &
+        (is.na(segments$stato) | segments$stato == "")
+      if (any(unlabeled_overlap)) {
+        ul_priors <- segments[unlabeled_overlap, prior]
+        ul_chars <- as.character(ul_priors)
+        ul_match <- match(ul_chars, prior_names)
+        ul_labels <- ifelse(is.na(ul_match), ul_chars, prior_vals[ul_match])
+        segments[unlabeled_overlap, stato := paste0("over_", ul_labels)]
+      }
     } else {
       # Simple overlap case - direct vectorized assignment
       overlap_priors <- segments[overlap_idx, prior]
@@ -360,8 +386,7 @@ classify_employment_status <- function(
         prior_chars,
         prior_vals[match_indices]
       )
-      # For simple case, just use the single label (no prefix)
-      segments[overlap_idx, stato := overlap_labels]
+      segments[overlap_idx, stato := paste0("over_", overlap_labels)]
     }
   }
 
