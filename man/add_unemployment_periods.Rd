@@ -14,35 +14,35 @@ add_unemployment_periods(
 )
 }
 \arguments{
-\item{vecshift_data}{A data.table output from vecshift() containing temporal 
-employment segments with required columns: cf, inizio, fine, arco, prior, 
+\item{vecshift_data}{A data.table output from vecshift() containing temporal
+employment segments with required columns: cf, inizio, fine, arco, prior,
 id, over_id, durata. Optional: stato column for employment status.}
 
 \item{min_date}{Date or numeric. The start date for unemployment heads (optional).
-Only used when add_head = TRUE. Individuals with first employment starting 
+Only used when add_head = TRUE. Individuals with first employment starting
 after this date will get unemployment heads added.}
 
-\item{max_date}{Date or numeric. The end date for unemployment tails (optional). 
-Only used when add_tail = TRUE. Individuals with last employment ending 
+\item{max_date}{Date or numeric. The end date for unemployment tails (optional).
+Only used when add_tail = TRUE. Individuals with last employment ending
 before this date will get unemployment tails added.}
 
-\item{min_duration}{Integer. Minimum duration in days for unemployment 
+\item{min_duration}{Integer. Minimum duration in days for unemployment
 periods to be added. Shorter periods are excluded (default: 1).}
 
-\item{add_head}{Logical. Whether to add unemployment periods at the beginning 
+\item{add_head}{Logical. Whether to add unemployment periods at the beginning
 of employment histories (default: FALSE). Requires min_date to be specified.}
 
-\item{add_tail}{Logical. Whether to add unemployment periods at the end 
+\item{add_tail}{Logical. Whether to add unemployment periods at the end
 of employment histories (default: TRUE). Requires max_date to be specified.}
 }
 \value{
-A data.table with the same structure as input, extended with 
-  unemployment tail segments where applicable. Maintains original ordering 
+A data.table with the same structure as input, extended with
+  unemployment tail segments where applicable. Maintains original ordering
   by cf and temporal sequence.
 }
 \description{
-Extends vecshift output by adding unemployment periods at the beginning and/or 
-end of employment histories. This creates complete temporal coverage for analysis 
+Extends vecshift output by adding unemployment periods at the beginning and/or
+end of employment histories. This creates complete temporal coverage for analysis
 requiring uniform observation periods by:
 \itemize{
   \item{\strong{Head}: Adding unemployment from min_date to first employment start}
@@ -76,7 +76,7 @@ All unemployment periods follow vecshift formatting:
   \item{\code{stato = "disoccupato"}}: Employment status (if present in input)
 }
 
-The function preserves the temporal invariant that elapsed time equals sum 
+The function preserves the temporal invariant that elapsed time equals sum
 of durations by person, ensuring consistency with vecshift's core logic.
 }
 \note{
@@ -107,7 +107,7 @@ result <- vecshift(dt)
 
 # Add unemployment tails only (backward compatible)
 extended_result <- add_unemployment_periods(
-  result, 
+  result,
   max_date = as.Date("2024-12-31")
 )
 

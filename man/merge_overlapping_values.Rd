@@ -7,16 +7,16 @@
 merge_overlapping_values(segments_with_columns, columns)
 }
 \arguments{
-\item{segments_with_columns}{A data.table containing the output from 
+\item{segments_with_columns}{A data.table containing the output from
 merge_original_columns(), which includes temporal segments with merged columns.
 Must contain 'cf', 'arco' columns and be ordered by person and time.}
 
-\item{columns}{Character vector specifying which columns to process for 
+\item{columns}{Character vector specifying which columns to process for
 overlapping periods. These columns must exist in segments_with_columns.}
 }
 \value{
 A data.table with the same structure as the input, but with overlapping
-  period values merged according to data type rules. All other columns and 
+  period values merged according to data type rules. All other columns and
   rows remain unchanged.
 }
 \description{
@@ -29,15 +29,15 @@ the merging logic for overlapping employment scenarios.
 When employment periods overlap (arco > 1), this function combines values from
 the previous row with the current row based on data type:
 \itemize{
-  \item{\strong{Character/Factor columns}}: Values are combined with "->" separator 
+  \item{\strong{Character/Factor columns}}: Values are combined with "->" separator
         showing transitions (e.g., "CompanyA->CompanyB")
   \item{\strong{Numeric columns}}: Values are summed (e.g., overlapping salaries)
-  \item{\strong{Multiple overlaps (arco > 2)}}: Chain all values in sequence for 
+  \item{\strong{Multiple overlaps (arco > 2)}}: Chain all values in sequence for
         characters, continue summing for numerics
   \item{\strong{Factors}}: Converted to character before processing
 }
 
-The function processes rows sequentially within each person (cf), looking at the 
+The function processes rows sequentially within each person (cf), looking at the
 previous row's value when arco > 1 and merging accordingly. For arco = 1 or 0,
 values remain unchanged.
 }

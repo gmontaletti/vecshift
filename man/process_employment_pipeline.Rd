@@ -23,7 +23,7 @@ process_employment_pipeline(
 \item{original_data}{A data.table containing employment contract records with required columns:
 \itemize{
   \item{\code{id}}: Contract identifier
-  \item{\code{cf}}: Person identifier  
+  \item{\code{cf}}: Person identifier
   \item{\code{inizio}}: Contract start date
   \item{\code{fine}}: Contract end date
   \item{\code{prior}}: Employment type indicator
@@ -71,7 +71,7 @@ A data.table containing the processed employment segments. The exact structure
     \item \strong{With merged columns}: Additional columns from original_data
     \item \strong{With period consolidation}: collapsed, n_periods, and aggregated values
   }
-  
+
   The result also includes attributes:
   \itemize{
     \item \strong{pipeline_steps}: Logical vector of applied steps

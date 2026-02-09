@@ -19,12 +19,12 @@ add_external_events(
 )
 }
 \arguments{
-\item{vecshift_data}{A data.table output from vecshift() containing temporal 
-employment segments with required columns: cf, inizio, fine, arco, prior, 
+\item{vecshift_data}{A data.table output from vecshift() containing temporal
+employment segments with required columns: cf, inizio, fine, arco, prior,
 id, over_id, durata. Optional: stato column for employment status.}
 
-\item{external_events}{A data.table containing external events with person 
-identifiers and event information. Must contain the person_id_column and 
+\item{external_events}{A data.table containing external events with person
+identifiers and event information. Must contain the person_id_column and
 event_name_column, plus at least one date column specified in date_columns.}
 
 \item{event_matching_strategy}{Character. Matching strategy to use:
@@ -33,28 +33,28 @@ event_name_column, plus at least one date column specified in date_columns.}
   \item{\code{"nearest"}}: Find nearest unemployment period when no overlap exists
 }}
 
-\item{create_synthetic_unemployment}{Logical. Whether to create synthetic 
-unemployment periods for persons in external_events but not in vecshift_data 
+\item{create_synthetic_unemployment}{Logical. Whether to create synthetic
+unemployment periods for persons in external_events but not in vecshift_data
 (default: FALSE).}
 
-\item{synthetic_unemployment_duration}{Integer. Maximum duration in days for 
+\item{synthetic_unemployment_duration}{Integer. Maximum duration in days for
 synthetic unemployment periods (default: 730L for 2 years).}
 
-\item{date_columns}{Named character vector specifying date column names in 
-external_events. Names should be "start" and optionally "end". 
+\item{date_columns}{Named character vector specifying date column names in
+external_events. Names should be "start" and optionally "end".
 Default: c(start = "event_start", end = "event_end").}
 
-\item{event_name_column}{Character. Name of column in external_events containing 
+\item{event_name_column}{Character. Name of column in external_events containing
 event names/types (default: "event_name").}
 
-\item{person_id_column}{Character. Name of column in external_events containing 
+\item{person_id_column}{Character. Name of column in external_events containing
 person identifiers that match the 'cf' column in vecshift_data (default: "cf").}
 
-\item{memory_safe}{Logical. Enable memory-safe mode for large datasets. 
+\item{memory_safe}{Logical. Enable memory-safe mode for large datasets.
 When TRUE, processes data in chunks to reduce peak memory usage at the cost
 of some performance (default: FALSE).}
 
-\item{chunk_size}{Integer. Number of persons to process per chunk when 
+\item{chunk_size}{Integer. Number of persons to process per chunk when
 memory_safe = TRUE (default: 10000L).}
 
 \item{progress}{Logical. Show progress messages for long-running operations
@@ -72,9 +72,9 @@ Maintains original ordering by cf and temporal sequence.
 }
 \description{
 Adds external event attributes to unemployment periods in vecshift output by matching
-events with unemployment segments (arco == 0). Events are matched using either 
-temporal overlap or nearest neighbor strategies. The function can also create 
-synthetic unemployment periods for persons present in external events but not 
+events with unemployment segments (arco == 0). Events are matched using either
+temporal overlap or nearest neighbor strategies. The function can also create
+synthetic unemployment periods for persons present in external events but not
 in the main employment data.
 }
 \details{
@@ -159,7 +159,7 @@ result_with_events <- add_external_events(
 )
 
 # Check the new attribute columns
-print(result_with_events[, .(cf, arco, training_program_attribute, 
+print(result_with_events[, .(cf, arco, training_program_attribute,
                              training_program_distance, training_program_match_quality)])
 
 # Add events with synthetic unemployment for missing persons

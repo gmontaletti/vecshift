@@ -12,7 +12,7 @@ merge_consecutive_employment_fast_with_type(dt, consolidation_type = "both")
 \item{consolidation_type}{Character string specifying consolidation approach:
 \itemize{
   \item{"both"}: Consolidate both overlapping (same over_id > 0) and consecutive periods
-  \item{"overlapping"}: Only consolidate periods with same over_id > 0  
+  \item{"overlapping"}: Only consolidate periods with same over_id > 0
   \item{"consecutive"}: Only consolidate consecutive periods (traditional approach)
   \item{"none"}: No consolidation, just add collapsed column and return
 }}

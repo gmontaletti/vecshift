@@ -11,7 +11,7 @@ merge_consecutive_employment(dt, consolidation_type = "both")
 \itemize{
   \item{\code{cf}}: Person identifier
   \item{\code{inizio}}: Segment start date
-  \item{\code{fine}}: Segment end date  
+  \item{\code{fine}}: Segment end date
   \item{\code{arco}}: Number of overlapping contracts (0 = unemployment)
   \item{\code{prior}}: Employment type (numeric)
   \item{\code{over_id}}: Overlap identifier (0 = unemployment, >0 = overlapping periods)
@@ -20,11 +20,11 @@ merge_consecutive_employment(dt, consolidation_type = "both")
 
 \item{consolidation_type}{Character string specifying consolidation approach:
 \itemize{
-  \item{\code{"both"} (DEFAULT)}: First consolidate overlapping periods (same over_id > 0), 
+  \item{\code{"both"} (DEFAULT)}: First consolidate overlapping periods (same over_id > 0),
         then merge consecutive periods. Provides complete employment history consolidation.
-  \item{\code{"overlapping"}}: Only consolidate segments with same over_id > 0. 
+  \item{\code{"overlapping"}}: Only consolidate segments with same over_id > 0.
         Merges simultaneous/overlapping contracts into single periods.
-  \item{\code{"consecutive"}}: Only merge periods that are contiguous in time, 
+  \item{\code{"consecutive"}}: Only merge periods that are contiguous in time,
         regardless of over_id. Traditional consecutive period merging.
   \item{\code{"none"}}: No consolidation. Returns original segments unchanged.
 }}
@@ -55,7 +55,7 @@ library(data.table)
 # Create sample output from vecshift with over_id
 dt <- data.table(
   cf = c("A", "A", "A", "A", "B", "B"),
-  inizio = as.Date(c("2023-01-01", "2023-02-01", "2023-02-15", "2023-04-01", 
+  inizio = as.Date(c("2023-01-01", "2023-02-01", "2023-02-15", "2023-04-01",
                      "2023-01-01", "2023-03-01")),
   fine = as.Date(c("2023-01-31", "2023-02-14", "2023-03-31", "2023-04-30",
                    "2023-02-28", "2023-03-31")),

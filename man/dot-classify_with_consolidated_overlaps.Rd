@@ -17,9 +17,9 @@
 Data.table with consolidated employment status classifications
 }
 \description{
-Internal function that provides consolidated classification of overlapping 
+Internal function that provides consolidated classification of overlapping
 employment periods using over_id grouping. This creates single status
-labels for entire overlapping employment periods rather than 
+labels for entire overlapping employment periods rather than
 segment-by-segment classification.
 }
 \keyword{internal}

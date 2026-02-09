@@ -51,7 +51,7 @@
 #' \code{\link{process_employment_pipeline}} for a complete processing pipeline
 #'
 #' @export
-#' @importFrom data.table data.table setorder rbindlist fcase
+#' @importFrom data.table data.table setorder rbindlist fcase shift chmatch
 #'
 #' @examples
 #' \dontrun{
@@ -78,19 +78,21 @@
 #' print(result_pipeline)
 #' }
 vecshift <- function(dt) {
-  # Load required package
-  require("data.table")
-
   # Input validation
   if (!inherits(dt, "data.table")) {
-    stop("Input 'dt' must be a data.table object. Use as.data.table() to convert.")
+    stop(
+      "Input 'dt' must be a data.table object. Use as.data.table() to convert."
+    )
   }
 
   # Check for required columns
   required_cols <- c("id", "cf", "inizio", "fine", "prior")
   missing_cols <- setdiff(required_cols, names(dt))
   if (length(missing_cols) > 0) {
-    stop(paste("Missing required columns:", paste(missing_cols, collapse = ", ")))
+    stop(paste(
+      "Missing required columns:",
+      paste(missing_cols, collapse = ", ")
+    ))
   }
 
   # Validate column types
@@ -106,46 +108,79 @@ vecshift <- function(dt) {
 
   # Check for logical consistency
   if (any(dt$fine < dt$inizio, na.rm = TRUE)) {
-    warning("Some records have fine < inizio. These may produce unexpected results.")
+    warning(
+      "Some records have fine < inizio. These may produce unexpected results."
+    )
   }
 
-  # Main processing logic
-  result <- setorder(
-    rbindlist(
-      list(
-        dt[, .(id, cf, cdata = inizio, value = 1
-               , prior
-        )]
-        , dt[, .(id, cf, cdata = fine, value = -1
-                 , prior = 0
-        )]
-      )
+  # 1. Pre-compute integer cf mapping for fast radix sort -----
+  cf_levels <- unique(dt$cf)
+
+  # 2. Create start/end events -----
+  result <- rbindlist(list(
+    dt[, .(
+      id,
+      cf,
+      cf_int = chmatch(cf, cf_levels),
+      cdata = inizio,
+      value = 1,
+      prior
+    )],
+    dt[, .(
+      id,
+      cf,
+      cf_int = chmatch(cf, cf_levels),
+      cdata = fine,
+      value = -1,
+      prior = 0
+    )]
+  ))
+
+  # 3. Sort on integer key (radix O(n) instead of string O(n*k)) -----
+  setorder(result, cf_int, cdata)
+  result[, cf_int := NULL]
+
+  # 4. Cumulative overlap count and prior normalization -----
+  result[, arco := cumsum(value)]
+  result[,
+    prior := fcase(
+      prior <= 0 , 0 ,
+      default = 1
     )
-    , cf, cdata)[
-      , arco := cumsum(value)][
-        , prior := fcase(prior <= 0, 0, default = 1)
-      ][
-        , .(
-          cf = cf[1:(length(cf)-1)]
-          , acf = cf[2:(length(cf))]
-          , inizio = cdata[1:(length(cf)-1)]
-          , fine = cdata[2:(length(cf))]
-          , arco = arco[1:(length(cf)-1)]
-          , prior = prior[1:(length(cf)-1)]
-          , id = id[1:(length(cf)-1)]
-        )][, over_id := (arco > 0)][
-          shift(over_id, type = "lag") == TRUE, over_id := FALSE ][
-            , first_in_over := fcase(over_id == TRUE | arco == 0, 0L, default = -1L)][
-              , over_id := cumsum(over_id)][arco == 0, over_id := 0][
-                cf == acf][
-                  , acf := NULL][
-                    arco == 0, id := 0][
-                      arco == 0, inizio := inizio + 1][
-                        arco == 0, fine := fine - 1][
-                          , durata := 1 + fine-inizio + first_in_over][durata > 0][
-                            , first_in_over := NULL]
+  ]
+
+  # 5. Create segments using shift (avoids 7-column copy) -----
+  result[, `:=`(
+    acf = shift(cf, 1L, type = "lead"),
+    fine = shift(cdata, 1L, type = "lead")
+  )]
+  result <- result[!is.na(fine)]
+  result[, inizio := cdata]
+  result[, c("cdata", "value") := NULL]
+
+  # 6. Over_id computation -----
+  result[, over_id := (arco > 0)]
+  result[shift(over_id, type = "lag") == TRUE, over_id := FALSE]
+  result[,
+    first_in_over := fcase(
+      over_id == TRUE | arco == 0 , 0L ,
+      default = -1L
+    )
+  ]
+  result[, over_id := cumsum(over_id)]
+  result[arco == 0, over_id := 0]
+
+  # 7. Cross-person boundary filter -----
+  result <- result[cf == acf]
+  result[, acf := NULL]
+
+  # 8. Unemployment adjustments (consolidated) -----
+  result[arco == 0, `:=`(id = 0L, inizio = inizio + 1L, fine = fine - 1L)]
+
+  # 9. Duration calculation and zero-duration filter -----
+  result[, durata := 1 + fine - inizio + first_in_over]
+  result <- result[durata > 0]
+  result[, first_in_over := NULL]
 
   return(result)
 }
-
-
