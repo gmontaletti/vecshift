@@ -1,0 +1,457 @@
+# Employment Status Classification in vecshift
+
+``` r
+library(vecshift)
+library(data.table)
+```
+
+## Introduction
+
+The vecshift package implements a modular approach to employment status
+classification, separating the core temporal transformation logic from
+the business rules that determine employment status labels. This
+vignette explains how the status classification system works and how to
+customize it for your specific needs.
+
+## Architecture Overview
+
+The vecshift package follows a clear separation of concerns:
+
+1.  **Core Transformation**
+    ([`vecshift()`](https://gmontaletti.github.io/vecshift/reference/vecshift.md)):
+    Handles the event-based temporal logic
+2.  **Status Classification**
+    ([`classify_employment_status()`](https://gmontaletti.github.io/vecshift/reference/classify_employment_status.md)):
+    Applies employment status labels
+3.  **Custom Rules**
+    ([`create_custom_status_rules()`](https://gmontaletti.github.io/vecshift/reference/create_custom_status_rules.md)):
+    Defines business-specific classifications
+
+This modular design ensures: - Core performance remains optimized
+(~1.46M records/second) - Status rules can be customized without
+modifying core logic - Different business contexts can use different
+classification schemes
+
+## Default Status Classification
+
+### Understanding Employment States
+
+The default classification recognizes several employment states based on
+the `arco` (overlap count) and `prior` (employment type) values:
+
+``` r
+# View default classification rules
+default_rules <- get_default_status_rules()
+
+# Print the structure of default rules
+cat("Default Employment Status Categories:\n\n")
+#> Default Employment Status Categories:
+
+cat("1. Unemployment (arco = 0):\n")
+#> 1. Unemployment (arco = 0):
+cat("   - disoccupato: No active contracts\n\n")
+#>    - disoccupato: No active contracts
+
+cat("2. Single Employment (arco = 1):\n")
+#> 2. Single Employment (arco = 1):
+cat("   - occ_ft: Full-time employment (prior = 1)\n")
+#>    - occ_ft: Full-time employment (prior = 1)
+cat("   - occ_pt: Part-time employment (prior = 0)\n\n")
+#>    - occ_pt: Part-time employment (prior = 0)
+
+cat("3. Overlapping Employment (arco > 1):\n")
+#> 3. Overlapping Employment (arco > 1):
+cat("   - over_pt_ft: Transition from part-time to full-time\n")
+#>    - over_pt_ft: Transition from part-time to full-time
+cat("   - over_ft_pt: Transition from full-time to part-time\n")
+#>    - over_ft_pt: Transition from full-time to part-time
+cat("   - over_pt_pt: Multiple part-time employments\n")
+#>    - over_pt_pt: Multiple part-time employments
+cat("   - over_ft_ft: Multiple full-time employments\n")
+#>    - over_ft_ft: Multiple full-time employments
+```
+
+### Example with Default Classification
+
+``` r
+# Create sample employment data with various scenarios
+sample_data <- data.table(
+  id = 1:5,
+  cf = c("P001", "P001", "P001", "P002", "P002"),
+  inizio = as.Date(c("2023-01-01", "2023-03-01", "2023-07-01",
+                      "2023-02-01", "2023-05-01")),
+  fine = as.Date(c("2023-02-28", "2023-06-30", "2023-12-31",
+                    "2023-04-30", "2023-08-31")),
+  prior = c(1, 0, 1, 1, 0)  # Mix of full-time and part-time
+)
+
+print("Input employment data:")
+#> [1] "Input employment data:"
+print(sample_data)
+#>       id     cf     inizio       fine prior
+#>    <int> <char>     <Date>     <Date> <num>
+#> 1:     1   P001 2023-01-01 2023-02-28     1
+#> 2:     2   P001 2023-03-01 2023-06-30     0
+#> 3:     3   P001 2023-07-01 2023-12-31     1
+#> 4:     4   P002 2023-02-01 2023-04-30     1
+#> 5:     5   P002 2023-05-01 2023-08-31     0
+
+# Apply vecshift transformation
+vecshift_result <- vecshift(sample_data)
+
+# Apply status classification as separate step
+result <- classify_employment_status(vecshift_result)
+
+print("\nProcessed segments with status classification:")
+#> [1] "\nProcessed segments with status classification:"
+print(result[, .(cf, inizio, fine, arco, prior, stato, durata)])
+#>        cf     inizio       fine  arco prior  stato     durata
+#>    <char>     <Date>     <Date> <num> <num> <char> <difftime>
+#> 1:   P001 2023-01-01 2023-02-28     1     1 occ_ft    59 days
+#> 2:   P001 2023-03-01 2023-06-30     1     0 occ_pt   122 days
+#> 3:   P001 2023-07-01 2023-12-31     1     1 occ_ft   184 days
+#> 4:   P002 2023-02-01 2023-04-30     1     1 occ_ft    89 days
+#> 5:   P002 2023-05-01 2023-08-31     1     0 occ_pt   123 days
+```
+
+## Customizing Status Classification
+
+### Creating Custom Rules
+
+You can create custom classification rules for different business
+contexts:
+
+``` r
+# Example 1: Custom rules for a specific industry
+industry_rules <- create_custom_status_rules(
+  unemployment_threshold = 15,  # Different threshold for unemployment
+  custom_labels = list(
+    unemployed_short = "temporary_layoff",
+    unemployed_long = "permanent_layoff",
+    full_time = "regular_employee",
+    part_time = "contractor"
+  )
+)
+
+# Apply custom rules
+vecshift_result <- vecshift(sample_data)
+result_custom <- classify_employment_status(vecshift_result, rules = industry_rules)
+
+print("Results with custom industry rules:")
+print(result_custom[, .(cf, stato, durata)])
+```
+
+### Advanced Custom Rules
+
+For more complex scenarios, you can create sophisticated rule sets:
+
+``` r
+# Create rules with intensity and transition tracking
+advanced_rules <- create_custom_status_rules(
+  unemployment_threshold = 30,
+  custom_labels = list(
+    unemployed_short = "job_transition",
+    unemployed_long = "career_break",
+    full_time = "permanent_staff",
+    part_time = "flexible_work",
+    overlap_pt_ft = "upgrading_hours",
+    overlap_ft_pt = "reducing_hours",
+    overlap_pt_pt = "multiple_gigs",
+    overlap_ft_ft = "dual_employment"
+  ),
+  include_intensity = TRUE,
+  include_transitions = TRUE
+)
+
+# Process with advanced rules
+vecshift_result <- vecshift(sample_data)
+result_advanced <- classify_employment_status(vecshift_result, rules = advanced_rules)
+
+print("Results with advanced classification:")
+unique_states <- unique(result_advanced$stato)
+cat("Unique employment states found:", paste(unique_states, collapse = ", "), "\n")
+```
+
+## Processing Without Status Classification
+
+Sometimes you may want to work with raw temporal segments without status
+labels:
+
+``` r
+# Process without status classification
+raw_segments <- vecshift(sample_data)
+
+print("Raw segments without status labels:")
+print(raw_segments[, .(cf, inizio, fine, arco, prior, durata)])
+
+# You can apply classification later if needed
+classified_later <- classify_employment_status(raw_segments)
+
+print("\nStatus added separately:")
+print(classified_later[, .(cf, inizio, fine, stato)])
+```
+
+## Analyzing Status Patterns
+
+The package includes tools for analyzing employment status patterns:
+
+``` r
+# Generate more complex data for pattern analysis
+complex_data <- data.table(
+  id = 1:10,
+  cf = rep(c("P001", "P002", "P003"), c(4, 3, 3)),
+  inizio = as.Date(c("2023-01-01", "2023-04-01", "2023-07-01", "2023-10-01",
+                      "2023-02-01", "2023-06-01", "2023-09-01",
+                      "2023-03-01", "2023-05-01", "2023-11-01")),
+  fine = as.Date(c("2023-03-31", "2023-06-30", "2023-09-30", "2023-12-31",
+                    "2023-05-31", "2023-08-31", "2023-12-31",
+                    "2023-04-30", "2023-10-31", "2023-12-31")),
+  prior = c(1, 0, 1, 0, 1, 1, 0, 0, 1, 1)
+)
+
+# Process and analyze patterns
+vecshift_result <- vecshift(complex_data)
+result_complex <- classify_employment_status(vecshift_result)
+patterns <- analyze_status_patterns(result_complex, include_transitions = TRUE)
+
+# Display pattern analysis
+print(patterns)
+#> Employment Status Pattern Analysis
+#> =================================
+#> 
+#> Status Distribution:
+#> -------------------
+#> occ_ft         :      6 (60.0%)
+#> occ_pt         :      4 (40.0%)
+#> 
+#> Average Duration by Status:
+#> ---------------------------
+#> occ_ft         :  106.5 days (6 segments)
+#> occ_pt         :   91.5 days (4 segments)
+#> 
+#> Employment Quality Indicators:
+#> -----------------------------
+#> Continuous Employment Rate: 100.0%
+#> Average Segments per Person: 3.3
+#> Overlap Prevalence: 0.0%
+#> Overall Employment Concentration: 100.0%
+#> 
+#> Most Common Transitions:
+#> -----------------------
+#> occ_ft->occ_pt           : 3
+#> occ_ft->occ_ft           : 2
+#> occ_pt->occ_ft           : 2
+```
+
+## Validating Status Classifications
+
+Ensure the integrity of your status classifications:
+
+``` r
+# Validate status classifications
+validation <- validate_status_classifications(result_complex)
+
+print(validation)
+#> Employment Status Validation Results
+#> ===================================
+#> 
+#> [WARNING] Status classification issues detected
+#> Validation Rate: 100.0%
+#> 
+#> Issue Summary:
+#> -------------
+#> Missing Labels: 0
+#> Impossible Combinations: 0
+#> 
+#> Missing Critical Status Labels:
+#> unemployment
+
+# Check for specific issues
+if (!validation$is_valid) {
+  cat("\nValidation issues detected:\n")
+
+  if (validation$missing_labels > 0) {
+    cat("- Missing labels:", validation$missing_labels, "\n")
+  }
+
+  if (validation$total_impossible > 0) {
+    cat("- Impossible combinations:", validation$total_impossible, "\n")
+
+    # Show details of impossible combinations
+    for (issue in names(validation$impossible_combinations)) {
+      count <- validation$impossible_combinations[[issue]]
+      if (count > 0) {
+        cat("  *", gsub("_", " ", issue), ":", count, "\n")
+      }
+    }
+  }
+}
+#> 
+#> Validation issues detected:
+```
+
+## Integration with Other Modules
+
+### Working with Data Quality Module
+
+``` r
+# Check data quality before processing
+quality_assessment <- assess_data_quality(complex_data)
+
+# Check if data has quality issues (using production readiness as indicator)
+if (!is.null(quality_assessment$quality_score$is_production_ready) &&
+    !quality_assessment$quality_score$is_production_ready) {
+  cat("Data quality issues detected. Cleaning data...\n")
+
+  # Clean data if needed
+  clean_data <- clean_employment_data(
+    complex_data,
+    remove_duplicates = TRUE,
+    remove_invalid_dates = TRUE
+  )
+
+  # Process cleaned data
+  result_clean <- vecshift(clean_data)
+} else {
+  cat("Data quality check passed.\n")
+  result_clean <- vecshift(complex_data)
+}
+```
+
+### Using the Integrated System
+
+For comprehensive processing with all modules:
+
+``` r
+# Use the integrated system for full processing pipeline
+integrated_result <- process_employment_pipeline(
+  complex_data,
+  classify_status = TRUE,
+  show_progress = FALSE
+)
+
+# Access different components of the result
+cat("Processing summary:\n")
+cat("- Output rows:", nrow(integrated_result), "\n")
+cat("- Status labels applied:", "stato" %in% names(integrated_result), "\n")
+```
+
+## Performance Considerations
+
+### Choosing the Right Approach
+
+Different scenarios call for different approaches:
+
+1.  **High-volume production**: Use
+    [`vecshift()`](https://gmontaletti.github.io/vecshift/reference/vecshift.md)
+    with default settings
+2.  **Custom business rules**: Use
+    [`vecshift()`](https://gmontaletti.github.io/vecshift/reference/vecshift.md)
+    with custom status rules
+3.  **Development/debugging**: Use
+    [`process_employment_pipeline()`](https://gmontaletti.github.io/vecshift/reference/process_employment_pipeline.md)
+    with verbose output
+4.  **Raw processing**: Use
+    [`vecshift()`](https://gmontaletti.github.io/vecshift/reference/vecshift.md)
+    directly for maximum speed (apply status classification separately
+    if needed)
+
+``` r
+# Example: Benchmarking different approaches
+library(microbenchmark)
+
+# Generate large dataset
+large_data <- data.table(
+  id = 1:10000,
+  cf = rep(paste0("P", 1:1000), each = 10),
+  inizio = as.Date("2020-01-01") + sample(0:1000, 10000, replace = TRUE),
+  fine = as.Date("2020-01-01") + sample(100:1100, 10000, replace = TRUE),
+  prior = sample(0:1, 10000, replace = TRUE)
+)
+
+# Benchmark different approaches
+benchmark_results <- microbenchmark(
+  vecshift_only = vecshift(large_data),
+  with_status = {vecshift_result <- vecshift(large_data); classify_employment_status(vecshift_result)},
+  custom_rules = {vecshift_result <- vecshift(large_data); classify_employment_status(vecshift_result, rules = industry_rules)},
+  times = 10
+)
+
+print(benchmark_results)
+```
+
+## Best Practices
+
+### 1. Choose Appropriate Classification Rules
+
+Select rules that match your business context: - Financial sector: May
+need detailed overlap tracking - Government statistics: May use
+standardized unemployment thresholds - HR analytics: May focus on
+employment transitions
+
+### 2. Validate Classifications
+
+Always validate your classifications, especially with custom rules:
+
+``` r
+# Good practice: Always validate after custom classification
+vecshift_result <- vecshift(sample_data)
+custom_result <- classify_employment_status(vecshift_result, rules = industry_rules)
+validation <- validate_status_classifications(custom_result, rules = industry_rules)
+
+if (validation$is_valid) {
+  cat("Classification validated successfully\n")
+} else {
+  cat("Warning: Classification validation failed\n")
+}
+```
+
+### 3. Document Custom Rules
+
+When creating custom rules, document their business logic:
+
+``` r
+# Example: Well-documented custom rules
+seasonal_employment_rules <- create_custom_status_rules(
+  unemployment_threshold = 60,  # Seasonal workers may have longer gaps
+  custom_labels = list(
+    unemployed_short = "off_season",      # Normal seasonal gap
+    unemployed_long = "extended_break",   # Longer than typical seasonal gap
+    full_time = "peak_season_ft",         # Peak season full-time
+    part_time = "shoulder_season_pt",     # Shoulder season part-time
+    overlap_pt_pt = "multi_seasonal",     # Multiple seasonal jobs
+    overlap_ft_ft = "peak_double_shift"   # Peak season multiple full-time
+  )
+)
+
+# Document the rules
+cat("Seasonal Employment Classification Rules:\n")
+cat("- Off-season gaps up to 60 days are normal\n")
+cat("- Multiple overlapping jobs common during peak season\n")
+cat("- Part-time work typical during shoulder seasons\n")
+```
+
+## Summary
+
+The vecshift status classification system provides:
+
+1.  **Separation of Concerns**: Core logic separate from status rules
+2.  **Flexibility**: Easy customization for different contexts
+3.  **Performance**: No impact on core processing speed
+4.  **Validation**: Built-in tools to ensure classification integrity
+5.  **Analytics**: Pattern analysis and quality assessment tools
+
+Key functions for status classification: -
+[`vecshift()`](https://gmontaletti.github.io/vecshift/reference/vecshift.md):
+Main function with optional classification -
+[`classify_employment_status()`](https://gmontaletti.github.io/vecshift/reference/classify_employment_status.md):
+Apply status labels to segments -
+[`create_custom_status_rules()`](https://gmontaletti.github.io/vecshift/reference/create_custom_status_rules.md):
+Define custom classification schemes -
+[`analyze_status_patterns()`](https://gmontaletti.github.io/vecshift/reference/analyze_status_patterns.md):
+Analyze employment patterns -
+[`validate_status_classifications()`](https://gmontaletti.github.io/vecshift/reference/validate_status_classifications.md):
+Ensure classification integrity
+
+This modular approach ensures that vecshift can adapt to various
+business requirements while maintaining its high-performance core.

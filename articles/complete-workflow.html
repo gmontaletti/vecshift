@@ -129,7 +129,7 @@ datasets.</p>
 <div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># 1. Create realistic employment data with various patterns -----</span></span>
 <span><span class="co"># This dataset represents 10 persons with 60 employment records over 2023</span></span>
-<span><span class="va">employment_raw</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdatatable.gitlab.io/data.table/reference/data.table.html" class="external-link">data.table</a></span><span class="op">(</span></span>
+<span><span class="va">employment_raw</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/pkg/data.table/man/data.table.html" class="external-link">data.table</a></span><span class="op">(</span></span>
 <span>  id <span class="op">=</span> <span class="fl">1</span><span class="op">:</span><span class="fl">60</span>,</span>
 <span>  cf <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span></span>
 <span>    <span class="co"># Person 001: Stable employment with one gap</span></span>
@@ -225,7 +225,7 @@ datasets.</p>
 <span><span class="co">#&gt; Created employment dataset with:</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"- Total records:"</span>, <span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">nrow</a></span><span class="op">(</span><span class="va">employment_raw</span><span class="op">)</span>, <span class="st">"\n"</span><span class="op">)</span></span>
 <span><span class="co">#&gt; - Total records: 60</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"- Unique persons:"</span>, <span class="fu"><a href="https://rdatatable.gitlab.io/data.table/reference/duplicated.html" class="external-link">uniqueN</a></span><span class="op">(</span><span class="va">employment_raw</span><span class="op">$</span><span class="va">cf</span><span class="op">)</span>, <span class="st">"\n"</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"- Unique persons:"</span>, <span class="fu"><a href="https://rdrr.io/pkg/data.table/man/duplicated.html" class="external-link">uniqueN</a></span><span class="op">(</span><span class="va">employment_raw</span><span class="op">$</span><span class="va">cf</span><span class="op">)</span>, <span class="st">"\n"</span><span class="op">)</span></span>
 <span><span class="co">#&gt; - Unique persons: 10</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"- Date range:"</span>, <span class="fu"><a href="https://rdrr.io/r/base/format.html" class="external-link">format</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/Extremes.html" class="external-link">min</a></span><span class="op">(</span><span class="va">employment_raw</span><span class="op">$</span><span class="va">inizio</span><span class="op">)</span>, <span class="st">"%Y-%m-%d"</span><span class="op">)</span>,</span>
 <span>    <span class="st">"to"</span>, <span class="fu"><a href="https://rdrr.io/r/base/format.html" class="external-link">format</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/Extremes.html" class="external-link">max</a></span><span class="op">(</span><span class="va">employment_raw</span><span class="op">$</span><span class="va">fine</span><span class="op">)</span>, <span class="st">"%Y-%m-%d"</span><span class="op">)</span>, <span class="st">"\n"</span><span class="op">)</span></span>
@@ -360,7 +360,7 @@ function to map them to vecshift’s expected format:</p>
 <span><span class="co"># This example shows how to handle data with non-standard column names</span></span>
 <span></span>
 <span><span class="co"># Suppose your data has these column names:</span></span>
-<span><span class="va">custom_data</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdatatable.gitlab.io/data.table/reference/data.table.html" class="external-link">data.table</a></span><span class="op">(</span></span>
+<span><span class="va">custom_data</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/pkg/data.table/man/data.table.html" class="external-link">data.table</a></span><span class="op">(</span></span>
 <span>  contract_id <span class="op">=</span> <span class="fl">1</span><span class="op">:</span><span class="fl">3</span>,</span>
 <span>  person_code <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"A001"</span>, <span class="st">"A001"</span>, <span class="st">"B002"</span><span class="op">)</span>,</span>
 <span>  start_date <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/as.Date.html" class="external-link">as.Date</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"2023-01-01"</span>, <span class="st">"2023-06-01"</span>, <span class="st">"2023-02-01"</span><span class="op">)</span><span class="op">)</span>,</span>
@@ -411,7 +411,7 @@ detection and consolidation identifiers.</p>
 <span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Output columns:\n"</span><span class="op">)</span></span>
 <span><span class="co">#&gt; Output columns:</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/names.html" class="external-link">names</a></span><span class="op">(</span><span class="va">processed_data</span><span class="op">)</span><span class="op">)</span></span>
-<span><span class="co">#&gt; [1] "cf"      "inizio"  "fine"    "arco"    "prior"   "id"      "over_id"</span></span>
+<span><span class="co">#&gt; [1] "id"      "cf"      "prior"   "arco"    "fine"    "inizio"  "over_id"</span></span>
 <span><span class="co">#&gt; [8] "durata"</span></span>
 <span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"\n\nSample output for PERSON001:\n"</span><span class="op">)</span></span>
@@ -419,18 +419,18 @@ detection and consolidation identifiers.</p>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; Sample output for PERSON001:</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">processed_data</span><span class="op">[</span><span class="va">cf</span> <span class="op">==</span> <span class="st">"PERSON001"</span><span class="op">]</span><span class="op">[</span><span class="fl">1</span><span class="op">:</span><span class="fl">10</span><span class="op">]</span><span class="op">)</span></span>
-<span><span class="co">#&gt;            cf     inizio       fine  arco prior    id over_id     durata</span></span>
-<span><span class="co">#&gt;        &lt;char&gt;     &lt;Date&gt;     &lt;Date&gt; &lt;num&gt; &lt;num&gt; &lt;int&gt;   &lt;int&gt; &lt;difftime&gt;</span></span>
-<span><span class="co">#&gt;  1: PERSON001 2023-01-01 2023-01-31     1     1     1       1    31 days</span></span>
-<span><span class="co">#&gt;  2: PERSON001 2023-02-01 2023-02-28     1     1     2       2    28 days</span></span>
-<span><span class="co">#&gt;  3: PERSON001 2023-03-01 2023-03-31     1     1     3       3    31 days</span></span>
-<span><span class="co">#&gt;  4: PERSON001 2023-04-01 2023-05-31     0     0     0       0    61 days</span></span>
-<span><span class="co">#&gt;  5: PERSON001 2023-06-01 2023-06-30     1     1     4       4    30 days</span></span>
-<span><span class="co">#&gt;  6: PERSON001 2023-07-01 2023-08-31     1     1     5       5    62 days</span></span>
-<span><span class="co">#&gt;  7: PERSON001 2023-09-01 2023-12-31     1     1     6       6   122 days</span></span>
-<span><span class="co">#&gt;  8:      &lt;NA&gt;       &lt;NA&gt;       &lt;NA&gt;    NA    NA    NA      NA    NA days</span></span>
-<span><span class="co">#&gt;  9:      &lt;NA&gt;       &lt;NA&gt;       &lt;NA&gt;    NA    NA    NA      NA    NA days</span></span>
-<span><span class="co">#&gt; 10:      &lt;NA&gt;       &lt;NA&gt;       &lt;NA&gt;    NA    NA    NA      NA    NA days</span></span></code></pre></div>
+<span><span class="co">#&gt;        id        cf prior  arco       fine     inizio over_id     durata</span></span>
+<span><span class="co">#&gt;     &lt;int&gt;    &lt;char&gt; &lt;num&gt; &lt;num&gt;     &lt;Date&gt;     &lt;Date&gt;   &lt;int&gt; &lt;difftime&gt;</span></span>
+<span><span class="co">#&gt;  1:     1 PERSON001     1     1 2023-01-31 2023-01-01       1    31 days</span></span>
+<span><span class="co">#&gt;  2:     2 PERSON001     1     1 2023-02-28 2023-02-01       2    28 days</span></span>
+<span><span class="co">#&gt;  3:     3 PERSON001     1     1 2023-03-31 2023-03-01       3    31 days</span></span>
+<span><span class="co">#&gt;  4:     0 PERSON001     0     0 2023-05-31 2023-04-01       0    61 days</span></span>
+<span><span class="co">#&gt;  5:     4 PERSON001     1     1 2023-06-30 2023-06-01       4    30 days</span></span>
+<span><span class="co">#&gt;  6:     5 PERSON001     1     1 2023-08-31 2023-07-01       5    62 days</span></span>
+<span><span class="co">#&gt;  7:     6 PERSON001     1     1 2023-12-31 2023-09-01       6   122 days</span></span>
+<span><span class="co">#&gt;  8:    NA      &lt;NA&gt;    NA    NA       &lt;NA&gt;       &lt;NA&gt;      NA    NA days</span></span>
+<span><span class="co">#&gt;  9:    NA      &lt;NA&gt;    NA    NA       &lt;NA&gt;       &lt;NA&gt;      NA    NA days</span></span>
+<span><span class="co">#&gt; 10:    NA      &lt;NA&gt;    NA    NA       &lt;NA&gt;       &lt;NA&gt;      NA    NA days</span></span></code></pre></div>
 <div class="section level3">
 <h3 id="understanding-the-key-columns">Understanding the Key Columns<a class="anchor" aria-label="anchor" href="#understanding-the-key-columns"></a>
 </h3>
@@ -471,17 +471,17 @@ detection and consolidation identifiers.</p>
 <span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Example: Unemployment period (arco = 0, over_id = 0):\n"</span><span class="op">)</span></span>
 <span><span class="co">#&gt; Example: Unemployment period (arco = 0, over_id = 0):</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">processed_data</span><span class="op">[</span><span class="va">arco</span> <span class="op">==</span> <span class="fl">0</span> <span class="op">&amp;</span> <span class="va">cf</span> <span class="op">==</span> <span class="st">"PERSON001"</span><span class="op">]</span><span class="op">[</span><span class="fl">1</span><span class="op">]</span><span class="op">)</span></span>
-<span><span class="co">#&gt;           cf     inizio       fine  arco prior    id over_id     durata</span></span>
-<span><span class="co">#&gt;       &lt;char&gt;     &lt;Date&gt;     &lt;Date&gt; &lt;num&gt; &lt;num&gt; &lt;int&gt;   &lt;int&gt; &lt;difftime&gt;</span></span>
-<span><span class="co">#&gt; 1: PERSON001 2023-04-01 2023-05-31     0     0     0       0    61 days</span></span>
+<span><span class="co">#&gt;       id        cf prior  arco       fine     inizio over_id     durata</span></span>
+<span><span class="co">#&gt;    &lt;int&gt;    &lt;char&gt; &lt;num&gt; &lt;num&gt;     &lt;Date&gt;     &lt;Date&gt;   &lt;int&gt; &lt;difftime&gt;</span></span>
+<span><span class="co">#&gt; 1:     0 PERSON001     0     0 2023-05-31 2023-04-01       0    61 days</span></span>
 <span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"\nExample: Single employment (arco = 1, over_id &gt; 0):\n"</span><span class="op">)</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; Example: Single employment (arco = 1, over_id &gt; 0):</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">processed_data</span><span class="op">[</span><span class="va">arco</span> <span class="op">==</span> <span class="fl">1</span> <span class="op">&amp;</span> <span class="va">cf</span> <span class="op">==</span> <span class="st">"PERSON001"</span><span class="op">]</span><span class="op">[</span><span class="fl">1</span><span class="op">]</span><span class="op">)</span></span>
-<span><span class="co">#&gt;           cf     inizio       fine  arco prior    id over_id     durata</span></span>
-<span><span class="co">#&gt;       &lt;char&gt;     &lt;Date&gt;     &lt;Date&gt; &lt;num&gt; &lt;num&gt; &lt;int&gt;   &lt;int&gt; &lt;difftime&gt;</span></span>
-<span><span class="co">#&gt; 1: PERSON001 2023-01-01 2023-01-31     1     1     1       1    31 days</span></span>
+<span><span class="co">#&gt;       id        cf prior  arco       fine     inizio over_id     durata</span></span>
+<span><span class="co">#&gt;    &lt;int&gt;    &lt;char&gt; &lt;num&gt; &lt;num&gt;     &lt;Date&gt;     &lt;Date&gt;   &lt;int&gt; &lt;difftime&gt;</span></span>
+<span><span class="co">#&gt; 1:     1 PERSON001     1     1 2023-01-31 2023-01-01       1    31 days</span></span>
 <span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"\nExample: Overlapping employment (arco &gt; 1, over_id &gt; 0):\n"</span><span class="op">)</span></span>
 <span><span class="co">#&gt; </span></span>
@@ -491,9 +491,9 @@ detection and consolidation identifiers.</p>
 <span><span class="op">}</span> <span class="kw">else</span> <span class="op">{</span></span>
 <span>  <span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"No overlapping employment in this dataset\n"</span><span class="op">)</span></span>
 <span><span class="op">}</span></span>
-<span><span class="co">#&gt;           cf     inizio       fine  arco prior    id over_id     durata</span></span>
-<span><span class="co">#&gt;       &lt;char&gt;     &lt;Date&gt;     &lt;Date&gt; &lt;num&gt; &lt;num&gt; &lt;int&gt;   &lt;int&gt; &lt;difftime&gt;</span></span>
-<span><span class="co">#&gt; 1: PERSON002 2023-02-01 2023-02-15     2     0     8       7    14 days</span></span></code></pre></div>
+<span><span class="co">#&gt;       id        cf prior  arco       fine     inizio over_id     durata</span></span>
+<span><span class="co">#&gt;    &lt;int&gt;    &lt;char&gt; &lt;num&gt; &lt;num&gt;     &lt;Date&gt;     &lt;Date&gt;   &lt;int&gt; &lt;difftime&gt;</span></span>
+<span><span class="co">#&gt; 1:     8 PERSON002     0     2 2023-02-15 2023-02-01       7    14 days</span></span></code></pre></div>
 </div>
 <div class="section level3">
 <h3 id="key-metrics-by-person">Key Metrics by Person<a class="anchor" aria-label="anchor" href="#key-metrics-by-person"></a>
@@ -508,7 +508,7 @@ detection and consolidation identifiers.</p>
 <span>  total_days <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/numeric.html" class="external-link">as.numeric</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">durata</span><span class="op">)</span><span class="op">)</span>,</span>
 <span>  employment_days <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/numeric.html" class="external-link">as.numeric</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">durata</span><span class="op">[</span><span class="va">arco</span> <span class="op">&gt;</span> <span class="fl">0</span><span class="op">]</span><span class="op">)</span><span class="op">)</span>,</span>
 <span>  employment_rate <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/numeric.html" class="external-link">as.numeric</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">durata</span><span class="op">[</span><span class="va">arco</span> <span class="op">&gt;</span> <span class="fl">0</span><span class="op">]</span><span class="op">)</span><span class="op">)</span> <span class="op">/</span> <span class="fu"><a href="https://rdrr.io/r/base/numeric.html" class="external-link">as.numeric</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">durata</span><span class="op">)</span><span class="op">)</span>, <span class="fl">3</span><span class="op">)</span>,</span>
-<span>  unique_over_ids <span class="op">=</span> <span class="fu"><a href="https://rdatatable.gitlab.io/data.table/reference/duplicated.html" class="external-link">uniqueN</a></span><span class="op">(</span><span class="va">over_id</span><span class="op">[</span><span class="va">over_id</span> <span class="op">&gt;</span> <span class="fl">0</span><span class="op">]</span><span class="op">)</span></span>
+<span>  unique_over_ids <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/pkg/data.table/man/duplicated.html" class="external-link">uniqueN</a></span><span class="op">(</span><span class="va">over_id</span><span class="op">[</span><span class="va">over_id</span> <span class="op">&gt;</span> <span class="fl">0</span><span class="op">]</span><span class="op">)</span></span>
 <span><span class="op">)</span>, by <span class="op">=</span> <span class="va">cf</span><span class="op">]</span></span>
 <span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Employment Metrics by Person:\n"</span><span class="op">)</span></span>
@@ -588,10 +588,11 @@ patterns.</p>
 <span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">status_counts</span><span class="op">)</span></span>
 <span><span class="co">#&gt;          stato     N</span></span>
 <span><span class="co">#&gt;         &lt;char&gt; &lt;int&gt;</span></span>
-<span><span class="co">#&gt; 1:          pt    29</span></span>
-<span><span class="co">#&gt; 2:          ft    28</span></span>
+<span><span class="co">#&gt; 1:      occ_pt    29</span></span>
+<span><span class="co">#&gt; 2:      occ_ft    26</span></span>
 <span><span class="co">#&gt; 3: disoccupato    10</span></span>
-<span><span class="co">#&gt; 4:       pt_ft     9</span></span>
+<span><span class="co">#&gt; 4:  over_ft_pt     9</span></span>
+<span><span class="co">#&gt; 5:     over_ft     2</span></span>
 <span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"\n\nStatus meanings:\n"</span><span class="op">)</span></span>
 <span><span class="co">#&gt; </span></span>
@@ -614,14 +615,14 @@ patterns.</p>
 <span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">classified_data</span><span class="op">[</span><span class="va">cf</span> <span class="op">==</span> <span class="st">"PERSON004"</span>, <span class="fu">.</span><span class="op">(</span><span class="va">cf</span>, <span class="va">inizio</span>, <span class="va">fine</span>, <span class="va">arco</span>, <span class="va">prior</span>, <span class="va">stato</span>, <span class="va">durata</span><span class="op">)</span><span class="op">]</span><span class="op">)</span></span>
 <span><span class="co">#&gt;           cf     inizio       fine  arco prior       stato     durata</span></span>
 <span><span class="co">#&gt;       &lt;char&gt;     &lt;Date&gt;     &lt;Date&gt; &lt;num&gt; &lt;num&gt;      &lt;char&gt; &lt;difftime&gt;</span></span>
-<span><span class="co">#&gt; 1: PERSON004 2023-01-10 2023-02-28     1     0          pt    50 days</span></span>
+<span><span class="co">#&gt; 1: PERSON004 2023-01-10 2023-02-28     1     0      occ_pt    50 days</span></span>
 <span><span class="co">#&gt; 2: PERSON004 2023-03-01 2023-03-09     0     0 disoccupato     9 days</span></span>
-<span><span class="co">#&gt; 3: PERSON004 2023-03-10 2023-03-31     1     0          pt    22 days</span></span>
+<span><span class="co">#&gt; 3: PERSON004 2023-03-10 2023-03-31     1     0      occ_pt    22 days</span></span>
 <span><span class="co">#&gt; 4: PERSON004 2023-04-01 2023-04-09     0     0 disoccupato     9 days</span></span>
-<span><span class="co">#&gt; 5: PERSON004 2023-04-10 2023-06-30     1     0          pt    82 days</span></span>
-<span><span class="co">#&gt; 6: PERSON004 2023-07-01 2023-07-31     1     1          ft    31 days</span></span>
-<span><span class="co">#&gt; 7: PERSON004 2023-08-01 2023-09-30     1     1          ft    61 days</span></span>
-<span><span class="co">#&gt; 8: PERSON004 2023-10-01 2023-12-31     1     1          ft    92 days</span></span></code></pre></div>
+<span><span class="co">#&gt; 5: PERSON004 2023-04-10 2023-06-30     1     0      occ_pt    82 days</span></span>
+<span><span class="co">#&gt; 6: PERSON004 2023-07-01 2023-07-31     1     1      occ_ft    31 days</span></span>
+<span><span class="co">#&gt; 7: PERSON004 2023-08-01 2023-09-30     1     1      occ_ft    61 days</span></span>
+<span><span class="co">#&gt; 8: PERSON004 2023-10-01 2023-12-31     1     1      occ_ft    92 days</span></span></code></pre></div>
 <div class="section level3">
 <h3 id="employment-vs-unemployment-analysis">Employment vs Unemployment Analysis<a class="anchor" aria-label="anchor" href="#employment-vs-unemployment-analysis"></a>
 </h3>
@@ -640,16 +641,18 @@ patterns.</p>
 <span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">employment_stats</span><span class="op">)</span></span>
 <span><span class="co">#&gt;          stato total_duration avg_segment_duration min_duration max_duration</span></span>
 <span><span class="co">#&gt;         &lt;char&gt;          &lt;num&gt;                &lt;num&gt;        &lt;num&gt;        &lt;num&gt;</span></span>
-<span><span class="co">#&gt; 1:          ft           1681                 60.0           14          184</span></span>
-<span><span class="co">#&gt; 2:          pt           1402                 48.3            1          122</span></span>
-<span><span class="co">#&gt; 3:       pt_ft            330                 36.7           14           60</span></span>
+<span><span class="co">#&gt; 1:      occ_ft           1637                 63.0           18          184</span></span>
+<span><span class="co">#&gt; 2:      occ_pt           1402                 48.3            1          122</span></span>
+<span><span class="co">#&gt; 3:  over_ft_pt            330                 36.7           14           60</span></span>
 <span><span class="co">#&gt; 4: disoccupato            196                 19.6            4           61</span></span>
+<span><span class="co">#&gt; 5:     over_ft             44                 22.0           14           30</span></span>
 <span><span class="co">#&gt;    n_segments</span></span>
 <span><span class="co">#&gt;         &lt;int&gt;</span></span>
-<span><span class="co">#&gt; 1:         28</span></span>
+<span><span class="co">#&gt; 1:         26</span></span>
 <span><span class="co">#&gt; 2:         29</span></span>
 <span><span class="co">#&gt; 3:          9</span></span>
 <span><span class="co">#&gt; 4:         10</span></span>
+<span><span class="co">#&gt; 5:          2</span></span>
 <span></span>
 <span><span class="co"># Calculate person-level employment metrics</span></span>
 <span><span class="va">person_employment</span> <span class="op">&lt;-</span> <span class="va">classified_data</span><span class="op">[</span>, <span class="fu">.</span><span class="op">(</span></span>
@@ -679,16 +682,16 @@ patterns.</p>
 <span><span class="co">#&gt; 10: PERSON010        351             351                 0           1.000</span></span>
 <span><span class="co">#&gt;     primary_status</span></span>
 <span><span class="co">#&gt;             &lt;char&gt;</span></span>
-<span><span class="co">#&gt;  1:             ft</span></span>
-<span><span class="co">#&gt;  2:          pt_ft</span></span>
-<span><span class="co">#&gt;  3:             pt</span></span>
-<span><span class="co">#&gt;  4:             ft</span></span>
-<span><span class="co">#&gt;  5:             pt</span></span>
-<span><span class="co">#&gt;  6:             ft</span></span>
-<span><span class="co">#&gt;  7:             pt</span></span>
-<span><span class="co">#&gt;  8:             ft</span></span>
-<span><span class="co">#&gt;  9:             ft</span></span>
-<span><span class="co">#&gt; 10:             ft</span></span>
+<span><span class="co">#&gt;  1:         occ_ft</span></span>
+<span><span class="co">#&gt;  2:     over_ft_pt</span></span>
+<span><span class="co">#&gt;  3:         occ_pt</span></span>
+<span><span class="co">#&gt;  4:         occ_ft</span></span>
+<span><span class="co">#&gt;  5:         occ_pt</span></span>
+<span><span class="co">#&gt;  6:         occ_ft</span></span>
+<span><span class="co">#&gt;  7:         occ_pt</span></span>
+<span><span class="co">#&gt;  8:         occ_ft</span></span>
+<span><span class="co">#&gt;  9:         occ_ft</span></span>
+<span><span class="co">#&gt; 10:         occ_ft</span></span>
 <span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"\n\nOverall Statistics:\n"</span><span class="op">)</span></span>
 <span><span class="co">#&gt; </span></span>
@@ -719,7 +722,7 @@ temporal consistency and proper classification.</p>
 <span><span class="co">#&gt; ===================================</span></span>
 <span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Overall validation:"</span>, <span class="fu"><a href="https://rdrr.io/r/base/ifelse.html" class="external-link">ifelse</a></span><span class="op">(</span><span class="va">validation</span><span class="op">$</span><span class="va">is_valid</span>, <span class="st">"PASSED"</span>, <span class="st">"FAILED"</span><span class="op">)</span>, <span class="st">"\n"</span><span class="op">)</span></span>
-<span><span class="co">#&gt; Overall validation: FAILED</span></span>
+<span><span class="co">#&gt; Overall validation: PASSED</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Total segments:"</span>, <span class="va">validation</span><span class="op">$</span><span class="va">total_segments</span>, <span class="st">"\n"</span><span class="op">)</span></span>
 <span><span class="co">#&gt; Total segments:</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"Missing labels:"</span>, <span class="va">validation</span><span class="op">$</span><span class="va">missing_labels</span>, <span class="st">"\n"</span><span class="op">)</span></span>
@@ -748,7 +751,7 @@ temporal consistency and proper classification.</p>
 <span><span class="co">#&gt; Temporal Continuity Check (PERSON001):</span></span>
 <span><span class="va">person_segments</span> <span class="op">&lt;-</span> <span class="va">classified_data</span><span class="op">[</span><span class="va">cf</span> <span class="op">==</span> <span class="st">"PERSON001"</span><span class="op">]</span><span class="op">[</span><span class="fu"><a href="https://rdrr.io/r/base/order.html" class="external-link">order</a></span><span class="op">(</span><span class="va">inizio</span><span class="op">)</span><span class="op">]</span></span>
 <span><span class="va">person_segments</span><span class="op">[</span>, <span class="va">gap_before</span> <span class="op">:=</span> <span class="fu"><a href="https://rdrr.io/r/base/ifelse.html" class="external-link">ifelse</a></span><span class="op">(</span><span class="va">.I</span> <span class="op">&gt;</span> <span class="fl">1</span>,</span>
-<span>                                       <span class="fu"><a href="https://rdrr.io/r/base/numeric.html" class="external-link">as.numeric</a></span><span class="op">(</span><span class="va">inizio</span> <span class="op">-</span> <span class="fu"><a href="https://rdatatable.gitlab.io/data.table/reference/shift.html" class="external-link">shift</a></span><span class="op">(</span><span class="va">fine</span>, <span class="fl">1</span><span class="op">)</span><span class="op">)</span>,</span>
+<span>                                       <span class="fu"><a href="https://rdrr.io/r/base/numeric.html" class="external-link">as.numeric</a></span><span class="op">(</span><span class="va">inizio</span> <span class="op">-</span> <span class="fu"><a href="https://rdrr.io/pkg/data.table/man/shift.html" class="external-link">shift</a></span><span class="op">(</span><span class="va">fine</span>, <span class="fl">1</span><span class="op">)</span><span class="op">)</span>,</span>
 <span>                                       <span class="cn">NA</span><span class="op">)</span><span class="op">]</span></span>
 <span><span class="kw">if</span> <span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">nrow</a></span><span class="op">(</span><span class="va">person_segments</span><span class="op">)</span> <span class="op">&gt;</span> <span class="fl">1</span><span class="op">)</span> <span class="op">{</span></span>
 <span>  <span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"All segments continuous:"</span>, <span class="fu"><a href="https://rdrr.io/r/base/all.html" class="external-link">all</a></span><span class="op">(</span><span class="va">person_segments</span><span class="op">$</span><span class="va">gap_before</span><span class="op">[</span><span class="fl">2</span><span class="op">:</span><span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">nrow</a></span><span class="op">(</span><span class="va">person_segments</span><span class="op">)</span><span class="op">]</span> <span class="op">==</span> <span class="fl">1</span>, na.rm <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span>, <span class="st">"\n"</span><span class="op">)</span></span>
@@ -779,8 +782,8 @@ status transitions and duration distributions.</p>
 <span><span class="co">#&gt; Status Distribution:</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">patterns</span><span class="op">$</span><span class="va">status_distribution</span><span class="op">)</span></span>
 <span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt; disoccupato          ft          pt       pt_ft </span></span>
-<span><span class="co">#&gt;          10          28          29           9</span></span>
+<span><span class="co">#&gt; disoccupato      occ_ft      occ_pt     over_ft  over_ft_pt </span></span>
+<span><span class="co">#&gt;          10          26          29           2           9</span></span>
 <span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"\n\nTransition Matrix:\n"</span><span class="op">)</span></span>
 <span><span class="co">#&gt; </span></span>
@@ -813,7 +816,7 @@ status transitions and duration distributions.</p>
 <span><span class="op">}</span> <span class="kw">else</span> <span class="op">{</span></span>
 <span>  <span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="st">"- Most common status:"</span>, <span class="fu"><a href="https://rdrr.io/r/base/names.html" class="external-link">names</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/which.min.html" class="external-link">which.max</a></span><span class="op">(</span><span class="va">patterns</span><span class="op">$</span><span class="va">status_distribution</span><span class="op">)</span><span class="op">)</span>, <span class="st">"\n"</span><span class="op">)</span></span>
 <span><span class="op">}</span></span>
-<span><span class="co">#&gt; - Most common status: pt</span></span>
+<span><span class="co">#&gt; - Most common status: occ_pt</span></span>
 <span></span>
 <span><span class="co"># Most common transition</span></span>
 <span><span class="kw">if</span> <span class="op">(</span><span class="op">!</span><span class="fu"><a href="https://rdrr.io/r/base/NULL.html" class="external-link">is.null</a></span><span class="op">(</span><span class="va">patterns</span><span class="op">$</span><span class="va">transition_matrix</span><span class="op">)</span> <span class="op">&amp;&amp;</span> <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="op">!</span><span class="fu"><a href="https://rdrr.io/r/base/NA.html" class="external-link">is.na</a></span><span class="op">(</span><span class="va">patterns</span><span class="op">$</span><span class="va">transition_matrix</span><span class="op">)</span><span class="op">)</span> <span class="op">&gt;</span> <span class="fl">0</span><span class="op">)</span> <span class="op">{</span></span>
@@ -861,7 +864,7 @@ shocks) to employment segments to analyze their impact.</p>
 <code class="sourceCode R"><span><span class="co"># 8.1 Adding external events -----</span></span>
 <span><span class="co"># Define external events that occurred during 2023</span></span>
 <span><span class="co"># Events are matched to unemployment periods in vecshift output</span></span>
-<span><span class="va">external_events</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdatatable.gitlab.io/data.table/reference/data.table.html" class="external-link">data.table</a></span><span class="op">(</span></span>
+<span><span class="va">external_events</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/pkg/data.table/man/data.table.html" class="external-link">data.table</a></span><span class="op">(</span></span>
 <span>  cf <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"PERSON001"</span>, <span class="st">"PERSON002"</span>, <span class="st">"PERSON005"</span><span class="op">)</span>,</span>
 <span>  event_start <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/as.Date.html" class="external-link">as.Date</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"2023-04-15"</span>, <span class="st">"2023-03-01"</span>, <span class="st">"2023-04-15"</span><span class="op">)</span><span class="op">)</span>,</span>
 <span>  event_name <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"training_program"</span>, <span class="st">"policy_change"</span>, <span class="st">"subsidy_program"</span><span class="op">)</span></span>
@@ -976,7 +979,7 @@ consecutive periods of the same employment type.</p>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; Per-person segment reduction:</span></span>
-<span><span class="va">segment_comparison</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdatatable.gitlab.io/data.table/reference/data.table.html" class="external-link">data.table</a></span><span class="op">(</span></span>
+<span><span class="va">segment_comparison</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/pkg/data.table/man/data.table.html" class="external-link">data.table</a></span><span class="op">(</span></span>
 <span>  cf <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/unique.html" class="external-link">unique</a></span><span class="op">(</span><span class="va">classified_data</span><span class="op">$</span><span class="va">cf</span><span class="op">)</span>,</span>
 <span>  before <span class="op">=</span> <span class="va">classified_data</span><span class="op">[</span>, <span class="va">.N</span>, by <span class="op">=</span> <span class="va">cf</span><span class="op">]</span><span class="op">[</span><span class="fu"><a href="https://rdrr.io/r/base/order.html" class="external-link">order</a></span><span class="op">(</span><span class="va">cf</span><span class="op">)</span><span class="op">]</span><span class="op">$</span><span class="va">N</span>,</span>
 <span>  after <span class="op">=</span> <span class="va">merged_data</span><span class="op">[</span>, <span class="va">.N</span>, by <span class="op">=</span> <span class="va">cf</span><span class="op">]</span><span class="op">[</span><span class="fu"><a href="https://rdrr.io/r/base/order.html" class="external-link">order</a></span><span class="op">(</span><span class="va">cf</span><span class="op">)</span><span class="op">]</span><span class="op">$</span><span class="va">N</span></span>
@@ -1286,7 +1289,7 @@ for details.</p>
 <span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># 3. Use data.table operations efficiently</span></span>
-<span><span class="fu"><a href="https://rdatatable.gitlab.io/data.table/reference/setkey.html" class="external-link">setkey</a></span><span class="op">(</span><span class="va">processed_data</span>, <span class="va">cf</span>, <span class="va">inizio</span><span class="op">)</span>  <span class="co"># Set keys for faster operations</span></span>
+<span><span class="fu"><a href="https://rdrr.io/pkg/data.table/man/setkey.html" class="external-link">setkey</a></span><span class="op">(</span><span class="va">processed_data</span>, <span class="va">cf</span>, <span class="va">inizio</span><span class="op">)</span>  <span class="co"># Set keys for faster operations</span></span>
 <span></span>
 <span><span class="co"># 4. Consider parallel processing for independent person-level analyses</span></span>
 <span><span class="co"># (Note: vecshift itself is already optimized at ~1.46M records/second)</span></span></code></pre></div>
@@ -1296,7 +1299,7 @@ for details.</p>
 </h4>
 <div class="sourceCode" id="cb21"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Export processed data</span></span>
-<span><span class="fu"><a href="https://rdatatable.gitlab.io/data.table/reference/fwrite.html" class="external-link">fwrite</a></span><span class="op">(</span><span class="va">classified_data</span>, <span class="st">"processed_employment_data.csv"</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/pkg/data.table/man/fwrite.html" class="external-link">fwrite</a></span><span class="op">(</span><span class="va">classified_data</span>, <span class="st">"processed_employment_data.csv"</span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># Integration with databases</span></span>
 <span><span class="co"># library(DBI)</span></span>
@@ -1311,7 +1314,7 @@ for details.</p>
 <span>  has_overlaps <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/any.html" class="external-link">any</a></span><span class="op">(</span><span class="va">arco</span> <span class="op">&gt;</span> <span class="fl">1</span><span class="op">)</span></span>
 <span><span class="op">)</span>, by <span class="op">=</span> <span class="va">cf</span><span class="op">]</span></span>
 <span></span>
-<span><span class="fu"><a href="https://rdatatable.gitlab.io/data.table/reference/fwrite.html" class="external-link">fwrite</a></span><span class="op">(</span><span class="va">summary_report</span>, <span class="st">"employment_summary.csv"</span><span class="op">)</span></span></code></pre></div>
+<span><span class="fu"><a href="https://rdrr.io/pkg/data.table/man/fwrite.html" class="external-link">fwrite</a></span><span class="op">(</span><span class="va">summary_report</span>, <span class="st">"employment_summary.csv"</span><span class="op">)</span></span></code></pre></div>
 </div>
 </div>
 </div>
@@ -1397,7 +1400,7 @@ contexts while maintaining high performance and data integrity.</p>
 </div>
 
 <div class="pkgdown-footer-right">
-  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.1.3.</p>
+  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.2.0.</p>
 </div>
 
     </footer>

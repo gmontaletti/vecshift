@@ -1,0 +1,111 @@
+# Merge Employment Periods with Multiple Consolidation Modes
+
+Merges employment periods using different consolidation strategies based
+on the over_id column from vecshift() output. The over_id column
+identifies continuous overlapping employment periods, enabling
+sophisticated consolidation approaches for employment history analysis.
+
+## Usage
+
+``` r
+merge_consecutive_employment(dt, consolidation_type = "both")
+```
+
+## Arguments
+
+- dt:
+
+  A data.table output from vecshift() containing temporal segments with
+  columns:
+
+  - `cf`: Person identifier
+
+  - `inizio`: Segment start date
+
+  - `fine`: Segment end date
+
+  - `arco`: Number of overlapping contracts (0 = unemployment)
+
+  - `prior`: Employment type (numeric)
+
+  - `over_id`: Overlap identifier (0 = unemployment, \>0 = overlapping
+    periods)
+
+  - Additional columns: Any other contract parameters (numeric or
+    character)
+
+- consolidation_type:
+
+  Character string specifying consolidation approach:
+
+  - `"both"` (DEFAULT): First consolidate overlapping periods (same
+    over_id \> 0), then merge consecutive periods. Provides complete
+    employment history consolidation.
+
+  - `"overlapping"`: Only consolidate segments with same over_id \> 0.
+    Merges simultaneous/overlapping contracts into single periods.
+
+  - `"consecutive"`: Only merge periods that are contiguous in time,
+    regardless of over_id. Traditional consecutive period merging.
+
+  - `"none"`: No consolidation. Returns original segments unchanged.
+
+## Value
+
+A data.table with consolidated employment periods containing:
+
+- `cf`: Person identifier
+
+- `inizio`: Period start date
+
+- `fine`: Period end date
+
+- `arco`: Number of overlapping contracts (preserved for unemployment)
+
+- `prior`: Duration-weighted mean priority for collapsed periods
+
+- Character columns: Concatenated as "first-\>last" for collapsed
+  periods
+
+- Numeric columns: Duration-weighted mean value for collapsed periods
+
+- Numeric columns with "\_direction" suffix: Direction of change (last -
+  first)
+
+- `durata`: Duration of the period in days
+
+- `collapsed`: Logical indicating if period was collapsed (TRUE) or not
+  (FALSE)
+
+## Examples
+
+``` r
+if (FALSE) { # \dontrun{
+library(data.table)
+# Create sample output from vecshift with over_id
+dt <- data.table(
+  cf = c("A", "A", "A", "A", "B", "B"),
+  inizio = as.Date(c("2023-01-01", "2023-02-01", "2023-02-15", "2023-04-01",
+                     "2023-01-01", "2023-03-01")),
+  fine = as.Date(c("2023-01-31", "2023-02-14", "2023-03-31", "2023-04-30",
+                   "2023-02-28", "2023-03-31")),
+  arco = c(1, 0, 1, 1, 1, 0),
+  prior = c(1, 0, 0.5, 1, 1, 0),
+  over_id = c(1, 0, 2, 3, 1, 0),
+  contract_type = c("FT", NA, "PT", "FT", "FT", NA),
+  salary = c(3000, NA, 1500, 3200, 2800, NA)
+)
+
+# Complete consolidation (overlapping then consecutive)
+result_both <- merge_consecutive_employment(dt, consolidation_type = "both")
+
+# Only merge overlapping contracts (same over_id > 0)
+result_overlapping <- merge_consecutive_employment(dt, consolidation_type = "overlapping")
+
+# Only merge consecutive periods (traditional approach)
+result_consecutive <- merge_consecutive_employment(dt, consolidation_type = "consecutive")
+
+# No consolidation (return original)
+result_none <- merge_consecutive_employment(dt, consolidation_type = "none")
+} # }
+```

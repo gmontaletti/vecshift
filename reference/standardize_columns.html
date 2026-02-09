@@ -82,7 +82,7 @@ Allows flexibility in input data structure while maintaining consistent processi
     <div class="sourceCode"><pre class="sourceCode r"><code><span class="r-in"><span><span class="kw">if</span> <span class="op">(</span><span class="cn">FALSE</span><span class="op">)</span> <span class="op">{</span> <span class="co"># \dontrun{</span></span></span>
 <span class="r-in"><span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va"><a href="https://r-datatable.com" class="external-link">data.table</a></span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="co"># Data with custom column names</span></span></span>
-<span class="r-in"><span><span class="va">dt</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdatatable.gitlab.io/data.table/reference/data.table.html" class="external-link">data.table</a></span><span class="op">(</span></span></span>
+<span class="r-in"><span><span class="va">dt</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/pkg/data.table/man/data.table.html" class="external-link">data.table</a></span><span class="op">(</span></span></span>
 <span class="r-in"><span>  contract_id <span class="op">=</span> <span class="fl">1</span><span class="op">:</span><span class="fl">3</span>,</span></span>
 <span class="r-in"><span>  person_code <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"A001"</span>, <span class="st">"A001"</span>, <span class="st">"B002"</span><span class="op">)</span>,</span></span>
 <span class="r-in"><span>  start_date <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/as.Date.html" class="external-link">as.Date</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"2023-01-01"</span>, <span class="st">"2023-06-01"</span>, <span class="st">"2023-02-01"</span><span class="op">)</span><span class="op">)</span>,</span></span>
@@ -93,7 +93,7 @@ Allows flexibility in input data structure while maintaining consistent processi
 <span class="r-in"><span><span class="co"># Define column mapping</span></span></span>
 <span class="r-in"><span><span class="va">col_map</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span></span></span>
 <span class="r-in"><span>  id <span class="op">=</span> <span class="st">"contract_id"</span>,</span></span>
-<span class="r-in"><span>  cf <span class="op">=</span> <span class="st">"person_code"</span>, </span></span>
+<span class="r-in"><span>  cf <span class="op">=</span> <span class="st">"person_code"</span>,</span></span>
 <span class="r-in"><span>  inizio <span class="op">=</span> <span class="st">"start_date"</span>,</span></span>
 <span class="r-in"><span>  fine <span class="op">=</span> <span class="st">"end_date"</span>,</span></span>
 <span class="r-in"><span>  prior <span class="op">=</span> <span class="st">"employment_type"</span></span></span>
@@ -113,7 +113,7 @@ Allows flexibility in input data structure while maintaining consistent processi
 </div>
 
 <div class="pkgdown-footer-right">
-  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.1.3.</p>
+  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.2.0.</p>
 </div>
 
     </footer></div>

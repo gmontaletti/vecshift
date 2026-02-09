@@ -150,7 +150,7 @@ Value = -1</li>
 </ol>
 <div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Create sample employment data</span></span>
-<span><span class="va">employment_data</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdatatable.gitlab.io/data.table/reference/data.table.html" class="external-link">data.table</a></span><span class="op">(</span></span>
+<span><span class="va">employment_data</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/pkg/data.table/man/data.table.html" class="external-link">data.table</a></span><span class="op">(</span></span>
 <span>  id <span class="op">=</span> <span class="fl">1</span><span class="op">:</span><span class="fl">2</span>,</span>
 <span>  cf <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"PERSON001"</span>, <span class="st">"PERSON001"</span><span class="op">)</span>,</span>
 <span>  inizio <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/as.Date.html" class="external-link">as.Date</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"2023-01-01"</span>, <span class="st">"2023-04-01"</span><span class="op">)</span><span class="op">)</span>,</span>
@@ -184,7 +184,7 @@ Value = -1</li>
 <h3 id="scenario-1-consecutive-contracts-no-gap">Scenario 1: Consecutive Contracts (No Gap)<a class="anchor" aria-label="anchor" href="#scenario-1-consecutive-contracts-no-gap"></a>
 </h3>
 <div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">consecutive_data</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdatatable.gitlab.io/data.table/reference/data.table.html" class="external-link">data.table</a></span><span class="op">(</span></span>
+<code class="sourceCode R"><span><span class="va">consecutive_data</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/pkg/data.table/man/data.table.html" class="external-link">data.table</a></span><span class="op">(</span></span>
 <span>  id <span class="op">=</span> <span class="fl">1</span><span class="op">:</span><span class="fl">2</span>,</span>
 <span>  cf <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/rep.html" class="external-link">rep</a></span><span class="op">(</span><span class="st">"PERSON001"</span>, <span class="fl">2</span><span class="op">)</span>,</span>
 <span>  inizio <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/as.Date.html" class="external-link">as.Date</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"2023-01-01"</span>, <span class="st">"2023-04-01"</span><span class="op">)</span><span class="op">)</span>,</span>
@@ -222,7 +222,7 @@ Value = -1</li>
 <h3 id="scenario-2-gap-between-contracts">Scenario 2: Gap Between Contracts<a class="anchor" aria-label="anchor" href="#scenario-2-gap-between-contracts"></a>
 </h3>
 <div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">gap_data</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdatatable.gitlab.io/data.table/reference/data.table.html" class="external-link">data.table</a></span><span class="op">(</span></span>
+<code class="sourceCode R"><span><span class="va">gap_data</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/pkg/data.table/man/data.table.html" class="external-link">data.table</a></span><span class="op">(</span></span>
 <span>  id <span class="op">=</span> <span class="fl">1</span><span class="op">:</span><span class="fl">2</span>,</span>
 <span>  cf <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/rep.html" class="external-link">rep</a></span><span class="op">(</span><span class="st">"PERSON001"</span>, <span class="fl">2</span><span class="op">)</span>,</span>
 <span>  inizio <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/as.Date.html" class="external-link">as.Date</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"2023-01-01"</span>, <span class="st">"2023-03-15"</span><span class="op">)</span><span class="op">)</span>,</span>
@@ -261,7 +261,7 @@ Value = -1</li>
 <h3 id="scenario-3-overlapping-contracts">Scenario 3: Overlapping Contracts<a class="anchor" aria-label="anchor" href="#scenario-3-overlapping-contracts"></a>
 </h3>
 <div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">overlap_data</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdatatable.gitlab.io/data.table/reference/data.table.html" class="external-link">data.table</a></span><span class="op">(</span></span>
+<code class="sourceCode R"><span><span class="va">overlap_data</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/pkg/data.table/man/data.table.html" class="external-link">data.table</a></span><span class="op">(</span></span>
 <span>  id <span class="op">=</span> <span class="fl">1</span><span class="op">:</span><span class="fl">2</span>,</span>
 <span>  cf <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/rep.html" class="external-link">rep</a></span><span class="op">(</span><span class="st">"PERSON001"</span>, <span class="fl">2</span><span class="op">)</span>,</span>
 <span>  inizio <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/as.Date.html" class="external-link">as.Date</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"2023-01-01"</span>, <span class="st">"2023-03-01"</span><span class="op">)</span><span class="op">)</span>,</span>
@@ -322,7 +322,7 @@ Value = -1</li>
 event structure:</p>
 <div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Create data with both employment and unemployment periods</span></span>
-<span><span class="va">mixed_data</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdatatable.gitlab.io/data.table/reference/data.table.html" class="external-link">data.table</a></span><span class="op">(</span></span>
+<span><span class="va">mixed_data</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/pkg/data.table/man/data.table.html" class="external-link">data.table</a></span><span class="op">(</span></span>
 <span>  id <span class="op">=</span> <span class="fl">1</span><span class="op">:</span><span class="fl">2</span>,</span>
 <span>  cf <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/rep.html" class="external-link">rep</a></span><span class="op">(</span><span class="st">"PERSON001"</span>, <span class="fl">2</span><span class="op">)</span>,</span>
 <span>  inizio <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/as.Date.html" class="external-link">as.Date</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"2023-01-01"</span>, <span class="st">"2023-04-01"</span><span class="op">)</span><span class="op">)</span>,</span>
@@ -369,7 +369,7 @@ event structure:</p>
 common problems:</p>
 <div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Create data with various quality issues</span></span>
-<span><span class="va">problem_data</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdatatable.gitlab.io/data.table/reference/data.table.html" class="external-link">data.table</a></span><span class="op">(</span></span>
+<span><span class="va">problem_data</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/pkg/data.table/man/data.table.html" class="external-link">data.table</a></span><span class="op">(</span></span>
 <span>  id <span class="op">=</span> <span class="fl">1</span><span class="op">:</span><span class="fl">4</span>,</span>
 <span>  cf <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/rep.html" class="external-link">rep</a></span><span class="op">(</span><span class="st">"PERSON001"</span>, <span class="fl">4</span><span class="op">)</span>,</span>
 <span>  inizio <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/as.Date.html" class="external-link">as.Date</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"2023-01-01"</span>, <span class="st">"2023-03-01"</span>, <span class="st">"2023-05-01"</span>, <span class="st">"2023-07-15"</span><span class="op">)</span><span class="op">)</span>,</span>
@@ -417,7 +417,7 @@ common problems:</p>
 </h3>
 <div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Analyze employment patterns using vecshift</span></span>
-<span><span class="va">clean_data</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdatatable.gitlab.io/data.table/reference/data.table.html" class="external-link">data.table</a></span><span class="op">(</span></span>
+<span><span class="va">clean_data</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/pkg/data.table/man/data.table.html" class="external-link">data.table</a></span><span class="op">(</span></span>
 <span>  id <span class="op">=</span> <span class="fl">1</span><span class="op">:</span><span class="fl">3</span>,</span>
 <span>  cf <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/rep.html" class="external-link">rep</a></span><span class="op">(</span><span class="st">"PERSON001"</span>, <span class="fl">3</span><span class="op">)</span>,</span>
 <span>  inizio <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/as.Date.html" class="external-link">as.Date</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"2023-01-01"</span>, <span class="st">"2023-04-01"</span>, <span class="st">"2023-07-01"</span><span class="op">)</span><span class="op">)</span>,</span>
@@ -431,12 +431,12 @@ common problems:</p>
 <span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="st">"Temporal segments with employment status:"</span><span class="op">)</span></span>
 <span><span class="co">#&gt; [1] "Temporal segments with employment status:"</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">result</span><span class="op">)</span></span>
-<span><span class="co">#&gt;           cf     inizio       fine  arco prior    id over_id     durata</span></span>
-<span><span class="co">#&gt;       &lt;char&gt;     &lt;Date&gt;     &lt;Date&gt; &lt;num&gt; &lt;num&gt; &lt;int&gt;   &lt;int&gt; &lt;difftime&gt;</span></span>
-<span><span class="co">#&gt; 1: PERSON001 2023-01-01 2023-03-31     1     1     1       1    90 days</span></span>
-<span><span class="co">#&gt; 2: PERSON001 2023-04-01 2023-05-31     1     0     2       2    61 days</span></span>
-<span><span class="co">#&gt; 3: PERSON001 2023-06-01 2023-06-30     0     0     0       0    30 days</span></span>
-<span><span class="co">#&gt; 4: PERSON001 2023-07-01 2023-09-30     1     1     3       3    92 days</span></span>
+<span><span class="co">#&gt;       id        cf prior  arco       fine     inizio over_id     durata</span></span>
+<span><span class="co">#&gt;    &lt;int&gt;    &lt;char&gt; &lt;num&gt; &lt;num&gt;     &lt;Date&gt;     &lt;Date&gt;   &lt;int&gt; &lt;difftime&gt;</span></span>
+<span><span class="co">#&gt; 1:     1 PERSON001     1     1 2023-03-31 2023-01-01       1    90 days</span></span>
+<span><span class="co">#&gt; 2:     2 PERSON001     0     1 2023-05-31 2023-04-01       2    61 days</span></span>
+<span><span class="co">#&gt; 3:     0 PERSON001     0     0 2023-06-30 2023-06-01       0    30 days</span></span>
+<span><span class="co">#&gt; 4:     3 PERSON001     1     1 2023-09-30 2023-07-01       3    92 days</span></span>
 <span></span>
 <span><span class="co"># Calculate employment statistics</span></span>
 <span><span class="va">total_duration</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/numeric.html" class="external-link">as.numeric</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">result</span><span class="op">$</span><span class="va">durata</span><span class="op">)</span><span class="op">)</span></span>
@@ -462,7 +462,7 @@ common problems:</p>
 status classification:</p>
 <div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># Example data</span></span>
-<span><span class="va">employment_data</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdatatable.gitlab.io/data.table/reference/data.table.html" class="external-link">data.table</a></span><span class="op">(</span></span>
+<span><span class="va">employment_data</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/pkg/data.table/man/data.table.html" class="external-link">data.table</a></span><span class="op">(</span></span>
 <span>  id <span class="op">=</span> <span class="fl">1</span><span class="op">:</span><span class="fl">3</span>,</span>
 <span>  cf <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"P001"</span>, <span class="st">"P001"</span>, <span class="st">"P002"</span><span class="op">)</span>,</span>
 <span>  inizio <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/as.Date.html" class="external-link">as.Date</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"2023-01-01"</span>, <span class="st">"2023-06-01"</span>, <span class="st">"2023-02-01"</span><span class="op">)</span><span class="op">)</span>,</span>
@@ -473,24 +473,24 @@ status classification:</p>
 <span><span class="co"># Process with default status classification</span></span>
 <span><span class="va">result_with_status</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/vecshift.html">vecshift</a></span><span class="op">(</span><span class="va">employment_data</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">result_with_status</span><span class="op">[</span><span class="fl">1</span><span class="op">:</span><span class="fl">5</span><span class="op">]</span><span class="op">)</span></span>
-<span><span class="co">#&gt;        cf     inizio       fine  arco prior    id over_id     durata</span></span>
-<span><span class="co">#&gt;    &lt;char&gt;     &lt;Date&gt;     &lt;Date&gt; &lt;num&gt; &lt;num&gt; &lt;int&gt;   &lt;int&gt; &lt;difftime&gt;</span></span>
-<span><span class="co">#&gt; 1:   P001 2023-01-01 2023-05-31     1     1     1       1   151 days</span></span>
-<span><span class="co">#&gt; 2:   P001 2023-06-01 2023-12-31     1     0     2       2   214 days</span></span>
-<span><span class="co">#&gt; 3:   P002 2023-02-01 2023-11-30     1     1     3       3   303 days</span></span>
-<span><span class="co">#&gt; 4:   &lt;NA&gt;       &lt;NA&gt;       &lt;NA&gt;    NA    NA    NA      NA    NA days</span></span>
-<span><span class="co">#&gt; 5:   &lt;NA&gt;       &lt;NA&gt;       &lt;NA&gt;    NA    NA    NA      NA    NA days</span></span>
+<span><span class="co">#&gt;       id     cf prior  arco       fine     inizio over_id     durata</span></span>
+<span><span class="co">#&gt;    &lt;int&gt; &lt;char&gt; &lt;num&gt; &lt;num&gt;     &lt;Date&gt;     &lt;Date&gt;   &lt;int&gt; &lt;difftime&gt;</span></span>
+<span><span class="co">#&gt; 1:     1   P001     1     1 2023-05-31 2023-01-01       1   151 days</span></span>
+<span><span class="co">#&gt; 2:     2   P001     0     1 2023-12-31 2023-06-01       2   214 days</span></span>
+<span><span class="co">#&gt; 3:     3   P002     1     1 2023-11-30 2023-02-01       3   303 days</span></span>
+<span><span class="co">#&gt; 4:    NA   &lt;NA&gt;    NA    NA       &lt;NA&gt;       &lt;NA&gt;      NA    NA days</span></span>
+<span><span class="co">#&gt; 5:    NA   &lt;NA&gt;    NA    NA       &lt;NA&gt;       &lt;NA&gt;      NA    NA days</span></span>
 <span></span>
 <span><span class="co"># Process without status classification (raw segments only)</span></span>
 <span><span class="va">result_raw</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/vecshift.html">vecshift</a></span><span class="op">(</span><span class="va">employment_data</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="va">result_raw</span><span class="op">[</span><span class="fl">1</span><span class="op">:</span><span class="fl">5</span><span class="op">]</span><span class="op">)</span></span>
-<span><span class="co">#&gt;        cf     inizio       fine  arco prior    id over_id     durata</span></span>
-<span><span class="co">#&gt;    &lt;char&gt;     &lt;Date&gt;     &lt;Date&gt; &lt;num&gt; &lt;num&gt; &lt;int&gt;   &lt;int&gt; &lt;difftime&gt;</span></span>
-<span><span class="co">#&gt; 1:   P001 2023-01-01 2023-05-31     1     1     1       1   151 days</span></span>
-<span><span class="co">#&gt; 2:   P001 2023-06-01 2023-12-31     1     0     2       2   214 days</span></span>
-<span><span class="co">#&gt; 3:   P002 2023-02-01 2023-11-30     1     1     3       3   303 days</span></span>
-<span><span class="co">#&gt; 4:   &lt;NA&gt;       &lt;NA&gt;       &lt;NA&gt;    NA    NA    NA      NA    NA days</span></span>
-<span><span class="co">#&gt; 5:   &lt;NA&gt;       &lt;NA&gt;       &lt;NA&gt;    NA    NA    NA      NA    NA days</span></span></code></pre></div>
+<span><span class="co">#&gt;       id     cf prior  arco       fine     inizio over_id     durata</span></span>
+<span><span class="co">#&gt;    &lt;int&gt; &lt;char&gt; &lt;num&gt; &lt;num&gt;     &lt;Date&gt;     &lt;Date&gt;   &lt;int&gt; &lt;difftime&gt;</span></span>
+<span><span class="co">#&gt; 1:     1   P001     1     1 2023-05-31 2023-01-01       1   151 days</span></span>
+<span><span class="co">#&gt; 2:     2   P001     0     1 2023-12-31 2023-06-01       2   214 days</span></span>
+<span><span class="co">#&gt; 3:     3   P002     1     1 2023-11-30 2023-02-01       3   303 days</span></span>
+<span><span class="co">#&gt; 4:    NA   &lt;NA&gt;    NA    NA       &lt;NA&gt;       &lt;NA&gt;      NA    NA days</span></span>
+<span><span class="co">#&gt; 5:    NA   &lt;NA&gt;    NA    NA       &lt;NA&gt;       &lt;NA&gt;      NA    NA days</span></span></code></pre></div>
 </div>
 <div class="section level3">
 <h3 id="custom-status-classification">Custom Status Classification<a class="anchor" aria-label="anchor" href="#custom-status-classification"></a>
@@ -623,7 +623,7 @@ classifications through the integrated status labeling system.</p>
 </div>
 
 <div class="pkgdown-footer-right">
-  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.1.3.</p>
+  <p>Site built with <a href="https://pkgdown.r-lib.org/" class="external-link">pkgdown</a> 2.2.0.</p>
 </div>
 
     </footer>
