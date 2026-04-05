@@ -1,5 +1,17 @@
 # Changelog
 
+## vecshift 1.0.5
+
+### Performance
+
+- Optimized
+  [`vecshift()`](https://gmontaletti.github.io/vecshift/reference/vecshift.md)
+  core and
+  [`merge_consecutive_employment()`](https://gmontaletti.github.io/vecshift/reference/merge_consecutive_employment.md)
+  for ~25% faster processing
+- Resolved all test failures in `classify_employment_status` and test
+  suite
+
 ## vecshift 1.0.4
 
 ### Bug Fixes
