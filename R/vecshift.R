@@ -206,6 +206,12 @@ vecshift <- function(dt) {
   result[arco == 0, `:=`(id = 0L, inizio = inizio + 1L, fine = fine - 1L)]
 
   # 9. Duration calculation and zero-duration filter -----
+  # NOTE (v1.2.0): merging steps 7 and 9 into a single filter was considered
+  # but deferred. The unemployment adjustment in step 8 mutates inizio/fine
+  # for arco==0 rows BEFORE durata is computed, so the durata predicate is
+  # not known at the time of the cf==acf filter. A single-pass version would
+  # require duplicating step-8 logic into a predicate expression, hurting
+  # readability for negligible gain.
   result[, durata := 1 + fine - inizio + first_in_over]
   result <- result[durata > 0]
   result[, first_in_over := NULL]

@@ -16,7 +16,8 @@ process_employment_pipeline(
   status_rules = NULL,
   validate_over_id = TRUE,
   validate_functions = TRUE,
-  show_progress = TRUE
+  show_progress = TRUE,
+  parallel = FALSE
 )
 }
 \arguments{
@@ -62,6 +63,17 @@ before execution and provides informative error messages.}
 the current processing step, percentage completion, and estimated time remaining.
 Uses the 'progress' package if available, falls back to utils::txtProgressBar or
 simple messages if not available.}
+
+\item{parallel}{Logical. If TRUE, parallelizes the period consolidation step
+(\code{merge_consecutive_employment()}) by splitting the data per person (cf)
+and processing chunks via \code{future.apply::future_lapply()}. Default is FALSE.
+Requires the optional package \pkg{future.apply}; if missing, falls back to
+sequential processing with a warning. To actually use multiple workers, the
+caller must set a parallel plan first, e.g.
+\code{future::plan(future::multisession, workers = 4)}.
+Note: only \code{merge_consecutive_employment()} is parallelized; the
+\code{vecshift()} core itself is not, since its global radix sort would
+not benefit from per-person splitting.}
 }
 \value{
 A data.table containing the processed employment segments. The exact structure

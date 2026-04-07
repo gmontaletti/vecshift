@@ -56,6 +56,16 @@
 #'   the current processing step, percentage completion, and estimated time remaining.
 #'   Uses the 'progress' package if available, falls back to utils::txtProgressBar or
 #'   simple messages if not available.
+#' @param parallel Logical. If TRUE, parallelizes the period consolidation step
+#'   (\code{merge_consecutive_employment()}) by splitting the data per person (cf)
+#'   and processing chunks via \code{future.apply::future_lapply()}. Default is FALSE.
+#'   Requires the optional package \pkg{future.apply}; if missing, falls back to
+#'   sequential processing with a warning. To actually use multiple workers, the
+#'   caller must set a parallel plan first, e.g.
+#'   \code{future::plan(future::multisession, workers = 4)}.
+#'   Note: only \code{merge_consecutive_employment()} is parallelized; the
+#'   \code{vecshift()} core itself is not, since its global radix sort would
+#'   not benefit from per-person splitting.
 #'
 #' @return A data.table containing the processed employment segments. The exact structure
 #'   depends on which pipeline steps were applied:
@@ -151,8 +161,19 @@ process_employment_pipeline <- function(
   status_rules = NULL,
   validate_over_id = TRUE,
   validate_functions = TRUE,
-  show_progress = TRUE
+  show_progress = TRUE,
+  parallel = FALSE
 ) {
+  # Resolve parallel backend availability
+  if (isTRUE(parallel)) {
+    if (!requireNamespace("future.apply", quietly = TRUE)) {
+      warning(
+        "Package 'future.apply' is required for parallel = TRUE but is not installed. ",
+        "Falling back to sequential processing."
+      )
+      parallel <- FALSE
+    }
+  }
   # Initialize progress tracking
   progress_steps <- list()
   progress_names <- character()
@@ -501,11 +522,33 @@ process_employment_pipeline <- function(
       consolidate_periods &&
         exists("merge_consecutive_employment", mode = "function")
     ) {
-      # Use new consolidation approach with over_id
-      result <- merge_consecutive_employment(
-        result,
-        consolidation_type = consolidation_type
-      )
+      # Use new consolidation approach with over_id.
+      # Optional parallel path: split per cf and run merge_consecutive_employment
+      # on each chunk via future.apply, then rbindlist. This is safe because
+      # each person's history is independent of every other person.
+      if (isTRUE(parallel) && "cf" %in% names(result)) {
+        cf_chunks <- split(result, by = "cf")
+        merged_chunks <- future.apply::future_lapply(
+          cf_chunks,
+          function(chunk) {
+            merge_consecutive_employment(
+              chunk,
+              consolidation_type = consolidation_type
+            )
+          },
+          future.seed = NULL
+        )
+        result <- data.table::rbindlist(
+          merged_chunks,
+          use.names = TRUE,
+          fill = TRUE
+        )
+      } else {
+        result <- merge_consecutive_employment(
+          result,
+          consolidation_type = consolidation_type
+        )
+      }
 
       # Calculate consolidation statistics
       if ("collapsed" %in% names(result)) {

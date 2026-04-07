@@ -254,129 +254,237 @@ merge_consecutive_employment <- function(dt, consolidation_type = "both") {
 }
 
 # Helper function to perform aggregation
+#
+# Optimized strategy (v1.2.0):
+# 1. Pre-compute group sizes via .N once
+# 2. Single-row groups: no aggregation needed, just project columns
+# 3. Multi-row groups: split into employment (true aggregation) and
+#    non-employment (first-row pickup) and process vectorized over .SDcols
+# 4. rbindlist the parts at the end
+#
+# Output column ordering and semantics MUST match the legacy implementation
+# (preserved as .perform_aggregation_legacy below for reference/testing).
 .perform_aggregation <- function(dt_work, numeric_extra, character_extra) {
   # Add duration calculation for each record for weighting
   dt_work[, record_durata := 1 + as.numeric(fine - inizio)]
 
-  # Build list of aggregation expressions
-  agg_list <- list()
-  agg_list[["inizio"]] <- quote(inizio[1])
-  agg_list[["fine"]] <- quote(fine[.N])
-  agg_list[["arco"]] <- quote(
-    if (.N == 1 || !is_employment[1]) {
-      arco[1]
-    } else {
-      w <- record_durata[!is.na(arco) & !is.na(record_durata)]
-      v <- arco[!is.na(arco) & !is.na(record_durata)]
-      if (length(w) > 0 && sum(w, na.rm = TRUE) > 0) {
-        round(weighted.mean(v, w = w), 2)
-      } else {
-        round(mean(arco, na.rm = TRUE), 2)
+  has_over_id <- "over_id" %in% names(dt_work)
+  has_stato <- "stato" %in% names(dt_work)
+
+  # Compute group sizes once
+  dt_work[, .group_n := .N, by = .(cf, final_group)]
+
+  # Determine output column ordering exactly as the legacy builder produced it.
+  # Legacy order:
+  #   inizio, fine, arco, prior, [over_id], [stato], durata, collapsed,
+  #   then for each numeric_extra: <col>, <col>_direction,
+  #   then each character_extra
+  out_cols <- c("inizio", "fine", "arco", "prior")
+  if (has_over_id) {
+    out_cols <- c(out_cols, "over_id")
+  }
+  if (has_stato) {
+    out_cols <- c(out_cols, "stato")
+  }
+  out_cols <- c(out_cols, "durata", "collapsed")
+  if (length(numeric_extra) > 0) {
+    for (col in numeric_extra) {
+      out_cols <- c(out_cols, col, paste0(col, "_direction"))
+    }
+  }
+  if (length(character_extra) > 0) {
+    out_cols <- c(out_cols, character_extra)
+  }
+  # by-cols come first in data.table results
+  final_cols <- c("cf", "final_group", out_cols)
+
+  # ---- Part A: single-row groups (no aggregation) ----
+  single_idx <- which(dt_work$.group_n == 1L)
+  if (length(single_idx) > 0L) {
+    dt_single <- dt_work[single_idx]
+    # Build the result columns directly from the source row
+    single_res <- data.table::data.table(
+      cf = dt_single$cf,
+      final_group = dt_single$final_group
+    )
+    single_res[, inizio := dt_single$inizio]
+    single_res[, fine := dt_single$fine]
+    single_res[, arco := dt_single$arco]
+    single_res[, prior := dt_single$prior]
+    if (has_over_id) {
+      single_res[, over_id := dt_single$over_id]
+    }
+    if (has_stato) {
+      single_res[, stato := dt_single$stato]
+    }
+    single_res[, durata := 1 + as.numeric(dt_single$fine - dt_single$inizio)]
+    single_res[, collapsed := FALSE]
+    if (length(numeric_extra) > 0) {
+      for (col in numeric_extra) {
+        single_res[, (col) := dt_single[[col]]]
+        single_res[, (paste0(col, "_direction")) := NA_real_]
       }
     }
-  )
-  agg_list[["prior"]] <- quote(
-    if (.N == 1 || !is_employment[1]) {
-      prior[1]
-    } else {
-      w <- record_durata[!is.na(prior) & !is.na(record_durata)]
-      v <- prior[!is.na(prior) & !is.na(record_durata)]
-      if (length(w) > 0 && sum(w, na.rm = TRUE) > 0) {
-        round(weighted.mean(v, w = w), 2)
-      } else {
-        round(mean(prior, na.rm = TRUE), 2)
+    if (length(character_extra) > 0) {
+      for (col in character_extra) {
+        single_res[, (col) := dt_single[[col]]]
       }
     }
-  )
-
-  # Include over_id in aggregation if it exists
-  if ("over_id" %in% names(dt_work)) {
-    agg_list[["over_id"]] <- quote(
-      if (.N == 1 || !is_employment[1]) over_id[1] else over_id[1]
-    )
+  } else {
+    single_res <- NULL
   }
 
-  # Include stato (employment status) in aggregation if it exists
-  if ("stato" %in% names(dt_work)) {
-    agg_list[["stato"]] <- quote(
-      if (.N == 1 || !is_employment[1]) {
-        stato[1]
+  # ---- Part B: multi-row groups ----
+  multi_dt <- dt_work[.group_n > 1L]
+  if (nrow(multi_dt) > 0L) {
+    # Sub-split: non-employment multi-row groups behave like "first row"
+    # extraction for most columns (legacy: !is_employment[1] -> col[1]).
+    # Employment multi-row groups use the weighted aggregation.
+
+    # Helper: weighted mean preserving legacy NA semantics
+    .wmean <- function(v, w) {
+      keep <- !is.na(v) & !is.na(w)
+      vk <- v[keep]
+      wk <- w[keep]
+      if (length(wk) > 0L && sum(wk, na.rm = TRUE) > 0) {
+        round(stats::weighted.mean(vk, w = wk), 2)
       } else {
-        # For collapsed employment periods, prioritize the most common status
-        # or use the first status if all are different
-        stato_vals <- stato[!is.na(stato) & stato != ""]
-        if (length(stato_vals) == 0) {
-          NA_character_
-        } else if (length(unique(stato_vals)) == 1) {
-          stato_vals[1]
-        } else {
-          # Use the most frequent status, or first if tie
-          stato_table <- table(stato_vals)
-          names(stato_table)[which.max(stato_table)]
-        }
+        round(mean(v, na.rm = TRUE), 2)
       }
-    )
-  }
+    }
 
-  agg_list[["durata"]] <- quote(1 + as.numeric(fine[.N] - inizio[1]))
-  agg_list[["collapsed"]] <- quote(.N > 1 & is_employment[1])
-
-  # Add aggregations for numeric extra columns
-  for (col in numeric_extra) {
-    agg_list[[col]] <- substitute(
-      if (.N == 1 || !is_employment[1]) {
-        COL[1]
+    # Direction for numeric: tail(vals, 1) - vals[1] over !is.na
+    .direction <- function(v) {
+      vals <- v[!is.na(v)]
+      if (length(vals) > 0L) {
+        round(vals[length(vals)] - vals[1L], 2)
       } else {
-        w <- record_durata[!is.na(COL) & !is.na(record_durata)]
-        v <- COL[!is.na(COL) & !is.na(record_durata)]
-        if (length(w) > 0 && sum(w, na.rm = TRUE) > 0) {
-          round(weighted.mean(v, w = w), 2)
-        } else {
-          round(mean(COL, na.rm = TRUE), 2)
-        }
-      },
-      list(COL = as.name(col))
-    )
-
-    direction_col <- paste0(col, "_direction")
-    agg_list[[direction_col]] <- substitute(
-      if (.N == 1 || !is_employment[1]) {
         NA_real_
+      }
+    }
+
+    # Character merge: legacy semantics
+    .char_merge <- function(v) {
+      vals <- v[!is.na(v) & v != ""]
+      if (length(vals) == 0L) {
+        NA_character_
+      } else if (length(unique(vals)) == 1L) {
+        vals[1L]
       } else {
-        vals <- COL[!is.na(COL)]
-        if (length(vals) > 0) round(tail(vals, 1) - vals[1], 2) else NA_real_
+        paste0(vals[1L], "->", vals[length(vals)])
+      }
+    }
+
+    # stato merge: legacy semantics (most frequent, or first if tie)
+    .stato_merge <- function(v) {
+      sv <- v[!is.na(v) & v != ""]
+      if (length(sv) == 0L) {
+        NA_character_
+      } else if (length(unique(sv)) == 1L) {
+        sv[1L]
+      } else {
+        st <- table(sv)
+        names(st)[which.max(st)]
+      }
+    }
+
+    # Build the aggregation expression list. Because the conditional
+    # branches depend on is_employment[1] (constant within a group given
+    # the calling code), we evaluate them per-group but using vectorised
+    # primitives instead of substitute()/eval().
+
+    multi_agg_call <- quote(list(
+      inizio = inizio[1L],
+      fine = fine[.N],
+      arco = if (!is_employment[1L]) arco[1L] else .wmean(arco, record_durata),
+      prior = if (!is_employment[1L]) {
+        prior[1L]
+      } else {
+        .wmean(prior, record_durata)
       },
-      list(COL = as.name(col))
-    )
+      durata = 1 + as.numeric(fine[.N] - inizio[1L]),
+      collapsed = is_employment[1L] # .N > 1 always here
+    ))
+
+    multi_res <- multi_dt[, eval(multi_agg_call), by = .(cf, final_group)]
+
+    if (has_over_id) {
+      ov <- multi_dt[, .(over_id = over_id[1L]), by = .(cf, final_group)]
+      multi_res[, over_id := ov$over_id]
+    }
+    if (has_stato) {
+      st <- multi_dt[,
+        .(stato = if (!is_employment[1L]) stato[1L] else .stato_merge(stato)),
+        by = .(cf, final_group)
+      ]
+      multi_res[, stato := st$stato]
+    }
+
+    # Numeric extras: weighted mean + direction (two separate aggregations
+    # so column names are unambiguous)
+    if (length(numeric_extra) > 0L) {
+      num_mean <- multi_dt[,
+        lapply(.SD, function(v) {
+          if (!is_employment[1L]) v[1L] else .wmean(v, record_durata)
+        }),
+        by = .(cf, final_group),
+        .SDcols = numeric_extra
+      ]
+      num_dir <- multi_dt[,
+        lapply(.SD, function(v) {
+          if (!is_employment[1L]) NA_real_ else .direction(v)
+        }),
+        by = .(cf, final_group),
+        .SDcols = numeric_extra
+      ]
+      for (col in numeric_extra) {
+        multi_res[, (col) := num_mean[[col]]]
+        multi_res[, (paste0(col, "_direction")) := num_dir[[col]]]
+      }
+    }
+
+    # Character extras
+    if (length(character_extra) > 0L) {
+      chr_agg <- multi_dt[,
+        lapply(.SD, function(v) {
+          if (!is_employment[1L]) v[1L] else .char_merge(v)
+        }),
+        by = .(cf, final_group),
+        .SDcols = character_extra
+      ]
+      for (col in character_extra) {
+        multi_res[, (col) := chr_agg[[col]]]
+      }
+    }
+  } else {
+    multi_res <- NULL
   }
 
-  # Add aggregations for character extra columns
-  for (col in character_extra) {
-    agg_list[[col]] <- substitute(
-      if (.N == 1 || !is_employment[1]) {
-        COL[1]
-      } else {
-        vals <- COL[!is.na(COL) & COL != ""]
-        if (length(vals) == 0) {
-          NA_character_
-        } else if (length(unique(vals)) == 1) {
-          vals[1]
-        } else {
-          paste0(vals[1], "->", tail(vals, 1))
-        }
-      },
-      list(COL = as.name(col))
+  # ---- Combine ----
+  if (!is.null(single_res) && !is.null(multi_res)) {
+    # Align column order before rbindlist
+    data.table::setcolorder(single_res, final_cols)
+    data.table::setcolorder(multi_res, final_cols)
+    result <- data.table::rbindlist(
+      list(single_res, multi_res),
+      use.names = TRUE
     )
+  } else if (!is.null(single_res)) {
+    data.table::setcolorder(single_res, final_cols)
+    result <- single_res
+  } else if (!is.null(multi_res)) {
+    data.table::setcolorder(multi_res, final_cols)
+    result <- multi_res
+  } else {
+    # Empty input edge case
+    result <- dt_work[0L, .SD, .SDcols = intersect(final_cols, names(dt_work))]
+    result[, collapsed := logical(0)]
   }
 
-  # Aggregate by final_group
-  result <- dt_work[,
-    eval(as.call(c(list(as.name("list")), agg_list))),
-    by = .(cf, final_group)
-  ]
-
-  # Clean up temporary columns
-  result[, final_group := NULL]
+  # Drop helper grouping column
+  if ("final_group" %in% names(result)) {
+    result[, final_group := NULL]
+  }
 
   # Sort by cf and inizio
   setorder(result, cf, inizio)

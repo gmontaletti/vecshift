@@ -148,22 +148,25 @@ merge_original_columns <- function(original_data, segments, columns) {
     merged_employment <- employment_segments
   }
 
-  # For unemployment segments, add the requested columns with NA values
+  # For unemployment segments, add the requested columns with NA values.
+  # Batched assignment (single :=) instead of one assignment per column.
   if (nrow(unemployment_segments) > 0) {
-    for (col in columns) {
-      if (is.character(original_data[[col]])) {
-        unemployment_segments[, (col) := NA_character_]
-      } else if (is.numeric(original_data[[col]])) {
-        unemployment_segments[, (col) := NA_real_]
-      } else if (inherits(original_data[[col]], "Date")) {
-        unemployment_segments[, (col) := as.Date(NA)]
-      } else if (is.logical(original_data[[col]])) {
-        unemployment_segments[, (col) := NA]
+    na_values <- lapply(columns, function(col) {
+      src <- original_data[[col]]
+      if (is.character(src)) {
+        NA_character_
+      } else if (inherits(src, "Date")) {
+        as.Date(NA)
+      } else if (is.numeric(src)) {
+        NA_real_
+      } else if (is.logical(src)) {
+        NA
       } else {
-        # For other types, use generic NA
-        unemployment_segments[, (col) := NA]
+        NA
       }
-    }
+    })
+    names(na_values) <- columns
+    unemployment_segments[, (columns) := na_values]
   }
 
   # Combine employment and unemployment segments

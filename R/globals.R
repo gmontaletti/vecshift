@@ -58,6 +58,7 @@ globalVariables(c(
   "n_periods",
   "consolidation_group",
   "temp_group",
+  ".group_n",
 
   # add_external_events specific variables
   "event_name",

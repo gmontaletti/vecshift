@@ -1,3 +1,27 @@
+# vecshift 1.2.0
+
+## Performance
+
+* `merge_consecutive_employment()` is approximately 2.3x faster on typical
+  workloads. The internal `.perform_aggregation()` helper no longer builds
+  per-column aggregation expressions via `substitute()` + `eval()`. Instead
+  it pre-computes group sizes, projects single-row groups directly without
+  aggregation, and processes multi-row groups with vectorised `.SDcols`
+  passes for numeric and character extras. Output column ordering and
+  semantics are preserved exactly.
+* `merge_original_columns()` now assigns `NA` placeholders for unemployment
+  segments in a single batched `:=` call rather than one assignment per
+  column.
+
+## New features
+
+* `process_employment_pipeline()` gains an optional `parallel = FALSE`
+  parameter. When `TRUE`, the period-consolidation step is parallelised
+  per-person via `future.apply::future_lapply()` (added to `Suggests`).
+  Callers must set a `future::plan()` to actually use multiple workers;
+  if `future.apply` is not installed, the function falls back to sequential
+  processing with a warning.
+
 # vecshift 1.1.0
 
 ## New features
