@@ -169,6 +169,10 @@ get_default_status_rules <- function() {
 #' @param rules List of classification rules (default: get_default_status_rules())
 #' @param group_by Character vector of columns to group by for shift operations (default: "cf")
 #' @param show_progress Logical indicating whether to show progress bar (default: FALSE)
+#' @param unemployment_duration_threshold Optional numeric. If provided, overrides
+#'   `rules$unemployment$duration_threshold`. Convenience shortcut for the most
+#'   commonly adjusted threshold without creating a full custom rule set.
+#'   Default: NULL (use rules as-is).
 #'
 #' @return Data.table with stato column containing employment status labels
 #'
@@ -230,11 +234,37 @@ classify_employment_status <- function(
   segments,
   rules = get_default_status_rules(),
   group_by = "cf",
-  show_progress = FALSE
+  show_progress = FALSE,
+  unemployment_duration_threshold = NULL
 ) {
   # Handle NULL rules by using defaults
   if (is.null(rules)) {
     rules <- get_default_status_rules()
+  }
+
+  # Optional override of unemployment duration threshold
+  if (!is.null(unemployment_duration_threshold)) {
+    if (
+      !is.numeric(unemployment_duration_threshold) ||
+        length(unemployment_duration_threshold) != 1L ||
+        unemployment_duration_threshold < 0
+    ) {
+      stop(
+        "unemployment_duration_threshold must be a single non-negative numeric value"
+      )
+    }
+    if (is.list(rules) && is.list(rules$unemployment)) {
+      rules$unemployment$duration_threshold <- unemployment_duration_threshold
+    }
+  }
+
+  # Early return for empty input
+  if (nrow(segments) == 0L) {
+    result <- data.table::copy(segments)
+    if (!"stato" %in% names(result)) {
+      result[, stato := character(0)]
+    }
+    return(result)
   }
 
   # Initialize progress bar if requested

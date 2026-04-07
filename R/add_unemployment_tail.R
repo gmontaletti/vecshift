@@ -220,22 +220,25 @@ add_unemployment_periods <- function(
     max_over_id <- 0L
   }
 
-  # Initialize result as copy of input data
-  extended_result <- copy(vecshift_data)
-
   # Get the class of durata from original data to match it properly
   durata_class <- class(vecshift_data$durata)[1] # Get first class in case of multiple
 
   # Create list to collect new unemployment periods
   new_unemployment <- list()
 
+  # Defer copy: only allocate when we actually need to mutate ordering.
+  # extended_result is initialized lazily inside the head/tail blocks.
+  extended_result <- NULL
+
   # Process head unemployment if requested
   if (add_head) {
     # Order by cf and inizio to get first record per person efficiently
+    extended_result <- copy(vecshift_data)
     setorder(extended_result, cf, inizio)
 
-    # Get first record per person
-    first_employment <- extended_result[, .SD[1], by = cf]
+    # Get first record per person (use .I indexing instead of .SD[1])
+    first_idx <- extended_result[, .I[1L], by = cf]$V1
+    first_employment <- extended_result[first_idx]
 
     # Filter for individuals whose first employment starts after min_date
     # and would have unemployment head duration >= min_duration
@@ -271,11 +274,16 @@ add_unemployment_periods <- function(
 
   # Process tail unemployment if requested
   if (add_tail) {
+    # Reuse copy from head block if available, otherwise create now
+    if (is.null(extended_result)) {
+      extended_result <- copy(vecshift_data)
+    }
     # Order by cf and fine to get last record per person efficiently
     setorder(extended_result, cf, fine)
 
-    # Get last record per person (most efficient approach)
-    last_employment <- extended_result[, .SD[.N], by = cf]
+    # Get last record per person (use .I indexing instead of .SD[.N])
+    last_idx <- extended_result[, .I[.N], by = cf]$V1
+    last_employment <- extended_result[last_idx]
 
     # Filter for individuals whose last employment ends before max_date
     # and would have unemployment tail duration >= min_duration

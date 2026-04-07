@@ -1,3 +1,33 @@
+#' Classify extra columns into numeric and character groups
+#'
+#' @keywords internal
+#' @noRd
+.classify_extra_columns <- function(dt, extra_cols) {
+  if (length(extra_cols) == 0L) {
+    return(list(numeric = character(0), character = character(0)))
+  }
+  is_numeric <- vapply(
+    extra_cols,
+    function(col) {
+      cls <- class(dt[[col]])
+      any(c("numeric", "integer") %in% cls)
+    },
+    logical(1)
+  )
+  is_character <- vapply(
+    extra_cols,
+    function(col) {
+      cls <- class(dt[[col]])
+      any(c("character", "factor") %in% cls)
+    },
+    logical(1)
+  )
+  list(
+    numeric = extra_cols[is_numeric],
+    character = extra_cols[is_character]
+  )
+}
+
 #' Merge Employment Periods with Multiple Consolidation Modes
 #'
 #' @description
@@ -98,6 +128,11 @@ merge_consecutive_employment <- function(dt, consolidation_type = "both") {
     ))
   }
 
+  # Early return for empty input
+  if (nrow(dt) == 0L) {
+    return(data.table::copy(dt))
+  }
+
   # Early return if no consolidation requested
   if (consolidation_type == "none") {
     dt_result <- copy(dt)
@@ -136,24 +171,10 @@ merge_consecutive_employment <- function(dt, consolidation_type = "both") {
   )
   extra_cols <- setdiff(names(dt_work), base_cols)
 
-  # Handle case where there are no extra columns
-  if (length(extra_cols) > 0) {
-    # Get column types safely
-    col_types <- sapply(dt_work[, ..extra_cols], class)
-    # Handle cases where sapply returns a list (when columns have multiple classes)
-    is_numeric <- sapply(col_types, function(x) {
-      any(c("numeric", "integer") %in% x)
-    })
-    is_character <- sapply(col_types, function(x) {
-      any(c("character", "factor") %in% x)
-    })
-
-    numeric_extra <- extra_cols[is_numeric]
-    character_extra <- extra_cols[is_character]
-  } else {
-    numeric_extra <- character()
-    character_extra <- character()
-  }
+  # Classify extra columns by type
+  .col_class <- .classify_extra_columns(dt_work, extra_cols)
+  numeric_extra <- .col_class$numeric
+  character_extra <- .col_class$character
 
   # Apply consolidation strategy
   if (consolidation_type == "both") {
@@ -464,24 +485,10 @@ merge_consecutive_employment_fast <- function(dt) {
     )
   )
 
-  # Handle case where there are no extra columns
-  if (length(extra_cols) > 0) {
-    # Get column types safely
-    col_types <- sapply(dt_work[, ..extra_cols], class)
-    # Handle cases where sapply returns a list (when columns have multiple classes)
-    is_numeric <- sapply(col_types, function(x) {
-      any(c("numeric", "integer") %in% x)
-    })
-    is_character <- sapply(col_types, function(x) {
-      any(c("character", "factor") %in% x)
-    })
-
-    numeric_extra <- extra_cols[is_numeric]
-    character_extra <- extra_cols[is_character]
-  } else {
-    numeric_extra <- character()
-    character_extra <- character()
-  }
+  # Classify extra columns by type
+  .col_class <- .classify_extra_columns(dt_work, extra_cols)
+  numeric_extra <- .col_class$numeric
+  character_extra <- .col_class$character
 
   # Add duration calculation for each record for weighting
   dt_work[, record_durata := 1 + as.numeric(fine - inizio)]
@@ -752,24 +759,10 @@ merge_consecutive_employment_fast_with_type <- function(
   )
   extra_cols <- setdiff(names(dt_work), c(base_cols, internal_cols))
 
-  # Handle case where there are no extra columns
-  if (length(extra_cols) > 0) {
-    # Get column types safely
-    col_types <- sapply(dt_work[, ..extra_cols], class)
-    # Handle cases where sapply returns a list (when columns have multiple classes)
-    is_numeric <- sapply(col_types, function(x) {
-      any(c("numeric", "integer") %in% x)
-    })
-    is_character <- sapply(col_types, function(x) {
-      any(c("character", "factor") %in% x)
-    })
-
-    numeric_extra <- extra_cols[is_numeric]
-    character_extra <- extra_cols[is_character]
-  } else {
-    numeric_extra <- character()
-    character_extra <- character()
-  }
+  # Classify extra columns by type
+  .col_class <- .classify_extra_columns(dt_work, extra_cols)
+  numeric_extra <- .col_class$numeric
+  character_extra <- .col_class$character
 
   # Add duration calculation for each record for weighting
   dt_work[, record_durata := 1 + as.numeric(fine - inizio)]

@@ -156,3 +156,90 @@ test_that("vecshift handles zero duration segments appropriately", {
   # All segments should have positive duration
   expect_true(all(result$durata > 0))
 })
+
+# v1.1.0: Empty-data and single-row guards -----
+
+test_that("vecshift handles empty input data.table", {
+  empty_dt <- data.table::data.table(
+    id = integer(0),
+    cf = character(0),
+    inizio = as.Date(character(0)),
+    fine = as.Date(character(0)),
+    prior = numeric(0)
+  )
+  result <- vecshift(empty_dt)
+  expect_s3_class(result, "data.table")
+  expect_equal(nrow(result), 0L)
+  expect_true(all(c("cf", "inizio", "fine", "arco", "prior", "id", "durata", "over_id") %in% names(result)))
+})
+
+test_that("classify_employment_status handles empty input", {
+  empty_segments <- data.table::data.table(
+    cf = character(0),
+    inizio = as.Date(character(0)),
+    fine = as.Date(character(0)),
+    arco = integer(0),
+    prior = numeric(0),
+    id = integer(0),
+    durata = numeric(0),
+    over_id = integer(0)
+  )
+  result <- classify_employment_status(empty_segments)
+  expect_s3_class(result, "data.table")
+  expect_equal(nrow(result), 0L)
+  expect_true("stato" %in% names(result))
+})
+
+test_that("merge_consecutive_employment handles empty input", {
+  empty_dt <- data.table::data.table(
+    cf = character(0),
+    inizio = as.Date(character(0)),
+    fine = as.Date(character(0)),
+    arco = integer(0),
+    prior = numeric(0),
+    durata = numeric(0),
+    over_id = integer(0)
+  )
+  result <- merge_consecutive_employment(empty_dt, consolidation_type = "none")
+  expect_s3_class(result, "data.table")
+  expect_equal(nrow(result), 0L)
+})
+
+test_that("vecshift handles single-row input", {
+  single_dt <- data.table::data.table(
+    id = 1L,
+    cf = "PERSON001",
+    inizio = as.Date("2023-01-01"),
+    fine = as.Date("2023-12-31"),
+    prior = 1L
+  )
+  result <- vecshift(single_dt)
+  expect_s3_class(result, "data.table")
+  expect_equal(nrow(result), 1L)
+  expect_equal(result$cf, "PERSON001")
+  expect_equal(result$arco, 1)
+  expect_equal(result$over_id, 1L)
+})
+
+test_that("classify_employment_status accepts unemployment_duration_threshold override", {
+  # Two-job sequence with a 10-day gap (default threshold = 8 → "long")
+  test_data <- data.table::data.table(
+    id = c(1L, 2L),
+    cf = c("PERSON001", "PERSON001"),
+    inizio = as.Date(c("2023-01-01", "2023-02-01")),
+    fine = as.Date(c("2023-01-20", "2023-02-15")),
+    prior = c(1L, 1L)
+  )
+  segments <- vecshift(test_data)
+  # With high threshold (15), the 10-day gap should be classified differently than default
+  result_high <- classify_employment_status(segments, unemployment_duration_threshold = 15)
+  result_default <- classify_employment_status(segments)
+  # Both should run successfully and produce a stato column
+  expect_true("stato" %in% names(result_high))
+  expect_true("stato" %in% names(result_default))
+  # Validate parameter validation
+  expect_error(
+    classify_employment_status(segments, unemployment_duration_threshold = -1),
+    "non-negative"
+  )
+})

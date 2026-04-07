@@ -8,7 +8,8 @@ classify_employment_status(
   segments,
   rules = get_default_status_rules(),
   group_by = "cf",
-  show_progress = FALSE
+  show_progress = FALSE,
+  unemployment_duration_threshold = NULL
 )
 }
 \arguments{
@@ -19,6 +20,11 @@ classify_employment_status(
 \item{group_by}{Character vector of columns to group by for shift operations (default: "cf")}
 
 \item{show_progress}{Logical indicating whether to show progress bar (default: FALSE)}
+
+\item{unemployment_duration_threshold}{Optional numeric. If provided, overrides
+`rules$unemployment$duration_threshold`. Convenience shortcut for the most
+commonly adjusted threshold without creating a full custom rule set.
+Default: NULL (use rules as-is).}
 }
 \value{
 Data.table with stato column containing employment status labels

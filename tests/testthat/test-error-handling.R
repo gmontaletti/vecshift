@@ -35,7 +35,7 @@ test_that("vecshift throws error for wrong column types", {
   # Act & Assert
   expect_error(
     vecshift(invalid_data),
-    "Column 'inizio' must be numeric or Date type"
+    "Column 'inizio' must be Date or numeric"
   )
 })
 
@@ -52,7 +52,7 @@ test_that("vecshift throws error for invalid FINE column type", {
   # Act & Assert
   expect_error(
     vecshift(invalid_data),
-    "Column 'fine' must be numeric or Date type"
+    "Column 'fine' must be Date or numeric"
   )
 })
 

@@ -1,3 +1,34 @@
+# vecshift 1.1.0
+
+## New features
+
+* `classify_employment_status()` gains an `unemployment_duration_threshold`
+  parameter as a convenience shortcut to override
+  `rules$unemployment$duration_threshold` without constructing a full custom
+  rule set.
+
+## Robustness
+
+* `vecshift()`, `classify_employment_status()`, and
+  `merge_consecutive_employment()` now return correctly typed empty results
+  when called on zero-row inputs instead of failing.
+* Error messages from `vecshift()`, `process_employment_pipeline()`,
+  `merge_original_columns()`, and `merge_overlapping_values()` now include
+  remediation hints, the offending column class, and (where appropriate)
+  the list of available columns.
+
+## Performance
+
+* `add_unemployment_periods()` defers its internal `copy()` until ordering
+  must be mutated, and uses `.I`-based indexing instead of `.SD[1]` /
+  `.SD[.N]` to extract the first and last record per person.
+
+## Internal
+
+* Extracted the repeated extra-column type detection block in
+  `merge_consecutive_employment.R` into the internal helper
+  `.classify_extra_columns()`.
+
 # vecshift 1.0.5
 
 ## Performance

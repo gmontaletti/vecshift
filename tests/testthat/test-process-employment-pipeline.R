@@ -521,7 +521,8 @@ test_that("pipeline handles empty and minimal datasets", {
   expect_equal(nrow(result_minimal), 1)
   expect_equal(result_minimal$cf, "PERSON001")
 
-  # Test with empty dataset would cause errors in vecshift, which is expected behavior
+  # Empty datasets are now handled gracefully (vecshift 1.1.0+):
+  # vecshift() returns an empty typed result rather than erroring.
   empty_data <- data.table(
     id = integer(0),
     cf = character(0),
@@ -530,6 +531,10 @@ test_that("pipeline handles empty and minimal datasets", {
     prior = integer(0)
   )
 
-  # Should handle empty data gracefully or error appropriately
-  expect_error(process_employment_pipeline(empty_data, show_progress = FALSE))
+  result_empty <- process_employment_pipeline(
+    empty_data,
+    show_progress = FALSE
+  )
+  expect_s3_class(result_empty, "data.table")
+  expect_equal(nrow(result_empty), 0L)
 })

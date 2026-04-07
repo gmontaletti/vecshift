@@ -89,21 +89,35 @@ vecshift <- function(dt) {
   required_cols <- c("id", "cf", "inizio", "fine", "prior")
   missing_cols <- setdiff(required_cols, names(dt))
   if (length(missing_cols) > 0) {
-    stop(paste(
-      "Missing required columns:",
-      paste(missing_cols, collapse = ", ")
-    ))
+    stop(
+      "Missing required columns: ",
+      paste(missing_cols, collapse = ", "),
+      ". vecshift() requires: id, cf, inizio, fine, prior. ",
+      "Use data.table::setnames() to rename existing columns."
+    )
   }
 
   # Validate column types
   if (!is.numeric(dt$inizio) && !inherits(dt$inizio, "Date")) {
-    stop("Column 'inizio' must be numeric or Date type")
+    stop(
+      "Column 'inizio' must be Date or numeric, got: ",
+      class(dt$inizio)[1],
+      ". Use as.Date() to convert."
+    )
   }
   if (!is.numeric(dt$fine) && !inherits(dt$fine, "Date")) {
-    stop("Column 'fine' must be numeric or Date type")
+    stop(
+      "Column 'fine' must be Date or numeric, got: ",
+      class(dt$fine)[1],
+      ". Use as.Date() to convert."
+    )
   }
   if (!is.numeric(dt$prior)) {
-    stop("Column 'prior' must be numeric")
+    stop(
+      "Column 'prior' must be numeric, got: ",
+      class(dt$prior)[1],
+      ". Use as.numeric() to convert."
+    )
   }
 
   # Check for logical consistency
@@ -111,6 +125,20 @@ vecshift <- function(dt) {
     warning(
       "Some records have fine < inizio. These may produce unexpected results."
     )
+  }
+
+  # Early return for empty input
+  if (nrow(dt) == 0L) {
+    return(data.table::data.table(
+      cf = character(0),
+      inizio = dt$inizio[0],
+      fine = dt$fine[0],
+      arco = integer(0),
+      prior = numeric(0),
+      id = integer(0),
+      durata = numeric(0),
+      over_id = integer(0)
+    ))
   }
 
   # 1. Pre-compute integer cf mapping for fast radix sort -----

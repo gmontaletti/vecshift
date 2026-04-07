@@ -322,10 +322,13 @@ process_employment_pipeline <- function(
     required_cols <- c("id", "cf", "inizio", "fine", "prior")
     missing_cols <- setdiff(required_cols, names(original_data))
     if (length(missing_cols) > 0) {
-      stop(paste(
-        "Missing required columns for vecshift:",
-        paste(missing_cols, collapse = ", ")
-      ))
+      stop(
+        "[process_employment_pipeline:input-validation] ",
+        "Missing required columns for vecshift: ",
+        paste(missing_cols, collapse = ", "),
+        ". Required: id, cf, inizio, fine, prior. ",
+        "Use data.table::setnames() to rename existing columns."
+      )
     }
   }
 
@@ -339,10 +342,13 @@ process_employment_pipeline <- function(
 
     missing_merge_cols <- setdiff(merge_columns, names(original_data))
     if (length(missing_merge_cols) > 0) {
-      stop(paste(
-        "Columns specified in 'merge_columns' not found in original_data:",
-        paste(missing_merge_cols, collapse = ", ")
-      ))
+      stop(
+        "[process_employment_pipeline:merge-columns] ",
+        "Columns specified in 'merge_columns' not found in original_data: ",
+        paste(missing_merge_cols, collapse = ", "),
+        ". Available columns: ",
+        paste(names(original_data), collapse = ", ")
+      )
     }
   }
 

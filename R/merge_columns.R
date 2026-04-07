@@ -99,10 +99,12 @@ merge_original_columns <- function(original_data, segments, columns) {
   # Check that requested columns exist in original_data
   missing_cols <- setdiff(columns, names(original_data))
   if (length(missing_cols) > 0) {
-    stop(paste(
-      "Columns not found in original_data:",
-      paste(missing_cols, collapse = ", ")
-    ))
+    stop(
+      "Columns not found in original_data: ",
+      paste(missing_cols, collapse = ", "),
+      ". Available columns: ",
+      paste(names(original_data), collapse = ", ")
+    )
   }
 
   # Check for column name conflicts (except 'id' which is the merge key)
@@ -279,10 +281,12 @@ merge_overlapping_values <- function(segments_with_columns, columns) {
   # Check that requested columns exist in segments_with_columns
   missing_cols <- setdiff(columns, names(segments_with_columns))
   if (length(missing_cols) > 0) {
-    stop(paste(
-      "Columns not found in segments_with_columns:",
-      paste(missing_cols, collapse = ", ")
-    ))
+    stop(
+      "Columns not found in segments_with_columns: ",
+      paste(missing_cols, collapse = ", "),
+      ". Available columns: ",
+      paste(names(segments_with_columns), collapse = ", ")
+    )
   }
 
   # If no overlapping periods exist, return unchanged
