@@ -7,7 +7,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">vecshift</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">1.0.5</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="Released version">1.1.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -38,6 +38,29 @@
       <small>Source: <a href="https://github.com/gmontaletti/vecshift/blob/main/NEWS.md" class="external-link"><code>NEWS.md</code></a></small>
     </div>
 
+    <div class="section level2">
+<h2 class="pkg-version" data-toc-text="1.1.0" id="vecshift-110">vecshift 1.1.0<a class="anchor" aria-label="anchor" href="#vecshift-110"></a></h2>
+<div class="section level3">
+<h3 id="new-features-1-1-0">New features<a class="anchor" aria-label="anchor" href="#new-features-1-1-0"></a></h3>
+<ul><li>
+<code><a href="../reference/classify_employment_status.html">classify_employment_status()</a></code> gains an <code>unemployment_duration_threshold</code> parameter as a convenience shortcut to override <code>rules$unemployment$duration_threshold</code> without constructing a full custom rule set.</li>
+</ul></div>
+<div class="section level3">
+<h3 id="robustness-1-1-0">Robustness<a class="anchor" aria-label="anchor" href="#robustness-1-1-0"></a></h3>
+<ul><li>
+<code><a href="../reference/vecshift.html">vecshift()</a></code>, <code><a href="../reference/classify_employment_status.html">classify_employment_status()</a></code>, and <code><a href="../reference/merge_consecutive_employment.html">merge_consecutive_employment()</a></code> now return correctly typed empty results when called on zero-row inputs instead of failing.</li>
+<li>Error messages from <code><a href="../reference/vecshift.html">vecshift()</a></code>, <code><a href="../reference/process_employment_pipeline.html">process_employment_pipeline()</a></code>, <code><a href="../reference/merge_original_columns.html">merge_original_columns()</a></code>, and <code><a href="../reference/merge_overlapping_values.html">merge_overlapping_values()</a></code> now include remediation hints, the offending column class, and (where appropriate) the list of available columns.</li>
+</ul></div>
+<div class="section level3">
+<h3 id="performance-1-1-0">Performance<a class="anchor" aria-label="anchor" href="#performance-1-1-0"></a></h3>
+<ul><li>
+<code><a href="../reference/add_unemployment_periods.html">add_unemployment_periods()</a></code> defers its internal <code><a href="https://rdrr.io/pkg/data.table/man/copy.html" class="external-link">copy()</a></code> until ordering must be mutated, and uses <code>.I</code>-based indexing instead of <code>.SD[1]</code> / <code>.SD[.N]</code> to extract the first and last record per person.</li>
+</ul></div>
+<div class="section level3">
+<h3 id="internal-1-1-0">Internal<a class="anchor" aria-label="anchor" href="#internal-1-1-0"></a></h3>
+<ul><li>Extracted the repeated extra-column type detection block in <code>merge_consecutive_employment.R</code> into the internal helper <code>.classify_extra_columns()</code>.</li>
+</ul></div>
+</div>
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="1.0.5" id="vecshift-105">vecshift 1.0.5<a class="anchor" aria-label="anchor" href="#vecshift-105"></a></h2>
 <div class="section level3">
