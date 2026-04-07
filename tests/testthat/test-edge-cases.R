@@ -170,7 +170,10 @@ test_that("vecshift handles empty input data.table", {
   result <- vecshift(empty_dt)
   expect_s3_class(result, "data.table")
   expect_equal(nrow(result), 0L)
-  expect_true(all(c("cf", "inizio", "fine", "arco", "prior", "id", "durata", "over_id") %in% names(result)))
+  expect_true(all(
+    c("cf", "inizio", "fine", "arco", "prior", "id", "durata", "over_id") %in%
+      names(result)
+  ))
 })
 
 test_that("classify_employment_status handles empty input", {
@@ -232,7 +235,10 @@ test_that("classify_employment_status accepts unemployment_duration_threshold ov
   )
   segments <- vecshift(test_data)
   # With high threshold (15), the 10-day gap should be classified differently than default
-  result_high <- classify_employment_status(segments, unemployment_duration_threshold = 15)
+  result_high <- classify_employment_status(
+    segments,
+    unemployment_duration_threshold = 15
+  )
   result_default <- classify_employment_status(segments)
   # Both should run successfully and produce a stato column
   expect_true("stato" %in% names(result_high))
@@ -242,4 +248,149 @@ test_that("classify_employment_status accepts unemployment_duration_threshold ov
     classify_employment_status(segments, unemployment_duration_threshold = -1),
     "non-negative"
   )
+})
+
+# v2.0.0 ------------------------------------------------------------------
+
+test_that("vecshift accepts custom column names via mapping parameters", {
+  custom <- data.table::data.table(
+    contract_id = 1:2,
+    person = c("X1", "X1"),
+    start_date = as.Date(c("2023-01-01", "2023-07-01")),
+    end_date = as.Date(c("2023-06-30", "2023-12-31")),
+    type = c(1, 0)
+  )
+
+  result <- vecshift(
+    custom,
+    person_col = "person",
+    start_col = "start_date",
+    end_col = "end_date",
+    id_col = "contract_id",
+    type_col = "type"
+  )
+
+  expect_s3_class(result, "vecshift_result")
+  expect_true(all(c("cf", "inizio", "fine", "id", "prior") %in% names(result)))
+  # Caller's data.table must not be mutated.
+  expect_true("person" %in% names(custom))
+  expect_false("cf" %in% names(custom))
+})
+
+test_that("vecshift returns a vecshift_result and data.table operations work", {
+  dt <- data.table::data.table(
+    id = 1:2,
+    cf = c("A", "B"),
+    inizio = as.Date(c("2023-01-01", "2023-03-01")),
+    fine = as.Date(c("2023-06-30", "2023-09-30")),
+    prior = c(1, 1)
+  )
+
+  result <- vecshift(dt)
+
+  expect_s3_class(result, "vecshift_result")
+  expect_s3_class(result, "data.table")
+  expect_true(is_vecshift_result(result))
+
+  # Subsetting still works.
+  sub <- result[cf == "A"]
+  expect_true(nrow(sub) >= 1L)
+
+  # Aggregation still works.
+  agg <- result[, .N, by = cf]
+  expect_true(nrow(agg) == 2L)
+
+  # Update by reference still works.
+  result[, new_col := 1L]
+  expect_true("new_col" %in% names(result))
+
+  # Metadata attached.
+  meta <- attr(result, "vecshift_metadata")
+  expect_true(is.list(meta))
+  expect_equal(meta$granularity, "day")
+})
+
+test_that("print and summary methods for vecshift_result produce output", {
+  dt <- data.table::data.table(
+    id = 1L,
+    cf = "A",
+    inizio = as.Date("2023-01-01"),
+    fine = as.Date("2023-12-31"),
+    prior = 1
+  )
+  result <- vecshift(dt)
+
+  expect_output(print(result), "vecshift_result")
+
+  s <- summary(result)
+  expect_s3_class(s, "summary.vecshift_result")
+  expect_true(s$duration_invariant)
+  expect_output(print(s), "vecshift_result summary")
+})
+
+test_that("validate_vecshift_input detects common issues", {
+  # Missing column.
+  bad1 <- data.table::data.table(cf = "A", inizio = as.Date("2023-01-01"))
+  v1 <- validate_vecshift_input(bad1)
+  expect_s3_class(v1, "vecshift_validation")
+  expect_true(v1$n_issues > 0L)
+  expect_true(!is.null(v1$issues$missing_columns))
+
+  # NA values.
+  bad2 <- data.table::data.table(
+    id = c(1L, 2L),
+    cf = c("A", NA_character_),
+    inizio = as.Date(c("2023-01-01", "2023-02-01")),
+    fine = as.Date(c("2023-12-31", "2023-11-30")),
+    prior = c(1, 1)
+  )
+  v2 <- validate_vecshift_input(bad2)
+  expect_true(!is.null(v2$issues$na_counts))
+
+  # end < start.
+  bad3 <- data.table::data.table(
+    id = 1L,
+    cf = "A",
+    inizio = as.Date("2023-12-31"),
+    fine = as.Date("2023-01-01"),
+    prior = 1
+  )
+  v3 <- validate_vecshift_input(bad3)
+  expect_true(!is.null(v3$issues$end_before_start))
+
+  # Duplicate IDs.
+  bad4 <- data.table::data.table(
+    id = c(1L, 1L),
+    cf = c("A", "B"),
+    inizio = as.Date(c("2023-01-01", "2023-02-01")),
+    fine = as.Date(c("2023-06-30", "2023-08-31")),
+    prior = c(1, 1)
+  )
+  v4 <- validate_vecshift_input(bad4)
+  expect_equal(v4$issues$duplicate_ids, 1L)
+
+  # Clean input -> no issues.
+  good <- data.table::data.table(
+    id = 1:2,
+    cf = c("A", "B"),
+    inizio = as.Date(c("2023-01-01", "2023-02-01")),
+    fine = as.Date(c("2023-06-30", "2023-08-31")),
+    prior = c(1, 1)
+  )
+  v_ok <- validate_vecshift_input(good)
+  expect_equal(v_ok$n_issues, 0L)
+  expect_output(print(v_ok), "OK")
+})
+
+test_that("vecshift errors on unimplemented granularity values", {
+  dt <- data.table::data.table(
+    id = 1L,
+    cf = "A",
+    inizio = as.Date("2023-01-01"),
+    fine = as.Date("2023-12-31"),
+    prior = 1
+  )
+  expect_error(vecshift(dt, granularity = "month"), "not yet implemented")
+  expect_error(vecshift(dt, granularity = "hour"), "not yet implemented")
+  expect_error(vecshift(dt, granularity = "year"), "Invalid 'granularity'")
 })

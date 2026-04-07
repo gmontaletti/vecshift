@@ -62,8 +62,11 @@
 #'   Default: c(start = "event_start", end = "event_end").
 #' @param event_name_column Character. Name of column in external_events containing
 #'   event names/types (default: "event_name").
-#' @param person_id_column Character. Name of column in external_events containing
-#'   person identifiers that match the 'cf' column in vecshift_data (default: "cf").
+#' @param person_col Character. Name of column in external_events containing
+#'   person identifiers that match the 'cf' column in vecshift_data
+#'   (default: "cf"). Replaces the legacy `person_id_column` argument.
+#' @param person_id_column Deprecated alias for `person_col`. Use `person_col`
+#'   instead. Triggers a deprecation warning when supplied.
 #' @param memory_safe Logical. Enable memory-safe mode for large datasets.
 #'   When TRUE, processes data in chunks to reduce peak memory usage at the cost
 #'   of some performance (default: FALSE).
@@ -174,13 +177,30 @@ add_external_events <- function(
   synthetic_unemployment_duration = 730L,
   date_columns = c(start = "event_start", end = "event_end"),
   event_name_column = "event_name",
-  person_id_column = "cf",
+  person_col = "cf",
+  person_id_column,
   memory_safe = FALSE,
   chunk_size = 10000L,
   progress = FALSE
 ) {
   # Validate inputs
   event_matching_strategy <- match.arg(event_matching_strategy)
+
+  # Backward compatibility: deprecate 'person_id_column' in favour of 'person_col' (v2.0.0)
+  if (!missing(person_id_column)) {
+    .Deprecated(
+      msg = paste(
+        "Argument 'person_id_column' is deprecated as of vecshift 2.0.0;",
+        "use 'person_col' instead."
+      )
+    )
+    if (missing(person_col)) {
+      person_col <- person_id_column
+    }
+  }
+  # Internal alias kept so the rest of this function and helpers continue
+  # using the historical name without further refactoring.
+  person_id_column <- person_col
 
   # Input validation
   if (!inherits(vecshift_data, "data.table")) {

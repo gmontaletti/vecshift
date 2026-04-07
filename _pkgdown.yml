@@ -35,6 +35,8 @@ reference:
       Main function for event-based temporal transformation of employment data
     contents:
       - vecshift
+      - is_vecshift_result
+      - validate_vecshift_input
 
   - title: "Pipeline Processing"
     desc: >
@@ -100,6 +102,10 @@ reference:
       - print.employment_quality_report
       - print.employment_status_patterns
       - print.employment_status_validation
+      - print.vecshift_result
+      - summary.vecshift_result
+      - print.summary.vecshift_result
+      - print.vecshift_validation
 
 articles:
   - title: "Getting Started"

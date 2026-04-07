@@ -12,7 +12,8 @@ add_external_events(
   synthetic_unemployment_duration = 730L,
   date_columns = c(start = "event_start", end = "event_end"),
   event_name_column = "event_name",
-  person_id_column = "cf",
+  person_col = "cf",
+  person_id_column,
   memory_safe = FALSE,
   chunk_size = 10000L,
   progress = FALSE
@@ -47,8 +48,12 @@ Default: c(start = "event_start", end = "event_end").}
 \item{event_name_column}{Character. Name of column in external_events containing
 event names/types (default: "event_name").}
 
-\item{person_id_column}{Character. Name of column in external_events containing
-person identifiers that match the 'cf' column in vecshift_data (default: "cf").}
+\item{person_col}{Character. Name of column in external_events containing
+person identifiers that match the 'cf' column in vecshift_data
+(default: "cf"). Replaces the legacy `person_id_column` argument.}
+
+\item{person_id_column}{Deprecated alias for `person_col`. Use `person_col`
+instead. Triggers a deprecation warning when supplied.}
 
 \item{memory_safe}{Logical. Enable memory-safe mode for large datasets.
 When TRUE, processes data in chunks to reduce peak memory usage at the cost

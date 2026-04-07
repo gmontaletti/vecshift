@@ -21,16 +21,32 @@
 #' cumulative sums to track overlapping contracts. Unemployment segments are identified
 #' (arco=0) and their dates are adjusted to represent the actual unemployment period.
 #'
-#' @param dt A data.table containing employment contract records with the following required columns:
-#'   \itemize{
-#'     \item{\code{id}}: Contract identifier (unique key for each employment contract)
-#'     \item{\code{cf}}: Person identifier (e.g., fiscal code)
-#'     \item{\code{inizio}}: Contract start date (Date or numeric)
-#'     \item{\code{fine}}: Contract end date (Date or numeric)
-#'     \item{\code{prior}}: Employment type indicator (0 or negative for part-time, positive for full-time)
-#'   }
+#' @param dt A data.table containing employment contract records. The required
+#'   columns are identified through the `person_col`, `start_col`, `end_col`,
+#'   `id_col`, and `type_col` parameters. By default the function expects the
+#'   Italian-labor names (`cf`, `inizio`, `fine`, `id`, `prior`); supplying
+#'   alternative names lets users adopt the package on non-Italian datasets
+#'   without renaming columns externally.
+#' @param person_col Character. Name of the column holding the person
+#'   identifier (e.g. fiscal code). Default: `"cf"`.
+#' @param start_col Character. Name of the column holding the contract start
+#'   date (Date or numeric). Default: `"inizio"`.
+#' @param end_col Character. Name of the column holding the contract end date
+#'   (Date or numeric). Default: `"fine"`.
+#' @param id_col Character. Name of the column holding the unique contract
+#'   identifier. Default: `"id"`.
+#' @param type_col Character. Name of the column holding the employment-type
+#'   indicator. Values `<= 0` are treated as part-time and positive values as
+#'   full-time. Default: `"prior"`.
+#' @param granularity Character. Time granularity of the input dates. The only
+#'   value currently implemented is `"day"`. The values `"month"` and `"hour"`
+#'   are reserved for future releases and currently raise a not-implemented
+#'   error. The parameter is included so that downstream code can adopt the
+#'   API today without breaking when finer granularities are added.
 #'
-#' @return A data.table with temporal segments containing:
+#' @return A `vecshift_result` object (an S3 wrapper around a data.table; it
+#'   inherits from `data.table` and `data.frame`, so all data.table operations
+#'   work unchanged) with temporal segments containing:
 #'   \itemize{
 #'     \item{\code{cf}}: Person identifier
 #'     \item{\code{inizio}}: Segment start date
@@ -77,7 +93,15 @@
 #' result_pipeline <- process_employment_pipeline(dt)
 #' print(result_pipeline)
 #' }
-vecshift <- function(dt) {
+vecshift <- function(
+  dt,
+  person_col = "cf",
+  start_col = "inizio",
+  end_col = "fine",
+  id_col = "id",
+  type_col = "prior",
+  granularity = "day"
+) {
   # Input validation
   if (!inherits(dt, "data.table")) {
     stop(
@@ -85,7 +109,61 @@ vecshift <- function(dt) {
     )
   }
 
-  # Check for required columns
+  # Validate granularity (P3) -----
+  if (!is.character(granularity) || length(granularity) != 1L) {
+    stop("'granularity' must be a single character string.")
+  }
+  if (!granularity %in% c("day", "month", "hour")) {
+    stop(
+      "Invalid 'granularity': '",
+      granularity,
+      "'. Must be one of: 'day', 'month', 'hour'."
+    )
+  }
+  if (granularity == "month") {
+    stop(
+      "granularity = 'month' is not yet implemented. ",
+      "The parameter is reserved for a future release; use 'day' for now."
+    )
+  }
+  if (granularity == "hour") {
+    stop(
+      "granularity = 'hour' is not yet implemented. ",
+      "The parameter is reserved for a future release; use 'day' for now."
+    )
+  }
+
+  # Resolve user-supplied column names against canonical Italian names -----
+  # The rest of the function body uses the canonical names; if the user passed
+  # different names we rename a copy of the input so we never mutate the
+  # caller's data.table.
+  canonical <- c(
+    cf = person_col,
+    inizio = start_col,
+    fine = end_col,
+    id = id_col,
+    prior = type_col
+  )
+  needs_rename <- canonical != names(canonical)
+  if (any(needs_rename)) {
+    missing_user_cols <- setdiff(canonical, names(dt))
+    if (length(missing_user_cols) > 0L) {
+      stop(
+        "Missing required columns: ",
+        paste(missing_user_cols, collapse = ", "),
+        ". vecshift() requires columns identified by ",
+        "person_col, start_col, end_col, id_col, type_col."
+      )
+    }
+    dt <- data.table::copy(dt)
+    data.table::setnames(
+      dt,
+      old = unname(canonical[needs_rename]),
+      new = names(canonical)[needs_rename]
+    )
+  }
+
+  # Check for required columns (canonical names) -----
   required_cols <- c("id", "cf", "inizio", "fine", "prior")
   missing_cols <- setdiff(required_cols, names(dt))
   if (length(missing_cols) > 0) {
@@ -93,7 +171,8 @@ vecshift <- function(dt) {
       "Missing required columns: ",
       paste(missing_cols, collapse = ", "),
       ". vecshift() requires: id, cf, inizio, fine, prior. ",
-      "Use data.table::setnames() to rename existing columns."
+      "Use the person_col / start_col / end_col / id_col / type_col ",
+      "parameters to map alternative column names."
     )
   }
 
@@ -129,7 +208,7 @@ vecshift <- function(dt) {
 
   # Early return for empty input
   if (nrow(dt) == 0L) {
-    return(data.table::data.table(
+    empty <- data.table::data.table(
       cf = character(0),
       inizio = dt$inizio[0],
       fine = dt$fine[0],
@@ -138,6 +217,14 @@ vecshift <- function(dt) {
       id = integer(0),
       durata = numeric(0),
       over_id = integer(0)
+    )
+    return(new_vecshift_result(
+      empty,
+      metadata = list(
+        granularity = granularity,
+        vecshift_version = utils::packageVersion("vecshift"),
+        generated_at = Sys.time()
+      )
     ))
   }
 
@@ -216,5 +303,12 @@ vecshift <- function(dt) {
   result <- result[durata > 0]
   result[, first_in_over := NULL]
 
-  return(result)
+  return(new_vecshift_result(
+    result,
+    metadata = list(
+      granularity = granularity,
+      vecshift_version = utils::packageVersion("vecshift"),
+      generated_at = Sys.time()
+    )
+  ))
 }

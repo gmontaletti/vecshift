@@ -1,3 +1,45 @@
+# vecshift 2.0.0
+
+## Breaking changes
+
+* `vecshift()` now returns an object of class `c("vecshift_result",
+  "data.table", "data.frame")` instead of a bare `data.table`. The result
+  still inherits from `data.table`, so all data.table operations
+  (subsetting, `:=`, joins, etc.) work unchanged. Code that asserts the
+  exact class vector of the result must be updated.
+* `add_external_events()` deprecates the `person_id_column` argument in
+  favour of the new `person_col` argument. Passing `person_id_column`
+  still works but emits a `.Deprecated()` warning. The argument will be
+  removed in a future release.
+
+## New features
+
+* `vecshift()` gains explicit column-mapping parameters: `person_col`,
+  `start_col`, `end_col`, `id_col`, and `type_col`. Defaults preserve the
+  original Italian-labor names (`cf`, `inizio`, `fine`, `id`, `prior`),
+  so existing code keeps working. Users with non-Italian datasets can
+  now adopt the package without renaming columns externally.
+* `vecshift()` gains a `granularity` parameter (default `"day"`). The
+  values `"month"` and `"hour"` are reserved for future releases and
+  currently raise a not-implemented error. The parameter is exposed
+  today so that downstream code can adopt the API without breaking
+  when finer granularities are added.
+* New `vecshift_result` S3 class with dedicated `print()` and `summary()`
+  methods. The summary verifies the duration invariant
+  (`sum(durata) == elapsed_time` per person) and reports the status
+  distribution when present.
+* New helper `is_vecshift_result()` checks whether an object inherits
+  from `vecshift_result`.
+* New diagnostic function `validate_vecshift_input()` reports issues in
+  an input data.table (missing columns, NA values, wrong date types,
+  `end < start`, duplicate IDs) without modifying the data. Returns an
+  object of class `vecshift_validation` with a dedicated print method.
+
+## Metadata
+
+* `vecshift()` results carry a `vecshift_metadata` attribute with the
+  granularity, package version, and generation timestamp.
+
 # vecshift 1.2.0
 
 ## Performance

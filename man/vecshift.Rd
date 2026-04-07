@@ -4,20 +4,50 @@
 \alias{vecshift}
 \title{Transform Employment Records into Temporal Segments (Core Function)}
 \usage{
-vecshift(dt)
+vecshift(
+  dt,
+  person_col = "cf",
+  start_col = "inizio",
+  end_col = "fine",
+  id_col = "id",
+  type_col = "prior",
+  granularity = "day"
+)
 }
 \arguments{
-\item{dt}{A data.table containing employment contract records with the following required columns:
-\itemize{
-  \item{\code{id}}: Contract identifier (unique key for each employment contract)
-  \item{\code{cf}}: Person identifier (e.g., fiscal code)
-  \item{\code{inizio}}: Contract start date (Date or numeric)
-  \item{\code{fine}}: Contract end date (Date or numeric)
-  \item{\code{prior}}: Employment type indicator (0 or negative for part-time, positive for full-time)
-}}
+\item{dt}{A data.table containing employment contract records. The required
+columns are identified through the `person_col`, `start_col`, `end_col`,
+`id_col`, and `type_col` parameters. By default the function expects the
+Italian-labor names (`cf`, `inizio`, `fine`, `id`, `prior`); supplying
+alternative names lets users adopt the package on non-Italian datasets
+without renaming columns externally.}
+
+\item{person_col}{Character. Name of the column holding the person
+identifier (e.g. fiscal code). Default: `"cf"`.}
+
+\item{start_col}{Character. Name of the column holding the contract start
+date (Date or numeric). Default: `"inizio"`.}
+
+\item{end_col}{Character. Name of the column holding the contract end date
+(Date or numeric). Default: `"fine"`.}
+
+\item{id_col}{Character. Name of the column holding the unique contract
+identifier. Default: `"id"`.}
+
+\item{type_col}{Character. Name of the column holding the employment-type
+indicator. Values `<= 0` are treated as part-time and positive values as
+full-time. Default: `"prior"`.}
+
+\item{granularity}{Character. Time granularity of the input dates. The only
+value currently implemented is `"day"`. The values `"month"` and `"hour"`
+are reserved for future releases and currently raise a not-implemented
+error. The parameter is included so that downstream code can adopt the
+API today without breaking when finer granularities are added.}
 }
 \value{
-A data.table with temporal segments containing:
+A `vecshift_result` object (an S3 wrapper around a data.table; it
+  inherits from `data.table` and `data.frame`, so all data.table operations
+  work unchanged) with temporal segments containing:
   \itemize{
     \item{\code{cf}}: Person identifier
     \item{\code{inizio}}: Segment start date
